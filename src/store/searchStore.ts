@@ -93,7 +93,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                 const nextResults = { ...state.lastResults };
                 const nextOffsets = { ...state.offsets };
 
-                providersToLoad.forEach(_p => {
+                providersToLoad.forEach(() => {
                     nextResults.youtube = newResultsData.youtube;
                     nextOffsets.youtube = nextResults.youtube.length;
                 });

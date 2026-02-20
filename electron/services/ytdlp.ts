@@ -158,7 +158,7 @@ export async function getStreamUrl(videoId: string) {
                 };
             } else {
                 console.warn(`Cached file too small/corrupt, deleting: ${localPath}`);
-                try { fs.unlinkSync(localPath); } catch (e) { }
+                try { fs.unlinkSync(localPath); } catch { /* ignore cleanup error */ }
             }
         }
 

@@ -44,8 +44,6 @@ const LastFMPage = () => {
             setTopTracks(trackRes.data.tracks.track);
         } catch (err) {
             console.error(err);
-        } finally {
-
         }
     };
 
@@ -59,8 +57,6 @@ const LastFMPage = () => {
             setSearchResults(res.data.results.artistmatches.artist);
         } catch (err) {
             console.error(err);
-        } finally {
-
         }
     };
 
