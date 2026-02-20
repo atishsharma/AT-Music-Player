@@ -1,0 +1,289 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Default to Focus (Teal) / Dark */
+    --md-sys-color-primary: 79 216 216;
+    --md-sys-color-on-primary: 0 55 55;
+    --md-sys-color-primary-container: 0 80 80;
+    --md-sys-color-on-primary-container: 112 247 247;
+    --md-sys-color-background: 25 28 28;
+    --md-sys-color-on-background: 224 227 227;
+    --md-sys-color-surface: 25 28 28;
+    --md-sys-color-on-surface: 224 227 227;
+    --md-sys-color-surface-variant: 63 73 73;
+    --md-sys-color-on-surface-variant: 191 200 200;
+    --md-sys-color-outline: 141 145 153;
+  }
+}
+
+/* 
+     ========================================
+     MOOD: CALM (BLUE)
+     ========================================
+  */
+.mood-calm.appearance-light {
+  --md-sys-color-primary: 0 95 175;
+  --md-sys-color-on-primary: 255 255 255;
+  --md-sys-color-primary-container: 212 227 255;
+  --md-sys-color-on-primary-container: 0 28 58;
+  --md-sys-color-background: 253 252 255;
+  --md-sys-color-on-background: 26 28 30;
+  --md-sys-color-surface: 253 252 255;
+  --md-sys-color-on-surface: 26 28 30;
+  --md-sys-color-surface-variant: 223 226 235;
+  --md-sys-color-on-surface-variant: 67 71 78;
+}
+
+.mood-calm.appearance-dark {
+  --md-sys-color-primary: 166 200 255;
+  --md-sys-color-on-primary: 0 49 95;
+  --md-sys-color-primary-container: 0 71 133;
+  --md-sys-color-on-primary-container: 212 227 255;
+  --md-sys-color-background: 26 28 30;
+  --md-sys-color-on-background: 227 226 230;
+  --md-sys-color-surface: 26 28 30;
+  --md-sys-color-on-surface: 227 226 230;
+  --md-sys-color-surface-variant: 67 71 78;
+  --md-sys-color-on-surface-variant: 195 198 207;
+}
+
+.mood-calm.appearance-oled {
+  --md-sys-color-primary: 166 200 255;
+  --md-sys-color-on-primary: 0 49 95;
+  --md-sys-color-primary-container: 0 71 133;
+  --md-sys-color-on-primary-container: 212 227 255;
+  --md-sys-color-background: 0 0 0;
+  --md-sys-color-on-background: 255 255 255;
+  --md-sys-color-surface: 0 0 0;
+  --md-sys-color-on-surface: 255 255 255;
+  --md-sys-color-surface-variant: 30 30 30;
+  --md-sys-color-on-surface-variant: 195 198 207;
+}
+
+/* 
+     ========================================
+     MOOD: ENERGETIC (ORANGE)
+     ========================================
+  */
+.mood-energetic.appearance-light {
+  --md-sys-color-primary: 139 80 0;
+  --md-sys-color-on-primary: 255 255 255;
+  --md-sys-color-primary-container: 255 220 190;
+  --md-sys-color-on-primary-container: 43 21 0;
+  --md-sys-color-background: 255 251 255;
+  --md-sys-color-on-background: 31 27 22;
+  --md-sys-color-surface: 255 251 255;
+  --md-sys-color-on-surface: 31 27 22;
+  --md-sys-color-surface-variant: 240 224 207;
+  --md-sys-color-on-surface-variant: 79 69 57;
+}
+
+.mood-energetic.appearance-dark {
+  --md-sys-color-primary: 255 184 110;
+  --md-sys-color-on-primary: 74 40 0;
+  --md-sys-color-primary-container: 105 60 0;
+  --md-sys-color-on-primary-container: 255 220 190;
+  --md-sys-color-background: 31 27 22;
+  --md-sys-color-on-background: 234 225 217;
+  --md-sys-color-surface: 31 27 22;
+  --md-sys-color-on-surface: 234 225 217;
+  --md-sys-color-surface-variant: 79 69 57;
+  --md-sys-color-on-surface-variant: 209 196 180;
+}
+
+.mood-energetic.appearance-oled {
+  --md-sys-color-primary: 255 184 110;
+  --md-sys-color-on-primary: 74 40 0;
+  --md-sys-color-primary-container: 105 60 0;
+  --md-sys-color-on-primary-container: 255 220 190;
+  --md-sys-color-background: 0 0 0;
+  --md-sys-color-on-background: 255 255 255;
+  --md-sys-color-surface: 0 0 0;
+  --md-sys-color-on-surface: 255 255 255;
+  --md-sys-color-surface-variant: 40 30 20;
+  --md-sys-color-on-surface-variant: 209 196 180;
+}
+
+
+/* 
+     ========================================
+     MOOD: FOCUS (TEAL)
+     ========================================
+  */
+.mood-focus.appearance-light {
+  --md-sys-color-primary: 0 106 106;
+  --md-sys-color-on-primary: 255 255 255;
+  --md-sys-color-primary-container: 112 247 247;
+  --md-sys-color-on-primary-container: 0 32 32;
+  --md-sys-color-background: 250 253 252;
+  --md-sys-color-on-background: 25 28 28;
+  --md-sys-color-surface: 250 253 252;
+  --md-sys-color-on-surface: 25 28 28;
+  --md-sys-color-surface-variant: 218 228 228;
+  --md-sys-color-on-surface-variant: 63 73 73;
+}
+
+.mood-focus.appearance-dark {
+  --md-sys-color-primary: 79 216 216;
+  --md-sys-color-on-primary: 0 55 55;
+  --md-sys-color-primary-container: 0 80 80;
+  --md-sys-color-on-primary-container: 112 247 247;
+  --md-sys-color-background: 25 28 28;
+  --md-sys-color-on-background: 224 227 227;
+  --md-sys-color-surface: 25 28 28;
+  --md-sys-color-on-surface: 224 227 227;
+  --md-sys-color-surface-variant: 63 73 73;
+  --md-sys-color-on-surface-variant: 191 200 200;
+}
+
+.mood-focus.appearance-oled {
+  --md-sys-color-primary: 79 216 216;
+  --md-sys-color-on-primary: 0 55 55;
+  --md-sys-color-primary-container: 0 80 80;
+  --md-sys-color-on-primary-container: 112 247 247;
+  --md-sys-color-background: 0 0 0;
+  --md-sys-color-on-background: 255 255 255;
+  --md-sys-color-surface: 0 0 0;
+  --md-sys-color-on-surface: 255 255 255;
+  --md-sys-color-surface-variant: 20 30 30;
+  --md-sys-color-on-surface-variant: 191 200 200;
+}
+
+/* 
+     ========================================
+     MOOD: SAD (INDIGO)
+     ========================================
+  */
+.mood-sad.appearance-light {
+  --md-sys-color-primary: 84 85 169;
+  --md-sys-color-on-primary: 255 255 255;
+  --md-sys-color-primary-container: 225 224 255;
+  --md-sys-color-on-primary-container: 13 8 99;
+  --md-sys-color-background: 255 251 255;
+  --md-sys-color-on-background: 28 27 31;
+  --md-sys-color-surface: 255 251 255;
+  --md-sys-color-on-surface: 28 27 31;
+  --md-sys-color-surface-variant: 227 225 236;
+  --md-sys-color-on-surface-variant: 70 69 79;
+}
+
+.mood-sad.appearance-dark {
+  --md-sys-color-primary: 190 194 255;
+  --md-sys-color-on-primary: 37 36 120;
+  --md-sys-color-primary-container: 60 61 144;
+  --md-sys-color-on-primary-container: 225 224 255;
+  --md-sys-color-background: 28 27 31;
+  --md-sys-color-on-background: 230 225 229;
+  --md-sys-color-surface: 28 27 31;
+  --md-sys-color-on-surface: 230 225 229;
+  --md-sys-color-surface-variant: 70 69 79;
+  --md-sys-color-on-surface-variant: 199 198 208;
+}
+
+.mood-sad.appearance-oled {
+  --md-sys-color-primary: 190 194 255;
+  --md-sys-color-on-primary: 37 36 120;
+  --md-sys-color-primary-container: 60 61 144;
+  --md-sys-color-on-primary-container: 225 224 255;
+  --md-sys-color-background: 0 0 0;
+  --md-sys-color-on-background: 255 255 255;
+  --md-sys-color-surface: 0 0 0;
+  --md-sys-color-on-surface: 255 255 255;
+  --md-sys-color-surface-variant: 25 25 35;
+  --md-sys-color-on-surface-variant: 199 198 208;
+}
+
+
+/* 
+     ========================================
+     MOOD: PARTY (PINK)
+     ========================================
+  */
+.mood-party.appearance-light {
+  --md-sys-color-primary: 176 11 106;
+  --md-sys-color-on-primary: 255 255 255;
+  --md-sys-color-primary-container: 255 217 223;
+  --md-sys-color-on-primary-container: 64 0 32;
+  --md-sys-color-background: 255 251 251;
+  --md-sys-color-on-background: 32 26 26;
+  --md-sys-color-surface: 255 251 251;
+  --md-sys-color-on-surface: 32 26 26;
+  --md-sys-color-surface-variant: 244 221 223;
+  --md-sys-color-on-surface-variant: 82 67 69;
+}
+
+.mood-party.appearance-dark {
+  --md-sys-color-primary: 255 178 189;
+  --md-sys-color-on-primary: 104 0 58;
+  --md-sys-color-primary-container: 144 0 85;
+  --md-sys-color-on-primary-container: 255 217 223;
+  --md-sys-color-background: 32 26 26;
+  --md-sys-color-on-background: 236 224 224;
+  --md-sys-color-surface: 32 26 26;
+  --md-sys-color-on-surface: 236 224 224;
+  --md-sys-color-surface-variant: 82 67 69;
+  --md-sys-color-on-surface-variant: 215 193 195;
+}
+
+.mood-party.appearance-oled {
+  --md-sys-color-primary: 255 178 189;
+  --md-sys-color-on-primary: 104 0 58;
+  --md-sys-color-primary-container: 144 0 85;
+  --md-sys-color-on-primary-container: 255 217 223;
+  --md-sys-color-background: 0 0 0;
+  --md-sys-color-on-background: 255 255 255;
+  --md-sys-color-surface: 0 0 0;
+  --md-sys-color-on-surface: 255 255 255;
+  --md-sys-color-surface-variant: 40 20 20;
+  --md-sys-color-on-surface-variant: 215 193 195;
+}
+
+body {
+  background-color: rgb(var(--md-sys-color-background));
+  color: rgb(var(--md-sys-color-on-background));
+  @apply font-sans antialiased overflow-hidden min-h-screen transition-colors duration-500;
+}
+
+/* Semantic Map to Tailwind Utility Classes if needed? 
+     Ideally, we just use arbitrary values or a plugin. 
+     For now, we will map standard Tailwind colors in tailwind.config.js to these variables
+  */
+
+
+@layer utilities {
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  .drag {
+    -webkit-app-region: drag;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--md-sys-color-surface-variant);
+  border-radius: 999px;
+}

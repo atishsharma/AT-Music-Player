@@ -1,0 +1,79 @@
+// @see - https://www.electron.build/configuration/configuration
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.atmusic.pro",
+  "asar": true,
+  "asarUnpack": [
+    "node_modules/better-sqlite3/**/*",
+    "node_modules/yt-dlp-exec/**/*",
+    "node_modules/fluent-ffmpeg/**/*",
+    "node_modules/ffmpeg-static/**/*",
+    "node_modules/@ffmpeg-installer/**/*",
+    "node_modules/@img/**/*"
+  ],
+  "productName": "AT Music Player - Pro",
+  "directories": {
+    "output": "release/${version}"
+  },
+  "files": [
+    "dist",
+    "dist-electron",
+    "node_modules"
+  ],
+  "mac": {
+    "target": ["dmg"],
+    "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "artifactName": "${productName}-Windows-${version}-Setup.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false
+  },
+  "linux": {
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": ["x64"]
+      }
+    ],
+    "category": "AudioVideo",
+    "icon": "public/app_icon.png",
+    "artifactName": "${productName}-Linux-${version}.${ext}",
+    "executableName": "at-music-pro",
+    "desktop": {
+      "Name": "AT Music Player Pro",
+      "Comment": "Premium music player with Last.fm and YouTube integration",
+      "Categories": "Audio;Music;Player;AudioVideo;",
+      "StartupWMClass": "at-music-pro"
+    }
+  },
+  "deb": {
+    "depends": [
+      "libgtk-3-0",
+      "libnotify4",
+      "libnss3",
+      "libxss1",
+      "libxtst6",
+      "xdg-utils",
+      "libatspi2.0-0",
+      "libuuid1",
+      "libsecret-1-0"
+    ]
+  },
+  "npmRebuild": false,
+  "buildDependenciesFromSource": true,
+  "nodeGypRebuild": false,
+  "electronDownload": {
+    "mirror": "https://github.com/electron/electron/releases/download/"
+  }
+}
