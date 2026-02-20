@@ -1,6 +1,6 @@
 # AT Music Player — Pro
-
-> A premium desktop music player with local library management, YouTube streaming, Spotify integration, and Last.fm scrobbling.
+<img src="https://raw.githubusercontent.com/atishsharma/AT-Music-Player/refs/heads/main/public/app_icon.png" style="max-width:100%; width:170px;" /> 
+> A premium desktop music player with local library management, YouTube streaming and Last.fm scrobbling.
 
 ![Platform](https://img.shields.io/badge/platform-Linux-blue?logo=linux)
 ![Electron](https://img.shields.io/badge/Electron-30-47848F?logo=electron)
@@ -13,11 +13,10 @@
 ## Features
 
 - 🎵 **Local Library** — Scan and play local music files (MP3, FLAC, WAV, OGG)
-- 📺 **YouTube Streaming** — Stream audio from YouTube via yt-dlp (opus/webm, no proprietary codecs needed)
-- 🎧 **Spotify Search** — Browse and preview Spotify content
+- 📺 **YouTube Streaming** — Stream audio from YouTube via yt-dlp (opus/webm)
 - 🎤 **Synced Lyrics** — Real-time scrolling lyrics via LRCLib
 - 📻 **Last.fm Scrobbling** — Auto-scrobble everything you listen to
-- 📥 **Downloads** — Download YouTube audio directly to your library
+- 📥 **Downloads** — Download Songs directly to your library
 - 🌙 **Zen / Fullscreen Mode** — Immersive visualizer experience
 - 🎼 **Playlists** — Create and manage playlists
 - 📖 **History** — Full playback history tracking
@@ -140,3 +139,4 @@ AT-Music-Player/
 ## License
 
 MIT
+
