@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
 import { useThemeStore } from '../store/themeStore';
-import { Globe, Sparkles, ShieldCheck, Sun, Moon, Zap, FolderPlus, Monitor } from 'lucide-react';
+import { Globe, Sparkles, ShieldCheck, Sun, Moon, Zap, FolderPlus, Monitor, Music, Terminal, Code2, Cpu, Atom, Box, Wind } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import SettingSpinner from '../components/settings/SettingSpinner';
@@ -370,6 +370,54 @@ const SettingsPage = () => {
                                 v1.1.1
                             </a>
                         </div>
+                    </div>
+                </div>
+
+                {/* Technology Credits Row */}
+                <div className="lg:col-span-2 bg-surface-variant/10 backdrop-blur-xl rounded-[3rem] p-10 border border-white/5 space-y-8 hover:bg-surface-variant/20 transition-all mt-8">
+                    <div className="flex items-center gap-4">
+                        <div className="p-4 bg-primary/10 rounded-[1.5rem]">
+                            <Sparkles className="text-primary" size={24} />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-black uppercase tracking-[0.3em] text-on-surface-variant/60">Core Backbone</h3>
+                            <h2 className="text-2xl font-black text-on-surface">Powered by Open Source Projects & Free API</h2>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-4">
+                        {[
+                            { name: 'LRCLib', url: 'https://lrclib.net', color: 'hover:bg-blue-500/20 border-blue-500/20', icon: Music },
+                            { name: 'yt-dlp', url: 'https://github.com/yt-dlp/yt-dlp', color: 'hover:bg-red-500/20 border-red-500/20', icon: Terminal },
+                            { name: 'Last.fm', url: 'https://www.last.fm', color: 'hover:bg-red-600/20 border-red-600/20', icon: Music },
+                            { name: 'MusicBrainz', url: 'https://musicbrainz.org', color: 'hover:bg-purple-500/20 border-purple-500/20', icon: Globe },
+                            { name: 'Node.js', url: 'https://nodejs.org', color: 'hover:bg-green-500/20 border-green-500/20', icon: Cpu },
+                            { name: 'TypeScript', url: 'https://www.typescriptlang.org', color: 'hover:bg-blue-600/20 border-blue-600/20', icon: Code2 },
+                            { name: 'React', url: 'https://react.dev', color: 'hover:bg-cyan-500/20 border-cyan-500/20', icon: Atom },
+                            { name: 'Vite', url: 'https://vitejs.dev', color: 'hover:bg-yellow-500/20 border-yellow-500/20', icon: Zap },
+                            { name: 'Electron', url: 'https://electronjs.org', color: 'hover:bg-sky-400/20 border-sky-400/20', icon: Box },
+                            { name: 'FFmpeg', url: 'https://ffmpeg.org', color: 'hover:bg-green-600/20 border-green-600/20', icon: Terminal },
+                            { name: 'Tailwind CSS', url: 'https://tailwindcss.com', color: 'hover:bg-cyan-400/20 border-cyan-400/20', icon: Wind },
+                        ].map((tech) => (
+                            <a
+                                key={tech.name}
+                                href={tech.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className={clsx(
+                                    "px-6 py-4 rounded-2xl bg-surface-variant/10 border transition-all hover:scale-110 active:scale-95 shadow-xl backdrop-blur-md group relative overflow-hidden",
+                                    tech.color
+                                )}
+                            >
+                                <div className="relative z-10 flex items-center gap-3">
+                                    <tech.icon size={18} className="text-on-surface-variant group-hover:text-primary transition-colors" />
+                                    <span className="text-on-surface font-black tracking-widest text-xs uppercase group-hover:text-primary transition-colors">
+                                        {tech.name}
+                                    </span>
+                                </div>
+                                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </a>
+                        ))}
                     </div>
                 </div>
 
