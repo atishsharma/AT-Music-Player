@@ -102,26 +102,26 @@ const FidgetSpinner = () => {
                 </div>
             </motion.div>
 
-            <div className="hidden md:flex flex-col justify-center relative w-64 h-full">
+            <div className="hidden md:flex flex-col justify-center w-64 h-full">
                 <div className="mb-2">
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant mb-1">Interactive</p>
                     <p className="text-3xl font-black text-on-background tracking-tighter">Stress Reliever</p>
                 </div>
                 <p className="text-sm text-on-surface-variant/60 font-medium">Spin to relax and focus.</p>
-
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setSoundEnabled(!soundEnabled);
-                    }}
-                    className={`absolute bottom-0 right-0 p-3 rounded-full transition-colors ${soundEnabled
-                        ? 'bg-surface-variant/50 text-on-surface-variant hover:text-primary'
-                        : 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
-                        }`}
-                >
-                    {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-                </button>
             </div>
+
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setSoundEnabled(!soundEnabled);
+                }}
+                className={`absolute bottom-4 right-4 p-2 rounded-xl transition-all z-10 ${soundEnabled
+                    ? 'bg-surface-variant/50 text-on-surface-variant hover:text-primary'
+                    : 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
+                    }`}
+            >
+                {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            </button>
         </div>
     );
 };

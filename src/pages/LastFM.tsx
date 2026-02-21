@@ -1,9 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, TrendingUp, Music, User, ExternalLink, Sparkles } from 'lucide-react';
+import { Search, Music, User, ExternalLink, Globe2, X } from 'lucide-react';
 import clsx from 'clsx';
 import axios from 'axios';
+
+const REGIONS = [
+    { value: 'global', label: 'Worldwide' },
+    { value: 'united states', label: 'United States' },
+    { value: 'united kingdom', label: 'United Kingdom' },
+    { value: 'japan', label: 'Japan' },
+    { value: 'south korea', label: 'South Korea' },
+    { value: 'india', label: 'India' },
+    { value: 'germany', label: 'Germany' },
+    { value: 'france', label: 'France' },
+    { value: 'brazil', label: 'Brazil' },
+    { value: 'canada', label: 'Canada' },
+    { value: 'australia', label: 'Australia' }
+];
 
 interface Artist {
     name: string;
@@ -32,16 +46,32 @@ const LastFMPage = () => {
 
     const [activeTab, setActiveTab] = useState<'trending' | 'search'>('trending');
 
+    const [region, setRegion] = useState('global');
+
     const fetchTopCharts = async () => {
         if (!lastfmKey) return;
 
         try {
-            const [artRes, trackRes] = await Promise.all([
-                axios.get(`https://ws.audioscrobbler.com/2.0/?method=chart.gettopartists&api_key=${lastfmKey}&format=json&limit=10`),
-                axios.get(`https://ws.audioscrobbler.com/2.0/?method=chart.gettoptracks&api_key=${lastfmKey}&format=json&limit=10`)
-            ]);
-            setTopArtists(artRes.data.artists.artist);
-            setTopTracks(trackRes.data.tracks.track);
+            let artRes, trackRes;
+            if (region === 'global') {
+                [artRes, trackRes] = await Promise.all([
+                    axios.get(`https://ws.audioscrobbler.com/2.0/?method=chart.gettopartists&api_key=${lastfmKey}&format=json&limit=10`),
+                    axios.get(`https://ws.audioscrobbler.com/2.0/?method=chart.gettoptracks&api_key=${lastfmKey}&format=json&limit=10`)
+                ]);
+                setTopArtists(artRes.data.artists.artist);
+                setTopTracks(trackRes.data.tracks.track);
+            } else {
+                [artRes, trackRes] = await Promise.all([
+                    axios.get(`https://ws.audioscrobbler.com/2.0/?method=geo.gettopartists&country=${encodeURIComponent(region)}&api_key=${lastfmKey}&format=json&limit=10`),
+                    axios.get(`https://ws.audioscrobbler.com/2.0/?method=geo.gettoptracks&country=${encodeURIComponent(region)}&api_key=${lastfmKey}&format=json&limit=10`)
+                ]);
+                setTopArtists(artRes.data.topartists.artist);
+                setTopTracks(artRes.data.toptracks ? artRes.data.toptracks.track : trackRes.data.tracks.track); // Lastfm API uses tracks.track globally but sometimes toptracks
+
+                // Fix: Last.fm returns geo tracks slightly differently.
+                if (trackRes.data.tracks && trackRes.data.tracks.track) setTopTracks(trackRes.data.tracks.track);
+                else if (trackRes.data.toptracks && trackRes.data.toptracks.track) setTopTracks(trackRes.data.toptracks.track);
+            }
         } catch (err) {
             console.error(err);
         }
@@ -64,73 +94,86 @@ const LastFMPage = () => {
         if (lastfmKey) {
             fetchTopCharts();
         }
-    }, [lastfmKey]);
-
-    if (!lastfmKey) {
-        return (
-            <div className="h-[70vh] flex flex-col items-center justify-center space-y-6 text-center">
-                <div className="p-8 bg-red-500/10 rounded-[3rem] border border-red-500/20">
-                    <Sparkles size={64} className="text-red-500 opacity-50 mb-4 mx-auto" />
-                    <h2 className="text-3xl font-black text-on-background tracking-tighter">API Key Required</h2>
-                    <p className="max-w-md text-on-surface-variant mt-2 font-medium">
-                        Please enter your Last.fm API Key in the Settings page to unlock music discovery features.
-                    </p>
-                </div>
-            </div>
-        );
-    }
+    }, [lastfmKey, region]);
 
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-12 pb-32 max-w-7xl mx-auto"
+            className="space-y-12 pb-32 max-w-7xl mx-auto pt-12 px-4"
         >
             {/* Header */}
-            <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 pt-8 px-4">
+            <header className="relative flex flex-col md:flex-row md:items-center justify-between gap-8 pt-10 px-8 py-8 bg-surface-variant/10 rounded-[3rem] border border-primary/20 outline outline-1 outline-primary/10 shadow-2xl backdrop-blur-xl mx-4">
                 <div className="flex items-center gap-6">
-                    <div className="p-5 bg-primary/20 rounded-[2rem] border border-primary/20 shadow-lg shadow-primary/10">
-                        <TrendingUp className="text-primary" size={40} />
+                    <div className="p-3 bg-primary/10 rounded-[2rem] border border-primary/30 shadow-2xl shadow-primary/20 flex items-center justify-center w-20 h-20 overflow-hidden outline outline-1 outline-primary/10">
+                        <img src="/last-fm.png" alt="Last.fm" className="w-[85%] h-[85%] object-contain filter drop-shadow-[0_0_8px_rgba(255,0,0,0.5)]" />
                     </div>
                     <div>
-                        <h1 className="text-6xl font-black tracking-tighter text-primary leading-none mb-2">Discovery</h1>
-                        <p className="text-xl text-on-surface-variant font-medium tracking-tight">Powered by Last.fm</p>
+                        <h1 className="text-5xl font-black tracking-tighter text-primary leading-none italic">Discovery</h1>
+                        <p className="text-[10px] text-on-surface-variant font-black tracking-[0.3em] opacity-60">Powered By Last.fm</p>
                     </div>
                 </div>
 
-                <form onSubmit={handleSearch} className="relative w-full max-w-xl">
-                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-on-surface-variant" size={24} />
+                <form onSubmit={handleSearch} className="relative flex-1 max-w-2xl group">
+                    <div className="absolute left-6 top-1/2 -translate-y-1/2 text-primary opacity-50 group-focus-within:opacity-100 transition-opacity">
+                        <Search size={22} />
+                    </div>
                     <input
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search global artists..."
-                        className="w-full h-16 pl-16 pr-8 rounded-full bg-surface-variant/30 border border-white/10 focus:ring-2 focus:ring-primary/50 text-xl font-bold tracking-tight outline-none"
+                        placeholder="Search global artists or tracks..."
+                        className="w-full h-16 pl-16 pr-14 rounded-2xl bg-primary/5 border border-primary/40 focus:border-primary focus:ring-4 focus:ring-primary/20 text-xl font-black tracking-tight outline outline-1 outline-primary/10 focus:outline-primary/30 transition-all placeholder:text-primary/30 text-primary shadow-2xl shadow-primary/5"
                     />
-                </form>
-            </header>
-
-            {/* Tab Switches */}
-            <div className="flex gap-4 px-4 overflow-x-auto no-scrollbar">
-                <button
-                    onClick={() => setActiveTab('trending')}
-                    className={clsx(
-                        "px-8 py-4 rounded-full font-black uppercase tracking-widest text-xs transition-all",
-                        activeTab === 'trending' ? "bg-primary text-on-primary shadow-lg scale-105" : "bg-surface-variant/30 text-on-surface-variant hover:bg-surface-variant/60"
+                    {query && (
+                        <button
+                            type="button"
+                            onClick={() => setQuery('')}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl text-primary/50 hover:text-primary hover:bg-primary/10 transition-all active:scale-90"
+                        >
+                            <X size={20} />
+                        </button>
                     )}
-                >
-                    Trending Charts
-                </button>
-                {searchResults.length > 0 && (
+                </form>
+            </header >
+
+            <div className="flex flex-wrap items-center gap-4 px-4 overflow-x-auto no-scrollbar">
+                <div className="flex bg-surface-variant/30 p-1 rounded-full">
                     <button
-                        onClick={() => setActiveTab('search')}
+                        onClick={() => setActiveTab('trending')}
                         className={clsx(
-                            "px-8 py-4 rounded-full font-black uppercase tracking-widest text-xs transition-all",
-                            activeTab === 'search' ? "bg-primary text-on-primary shadow-lg scale-105" : "bg-surface-variant/30 text-on-surface-variant hover:bg-surface-variant/60"
+                            "px-8 py-3 rounded-full font-black uppercase tracking-widest text-xs transition-all",
+                            activeTab === 'trending' ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/60"
                         )}
                     >
-                        Search Results
+                        Trending Charts
                     </button>
+                    {searchResults.length > 0 && (
+                        <button
+                            onClick={() => setActiveTab('search')}
+                            className={clsx(
+                                "px-8 py-3 rounded-full font-black uppercase tracking-widest text-xs transition-all",
+                                activeTab === 'search' ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/60"
+                            )}
+                        >
+                            Search Results
+                        </button>
+                    )}
+                </div>
+
+                {activeTab === 'trending' && (
+                    <div className="flex items-center gap-3 bg-surface-variant/30 pl-4 pr-1 py-1 rounded-full border border-white/5">
+                        <Globe2 size={16} className="text-on-surface-variant" />
+                        <select
+                            value={region}
+                            onChange={(e) => setRegion(e.target.value)}
+                            className="bg-transparent border-none font-bold text-on-surface outline-none cursor-pointer uppercase tracking-widest text-xs py-2 pr-4 appear"
+                        >
+                            {REGIONS.map(r => (
+                                <option key={r.value} value={r.value} className="bg-surface text-on-surface uppercase">{r.label}</option>
+                            ))}
+                        </select>
+                    </div>
                 )}
             </div>
 
@@ -149,10 +192,10 @@ const LastFMPage = () => {
                                 <div className="p-3 bg-primary/10 rounded-2xl">
                                     <User className="text-primary" size={24} />
                                 </div>
-                                <h3 className="text-3xl font-black tracking-tighter">Global Top Artists</h3>
+                                <h3 className="text-3xl font-black tracking-tighter capitalize">{region === 'global' ? 'Global' : region} Top Artists</h3>
                             </div>
                             <div className="grid grid-cols-1 gap-4">
-                                {topArtists.map((artist, i) => (
+                                {topArtists?.map((artist, i) => (
                                     <ArtistCard key={artist.name + i} artist={artist} rank={i + 1} />
                                 ))}
                             </div>
@@ -164,10 +207,10 @@ const LastFMPage = () => {
                                 <div className="p-3 bg-secondary/10 rounded-2xl">
                                     <Music className="text-secondary" size={24} />
                                 </div>
-                                <h3 className="text-3xl font-black tracking-tighter">Global Top Tracks</h3>
+                                <h3 className="text-3xl font-black tracking-tighter capitalize">{region === 'global' ? 'Global' : region} Top Tracks</h3>
                             </div>
                             <div className="grid grid-cols-1 gap-4">
-                                {topTracks.map((track, i) => (
+                                {topTracks?.map((track, i) => (
                                     <TrackCard key={track.name + i} track={track} rank={i + 1} />
                                 ))}
                             </div>
@@ -207,7 +250,15 @@ const LastFMPage = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </motion.div>
+
+            <footer className="pt-20 pb-8 text-center opacity-40 hover:opacity-100 transition-opacity">
+                <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-2">
+                    Thanks to <a href="https://last.fm" target="_blank" rel="noreferrer" className="text-[#D51007] hover:opacity-80 transition-opacity flex items-center gap-2">
+                        <img src="/last-fm.png" alt="Last.fm" className="h-6 object-contain" />
+                    </a> for providing the discovery API.
+                </p>
+            </footer>
+        </motion.div >
     );
 };
 

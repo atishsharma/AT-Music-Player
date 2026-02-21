@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Play, ChevronLeft, ChevronRight, History, Trash2 } from 'lucide-react';
 import { usePlayerStore } from '../store/playerStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toAtmusicUrl } from '../utils/path';
 
 const PlaybackHistory = () => {
     const [history, setHistory] = useState<any[]>([]);
@@ -49,7 +50,7 @@ const PlaybackHistory = () => {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-8 space-y-8"
+            className="p-8 space-y-8 pt-12"
         >
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -57,8 +58,8 @@ const PlaybackHistory = () => {
                         <History size={32} />
                     </div>
                     <div>
-                        <h1 className="text-4xl font-black tracking-tighter text-on-background">Playback History</h1>
-                        <p className="text-on-surface-variant/60 font-medium">Your last {history.length} songs</p>
+                        <h1 className="text-4xl font-black tracking-tighter text-primary italic">Playback History</h1>
+                        <p className="text-on-surface-variant/60 font-medium text-[10px] tracking-widest opacity-60">Your Last {history.length} Songs</p>
                     </div>
                 </div>
 
@@ -121,7 +122,7 @@ const PlaybackHistory = () => {
                                         <div className="flex items-center gap-4">
                                             <div className="w-10 h-10 rounded-xl overflow-hidden bg-surface-variant">
                                                 {track.image_path ? (
-                                                    <img src={track.image_path.startsWith('http') ? track.image_path : `atmusic://${track.image_path}`} className="w-full h-full object-cover" />
+                                                    <img src={track.image_path.startsWith('http') ? track.image_path : toAtmusicUrl(track.image_path)} className="w-full h-full object-cover" />
                                                 ) : <div className="w-full h-full flex items-center justify-center"><Play size={16} className="text-primary/20" /></div>}
                                             </div>
                                             <div>

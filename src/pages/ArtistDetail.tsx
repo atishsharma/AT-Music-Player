@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SongList from '../components/library/SongList';
 import { usePlayerStore } from '../store/playerStore';
 import clsx from 'clsx';
+import { toAtmusicUrl } from '../utils/path';
 
 interface ArtistData {
     id: string;
@@ -181,7 +182,7 @@ const ArtistDetail = () => {
                     {/* Placeholder for Artist Image */}
                     <div className="w-48 h-48 rounded-full bg-surface-variant flex items-center justify-center shadow-2xl border-4 border-white/5 overflow-hidden group relative flex-shrink-0">
                         {artistData?.local_image ? (
-                            <img src={artistData.local_image.startsWith('http') ? artistData.local_image : `atmusic://${encodeURI(artistData.local_image)}`} alt={displayName} className="w-full h-full object-cover" />
+                            <img src={artistData.local_image.startsWith('http') ? artistData.local_image : toAtmusicUrl(artistData.local_image)} alt={displayName} className="w-full h-full object-cover" />
                         ) : (
                             <span className="text-4xl font-bold text-white/20">
                                 {displayName?.[0]?.toUpperCase()}

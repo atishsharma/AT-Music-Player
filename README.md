@@ -1,6 +1,6 @@
 # AT Music Player — Pro
 
-<img src="https://raw.githubusercontent.com/atishsharma/AT-Music-Player/refs/heads/main/public/app_icon.png" style="max-width:100%; width:170px;" /> 
+<img src="/public/app_icon.png" style="max-width:100%; width:170px;" /> 
 
 ✨ **A Premium Desktop Music Player With Local Music Library Management, YouTube Streaming and Last.fm Scrobbling.**
 

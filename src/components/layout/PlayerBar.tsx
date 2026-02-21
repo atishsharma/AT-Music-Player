@@ -1,9 +1,11 @@
 
-import { useState } from 'react';
-import { Play, SkipBack, SkipForward, Repeat, Shuffle, Volume2, VolumeX, Pause, ChevronUp, Maximize2, ListMusic, Mic2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Play, SkipBack, SkipForward, Repeat, Shuffle, Volume2, VolumeX, Pause, ChevronUp, Maximize2, ListMusic, Mic2, Heart, Plus } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
 import { useThemeStore } from '../../store/themeStore';
+import { useFavoritesStore } from '../../store/favoritesStore';
 import clsx from 'clsx';
+import { toAtmusicUrl } from '../../utils/path';
 
 const PlayerBar = () => {
     const {
@@ -35,6 +37,29 @@ const PlayerBar = () => {
 
     const [isDraggingSeek, setIsDraggingSeek] = useState(false);
     const [seekValue, setSeekValue] = useState(0);
+
+    const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
+    const [showPlaylistPopup, setShowPlaylistPopup] = useState(false);
+    const [playlists, setPlaylists] = useState<any[]>([]);
+    const playlistPopupRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (playlistPopupRef.current && !playlistPopupRef.current.contains(event.target as Node)) {
+                setShowPlaylistPopup(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const isFav = currentTrack ? isFavorite(currentTrack.id?.toString() || currentTrack.id) : false;
+
+    const handleFavToggle = () => {
+        if (!currentTrack) return;
+        if (isFav) removeFavorite(currentTrack.id?.toString() || currentTrack.id);
+        else addFavorite({ ...currentTrack, id: currentTrack.id?.toString() || currentTrack.id, type: 'song' });
+    };
 
     const truncateTitle = (text: string, limit: number = 40) => {
         if (!text || text.length <= limit) return text;
@@ -83,7 +108,7 @@ const PlayerBar = () => {
                             src={currentTrack.image_path?.startsWith('http')
                                 ? currentTrack.image_path
                                 : currentTrack.image_path
-                                    ? `atmusic://${currentTrack.image_path}`
+                                    ? toAtmusicUrl(currentTrack.image_path)
                                     : currentTrack.thumbnail}
                             alt="Art"
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
@@ -104,6 +129,14 @@ const PlayerBar = () => {
             {/* Controls */}
             <div className="flex flex-col items-center gap-2 flex-1 max-w-2xl px-4">
                 <div className="flex items-center gap-6">
+                    <button
+                        onClick={handleFavToggle}
+                        className={clsx("p-2 rounded-full transition-all hover:scale-110", isFav ? (isLight ? "text-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" : "text-primary shadow-[0_0_10px_rgba(var(--md-sys-color-primary),0.5)]") : (isLight ? "text-on-primary/60 hover:text-white" : "text-on-surface-variant/40 hover:text-on-surface-variant hover:bg-white/5"))}
+                        title="Favorite"
+                    >
+                        <Heart size={18} fill={isFav ? "currentColor" : "none"} />
+                    </button>
+
                     <button
                         onClick={toggleShuffle}
                         className={clsx(
@@ -157,6 +190,47 @@ const PlayerBar = () => {
                             isLight ? "bg-white text-primary border-primary" : "bg-primary text-on-primary border-surface"
                         )}>1</span>}
                     </button>
+
+                    <div className="relative" ref={playlistPopupRef}>
+                        <button
+                            onClick={async () => {
+                                if (!showPlaylistPopup) {
+                                    const all = await window.ipcRenderer.invoke('playlist:getAll');
+                                    setPlaylists(all);
+                                }
+                                setShowPlaylistPopup(!showPlaylistPopup);
+                            }}
+                            className={clsx("p-2 rounded-full transition-all hover:scale-110", showPlaylistPopup ? (isLight ? "text-white bg-white/20 shadow-[0_0_10px_rgba(255,255,255,0.3)]" : "text-primary bg-primary/10 shadow-[0_0_10px_rgba(var(--md-sys-color-primary),0.3)]") : (isLight ? "text-on-primary/60 hover:text-white" : "text-on-surface-variant/40 hover:text-on-surface-variant hover:bg-white/5"))}
+                            title="Add to Playlist"
+                        >
+                            <Plus size={18} />
+                        </button>
+                        {showPlaylistPopup && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-56 bg-primary rounded-2xl shadow-[0_10px_40px_rgba(var(--md-sys-color-primary),0.5)] z-[100] outline outline-1 outline-white/20 border-2 border-white/10 overflow-hidden flex flex-col text-on-primary">
+                                <div className="px-4 py-3 bg-black/10 border-b border-white/10 flex flex-col items-center">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-on-primary">Playlists</h4>
+                                </div>
+                                <div className="max-h-60 overflow-y-auto no-scrollbar flex flex-col p-2 space-y-1">
+                                    {playlists.length > 0 ? playlists.map((pl) => (
+                                        <button
+                                            key={pl.id}
+                                            onClick={async () => {
+                                                if (currentTrack?.id) {
+                                                    await window.ipcRenderer.invoke('playlist:addTrack', { playlistId: pl.id, trackId: currentTrack.id });
+                                                }
+                                                setShowPlaylistPopup(false);
+                                            }}
+                                            className="text-left px-3 py-2.5 text-xs font-bold hover:bg-white hover:text-primary rounded-xl transition-all truncate border border-transparent"
+                                        >
+                                            {pl.name}
+                                        </button>
+                                    )) : (
+                                        <p className="text-[10px] text-on-primary/70 italic px-2 py-4 text-center">No playlists found</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Android-Style Seek Bar */}

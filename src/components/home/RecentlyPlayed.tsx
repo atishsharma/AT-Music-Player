@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Play, Clock, ArrowRight } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
 import { useNavigate } from 'react-router-dom';
+import { toAtmusicUrl } from '../../utils/path';
 
 const RecentlyPlayed = () => {
     const [recent, setRecent] = useState<any[]>([]);
@@ -66,7 +67,7 @@ const RecentlyPlayed = () => {
                         <div className="aspect-square rounded-[2rem] bg-surface-variant overflow-hidden shadow-lg group-hover:shadow-primary/20 group-hover:shadow-2xl transition-all duration-500 relative">
                             {item.image_path ? (
                                 <img
-                                    src={item.image_path.startsWith('http') ? item.image_path : `atmusic://${item.image_path}`}
+                                    src={item.image_path.startsWith('http') ? item.image_path : toAtmusicUrl(item.image_path)}
                                     alt={item.title}
                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                 />

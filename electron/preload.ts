@@ -1,4 +1,4 @@
-import { ipcRenderer, contextBridge } from 'electron'
+import { ipcRenderer, contextBridge, webFrame } from 'electron'
 
 // --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld('ipcRenderer', {
@@ -26,9 +26,18 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // Path conversion helper
   convertPath(filePath: string) {
     if (!filePath) return '';
-    if (filePath.startsWith('http') || filePath.startsWith('atmusic://')) return filePath;
-    // Replace backslashes with forward slashes for cross-platform consistency if needed, 
-    // but Electron protocol usually handles it.
-    return `atmusic://${filePath}`;
+    if (filePath.startsWith('http') || filePath.startsWith('atmusic://stream?path=')) return filePath;
+    if (filePath.startsWith('atmusic://')) {
+      const rawPath = filePath.replace(/^atmusic:\/\//, '');
+      return `atmusic://stream?path=${encodeURIComponent(rawPath)}`;
+    }
+    // Normalize Windows backslashes → forward slashes 
+    const normalized = filePath.replace(/\\/g, '/');
+    return `atmusic://stream?path=${encodeURIComponent(normalized)}`;
+  },
+
+  // Zoom control
+  setZoomFactor(factor: number) {
+    webFrame.setZoomFactor(factor);
   }
 })

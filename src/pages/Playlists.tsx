@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { usePlaylistStore } from '../store/playlistStore';
 import { Plus, Music, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toAtmusicUrl } from '../utils/path';
 
 const PlaylistsPage = () => {
     const { playlists, fetchPlaylists, createPlaylist, deletePlaylist } = usePlaylistStore();
@@ -23,16 +24,24 @@ const PlaylistsPage = () => {
     };
 
     return (
-        <div className="p-8 space-y-8">
-            <div className="flex items-center justify-between">
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                    Playlists
-                </h1>
+        <div className="p-8 space-y-8 pt-10">
+            <div className="flex items-center justify-between border-b border-white/5 pb-8">
+                <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 rounded-[1.5rem] bg-primary/10 flex items-center justify-center text-primary shadow-2xl shadow-primary/20 border border-primary/30 outline outline-1 outline-primary/20">
+                        <Music size={32} />
+                    </div>
+                    <div>
+                        <h1 className="text-4xl font-black text-primary tracking-tighter italic">
+                            Playlists
+                        </h1>
+                        <p className="text-on-surface-variant font-medium text-xs tracking-[0.2em] opacity-60">Your Personal Collections</p>
+                    </div>
+                </div>
                 <button
                     onClick={() => setIsCreating(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 rounded-full text-on-primary font-medium tracking-wide transition-colors shadow-lg shadow-primary/20"
+                    className="flex items-center gap-3 px-6 py-3 bg-primary hover:bg-primary/90 rounded-2xl text-on-primary font-black text-[10px] uppercase tracking-widest transition-all shadow-xl shadow-primary/20 active:scale-95"
                 >
-                    <Plus size={20} />
+                    <Plus size={18} />
                     <span>New Playlist</span>
                 </button>
             </div>
@@ -75,7 +84,7 @@ const PlaylistsPage = () => {
                     >
                         <div className="aspect-square bg-surface border border-primary/20 rounded-xl mb-4 flex items-center justify-center text-primary overflow-hidden shadow-inner relative">
                             {playlist.image_path ? (
-                                <img src={`atmusic://${playlist.image_path}`} alt={playlist.name} className="w-full h-full object-cover" />
+                                <img src={toAtmusicUrl(playlist.image_path)} alt={playlist.name} className="w-full h-full object-cover" />
                             ) : (
                                 <Music size={48} className="opacity-60" />
                             )}

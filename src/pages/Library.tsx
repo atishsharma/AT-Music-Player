@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { FolderPlus, Music, Disc, Mic2, RefreshCw } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { FolderPlus, Music, Disc, Mic2, RefreshCw, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLibraryStore } from '../store/libraryStore';
 import { usePlayerStore } from '../store/playerStore';
 import SongList from '../components/library/SongList';
@@ -12,12 +12,51 @@ type Tab = 'songs' | 'albums' | 'artists' | 'folders';
 
 const Library = () => {
     const [activeTab, setActiveTab] = useState<Tab>('songs');
-    const [isFetchingMetadata, setIsFetchingMetadata] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [refreshKey, setRefreshKey] = useState(0);
     const [folders, setFolders] = useState<{ id: number; path: string; added_at: string }[]>([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageInput, setPageInput] = useState('1');
+
+    useEffect(() => {
+        setPageInput(String(currentPage));
+    }, [currentPage]);
+
+    const handlePageSubmit = (valStr: string) => {
+        const val = parseInt(valStr);
+        const max = Math.ceil(tracks.length / itemsPerPage);
+        if (!isNaN(val) && val >= 1 && val <= max) {
+            setCurrentPage(val);
+        } else {
+            setPageInput(String(currentPage));
+        }
+    };
+    const itemsPerPage = 50;
     const { tracks, isLoading, scanProgress, refreshLibrary, setScanProgress } = useLibraryStore();
+
+    const searchResults = useMemo(() => {
+        if (!searchQuery.trim()) return null;
+        const q = searchQuery.toLowerCase();
+        return {
+            songs: tracks.filter(t => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q) || t.album.toLowerCase().includes(q)),
+            albums: tracks.filter(t => t.album.toLowerCase().includes(q)),
+            artists: tracks.filter(t => t.artist.toLowerCase().includes(q))
+        };
+    }, [searchQuery, tracks]);
 
     useEffect(() => {
         refreshLibrary();
+
+        if (window.ipcRenderer) {
+            // Expose a way to refresh everything from outside
+            (window as any).refreshLibraryFromList = async () => {
+                await refreshLibrary();
+                loadFolders();
+                setRefreshKey(prev => prev + 1);
+            };
+            // Explicit store refresher
+            (window as any).refreshLibraryStore = refreshLibrary;
+        }
 
         if (!window.ipcRenderer) return;
 
@@ -67,39 +106,11 @@ const Library = () => {
         }
     };
 
-    const handleFetchMetadata = async () => {
-        if (isFetchingMetadata) return;
-        setIsFetchingMetadata(true);
-        try {
-            // Fetch metadata for tracks that don't have enough (e.g. Unknown Artist or Album)
-            const targetTracks = tracks.filter(t => t.artist === 'Unknown Artist' || t.album === 'Unknown Album' || !t.image_path);
-            if (targetTracks.length === 0) {
-                alert('All tracks already have metadata!');
-                return;
-            }
-
-            let successfulCount = 0;
-            for (const track of targetTracks) {
-                // Try MusicBrainz search first
-                const artistResults = await window.ipcRenderer.invoke('metadata:searchArtist', track.artist === 'Unknown Artist' ? track.title : track.artist);
-                if (artistResults && artistResults.length > 0) {
-                    const artist = artistResults[0];
-                    // Update track in DB (we need an IPC for this)
-                    await window.ipcRenderer.invoke('library:updateTrackMetadata', {
-                        id: track.id,
-                        artist: artist.name,
-                        // Could also fetch album/cover here
-                    });
-                    successfulCount++;
-                }
-            }
-            alert(`Updated metadata for ${successfulCount} tracks.`);
-            refreshLibrary();
-        } catch (err) {
-            console.error('Failed to fetch metadata:', err);
-        } finally {
-            setIsFetchingMetadata(false);
-        }
+    const handleRefresh = () => {
+        refreshLibrary();
+        setSearchQuery('');
+        setCurrentPage(1);
+        setRefreshKey(prev => prev + 1);
     };
 
     const tabs = [
@@ -110,62 +121,148 @@ const Library = () => {
     ];
 
     return (
-        <div className="space-y-6 pb-20">
+        <div className="space-y-6 pb-20 pt-10">
             <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-secondary-600">
-                    Your Library
-                </h1>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 rounded-[1.5rem] bg-primary/10 flex items-center justify-center text-primary shadow-2xl shadow-primary/20 border border-primary/30 outline outline-1 outline-primary/20">
+                        <Music size={32} />
+                    </div>
+                    <div>
+                        <h1 className="text-4xl font-black text-primary tracking-tighter italic">
+                            Local Library
+                        </h1>
+                        <p className="text-on-surface-variant font-medium text-xs tracking-[0.2em] opacity-60">Your Music Collection</p>
+                    </div>
+                </div>
+                <div className="flex gap-2 items-center">
                     <button
-                        onClick={() => refreshLibrary()}
-                        className="p-2 text-on-surface-variant hover:bg-surface-variant rounded-full transition-colors"
-                        title="Refresh Library"
+                        onClick={handleRefresh}
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-full transition-colors shadow-lg hover:shadow-primary/30 active:scale-95 transform duration-200"
+                        title="Refresh & Reset Library"
                     >
-                        <RefreshCw size={20} className={clsx({ 'animate-spin': isLoading })} />
-                    </button>
-                    <button
-                        onClick={handleFetchMetadata}
-                        disabled={isFetchingMetadata}
-                        className={clsx(
-                            "flex items-center gap-2 px-4 py-2 rounded-full transition-all shadow-lg active:scale-95 transform duration-200",
-                            isFetchingMetadata ? "bg-surface-variant text-on-surface-variant cursor-wait opacity-50" : "bg-primary text-on-primary hover:shadow-primary/30"
-                        )}
-                        title="Fetch Metadata for Unknown Tracks"
-                    >
-                        {isFetchingMetadata ? <RefreshCw size={18} className="animate-spin" /> : <Music size={18} />}
-                        <span>{isFetchingMetadata ? 'Fetching...' : 'Fetch Metadata'}</span>
+                        <RefreshCw size={18} className={clsx({ 'animate-spin': isLoading })} />
+                        <span className="font-bold text-sm">Refresh</span>
                     </button>
                     <button
                         onClick={handleAddFolder}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-full transition-colors shadow-lg hover:shadow-primary/30 active:scale-95 transform duration-200"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-full transition-colors hover:bg-primary hover:text-on-primary active:scale-95 transform duration-200"
                     >
                         <FolderPlus size={18} />
-                        <span>Add Folder</span>
+                        <span className="font-bold text-sm">Add Folder</span>
                     </button>
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex space-x-1 bg-surface-variant/30 p-1 rounded-xl w-fit">
-                {tabs.map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.id;
-                    return (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as Tab)}
-                            className={clsx(
-                                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
-                                isActive
-                                    ? 'bg-primary text-on-primary shadow-sm'
-                                    : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50'
-                            )}
-                        >
-                            <Icon size={16} />
-                            {tab.label}
-                        </button>
-                    );
-                })}
+            {/* Tabs and Search Line */}
+            <div className="flex flex-col md:flex-row items-center gap-4 bg-surface-variant/10 p-2 rounded-[2rem] border border-white/5">
+                <div className="flex space-x-1 bg-surface-variant/30 p-1 rounded-full w-full md:w-fit">
+                    {tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as Tab)}
+                                className={clsx(
+                                    'flex items-center gap-2 px-6 py-2 rounded-full text-sm font-black uppercase tracking-widest transition-all duration-300',
+                                    isActive
+                                        ? 'bg-primary text-on-primary shadow-lg shadow-primary/20 scale-105'
+                                        : 'text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-variant/50'
+                                )}
+                            >
+                                <Icon size={16} />
+                                {tab.label}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Local Search and Pagination - Now extended and on the same line */}
+                <div className="flex-1 flex gap-2">
+                    <div className="relative flex-1 bg-surface-variant/20 rounded-full border border-primary/40 p-1 flex items-center focus-within:ring-2 focus-within:ring-primary/30 transition-all outline outline-1 outline-primary/40">
+                        <Search className="absolute left-4 text-primary" size={16} />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            placeholder="Search your library..."
+                            className="w-full bg-transparent outline-none pl-10 pr-10 py-2.5 text-sm font-bold text-on-surface placeholder:text-on-surface-variant/30"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-3 p-1.5 rounded-full text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-colors"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
+                    </div>
+
+                    {activeTab === 'songs' && !searchResults && (
+                        <div className="flex items-center gap-3 bg-surface-variant/20 rounded-full border border-primary/30 p-1.5 outline outline-1 outline-primary/20 shadow-lg shadow-black/20">
+                            <button
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                className="p-2.5 rounded-full text-on-surface-variant hover:text-primary hover:bg-primary/10 disabled:opacity-20 transition-all active:scale-90"
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+
+                            <div className="flex items-center gap-3 px-2">
+                                <button
+                                    onClick={() => setCurrentPage(1)}
+                                    className={clsx(
+                                        "text-[10px] font-black transition-all hover:text-primary",
+                                        currentPage === 1 ? "text-primary scale-110" : "text-on-surface-variant/40"
+                                    )}
+                                >
+                                    1
+                                </button>
+                                <div className="h-1 w-1 rounded-full bg-white/10" />
+
+                                <div className="relative group">
+                                    <input
+                                        type="text"
+                                        value={pageInput}
+                                        onChange={(e) => setPageInput(e.target.value)}
+                                        onBlur={(e) => handlePageSubmit(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                handlePageSubmit((e.target as HTMLInputElement).value);
+                                            }
+                                        }}
+                                        className="w-14 bg-primary/10 border border-primary/20 rounded-lg py-1.5 text-center text-sm font-black text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-inner"
+                                    />
+                                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-surface border border-white/10 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                        Jump to
+                                    </div>
+                                </div>
+
+                                <div className="h-1 w-1 rounded-full bg-white/10" />
+                                <button
+                                    onClick={() => setCurrentPage(Math.ceil(tracks.length / itemsPerPage))}
+                                    className={clsx(
+                                        "text-[10px] font-black transition-all hover:text-primary",
+                                        currentPage === Math.ceil(tracks.length / itemsPerPage) ? "text-primary scale-110" : "text-on-surface-variant/40"
+                                    )}
+                                >
+                                    {Math.ceil(tracks.length / itemsPerPage)}
+                                </button>
+                            </div>
+
+                            <button
+                                disabled={currentPage >= Math.ceil(tracks.length / itemsPerPage)}
+                                onClick={() => setCurrentPage(prev => Math.min(Math.ceil(tracks.length / itemsPerPage), prev + 1))}
+                                className="p-2.5 rounded-full text-on-surface-variant hover:text-primary hover:bg-primary/10 disabled:opacity-20 transition-all active:scale-90"
+                            >
+                                <ChevronRight size={20} />
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Scan Progress */}
@@ -185,55 +282,104 @@ const Library = () => {
 
             {/* Content */}
             <div className="min-h-[300px]">
-                {activeTab === 'songs' && (
-                    <SongList tracks={tracks} onPlay={(t) => usePlayerStore.getState().play(t)} />
-                )}
-                {activeTab === 'albums' && (
-                    <AlbumGrid tracks={tracks} />
-                )}
-                {activeTab === 'artists' && (
-                    <ArtistGrid tracks={tracks} />
-                )}
-                {activeTab === 'folders' && (
-                    <div className="space-y-4">
-                        {folders.length === 0 ? (
-                            <div className="text-center p-12 text-on-surface-variant/50">
-                                <FolderPlus size={48} className="mx-auto mb-4 opacity-50" />
-                                <p>No folders added yet. Click "Add Folder" to scan your music.</p>
+                {searchResults ? (
+                    <div className="space-y-12">
+                        {searchResults.artists.length > 0 && (
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3 px-2">
+                                    <div className="p-2 bg-purple-500/20 text-purple-500 rounded-xl"><Mic2 size={20} /></div>
+                                    <h2 className="text-2xl font-black">Matching Artists</h2>
+                                </div>
+                                <ArtistGrid tracks={searchResults.artists} />
                             </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {folders.map((folder) => (
-                                    <div key={folder.id} className="bg-surface-variant/20 border border-white/5 rounded-2xl p-4 flex flex-col justify-between group">
-                                        <div className="flex items-start gap-4 mb-4">
-                                            <div className="p-3 bg-primary/10 rounded-xl text-primary">
-                                                <FolderPlus size={24} />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="text-sm font-bold text-on-background truncate" title={folder.path}>
-                                                    {folder.path.split(/[\\/]/).pop() || folder.path}
-                                                </h3>
-                                                <p className="text-xs text-on-surface-variant truncate mt-1">
-                                                    {folder.path}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center justify-between mt-4">
-                                            <span className="text-[10px] text-on-surface-variant/60 uppercase tracking-wider font-bold">
-                                                Added {new Date(folder.added_at).toLocaleDateString()}
-                                            </span>
-                                            <button
-                                                onClick={() => handleRemoveFolder(folder.path)}
-                                                className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg text-xs font-bold transition-all"
-                                            >
-                                                Remove
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+                        )}
+                        {searchResults.albums.length > 0 && (
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3 px-2">
+                                    <div className="p-2 bg-secondary/20 text-secondary rounded-xl"><Disc size={20} /></div>
+                                    <h2 className="text-2xl font-black">Matching Albums</h2>
+                                </div>
+                                <AlbumGrid tracks={searchResults.albums} />
+                            </div>
+                        )}
+                        {searchResults.songs.length > 0 && (
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3 px-2">
+                                    <div className="p-2 bg-primary/20 text-primary rounded-xl"><Music size={20} /></div>
+                                    <h2 className="text-2xl font-black">Matching Songs</h2>
+                                </div>
+                                <SongList tracks={searchResults.songs} onPlay={(t) => usePlayerStore.getState().play(t)} />
+                            </div>
+                        )}
+                        {searchResults.songs.length === 0 && searchResults.albums.length === 0 && searchResults.artists.length === 0 && (
+                            <div className="text-center py-20 text-on-surface-variant font-medium">
+                                No results found for "{searchQuery}"
                             </div>
                         )}
                     </div>
+                ) : (
+                    <>
+                        {activeTab === 'songs' && (
+                            <SongList
+                                key={refreshKey}
+                                tracks={tracks}
+                                onPlay={(t) => usePlayerStore.getState().play(t)}
+                                currentPage={currentPage}
+                                itemsPerPage={itemsPerPage}
+                                onPageChange={setCurrentPage}
+                            />
+                        )}
+                        {activeTab === 'albums' && (
+                            <AlbumGrid tracks={tracks} />
+                        )}
+                        {activeTab === 'artists' && (
+                            <ArtistGrid tracks={tracks} />
+                        )}
+                        {activeTab === 'folders' && (
+                            <div className="space-y-4">
+                                {folders.length === 0 ? (
+                                    <div className="text-center p-12 text-on-surface-variant/50">
+                                        <FolderPlus size={48} className="mx-auto mb-4 opacity-50" />
+                                        <p>No folders added yet. Click "Add Folder" to scan your music.</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {folders.map((folder) => (
+                                            <div key={folder.id} className="bg-surface-variant/20 border border-white/5 rounded-2xl p-4 flex flex-col justify-between group">
+                                                <div className="flex items-start gap-4 mb-4">
+                                                    <div className="p-3 bg-primary/10 rounded-xl text-primary">
+                                                        <FolderPlus size={24} />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="text-sm font-bold text-on-background truncate" title={folder.path}>
+                                                            {folder.path.split(/[\\/]/).pop() || folder.path}
+                                                        </h3>
+                                                        <p className="text-xs text-on-surface-variant truncate mt-1">
+                                                            {folder.path}
+                                                        </p>
+                                                        <p className="text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-widest mt-1">
+                                                            {tracks.filter(t => t.path && (t.path.startsWith(folder.path) || t.path.includes(folder.path))).length} songs
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center justify-between mt-4">
+                                                    <span className="text-[10px] text-on-surface-variant/60 uppercase tracking-wider font-bold">
+                                                        Added {new Date(folder.added_at).toLocaleDateString()}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => handleRemoveFolder(folder.path)}
+                                                        className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg text-xs font-bold transition-all"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>

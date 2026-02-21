@@ -124,156 +124,169 @@ const Downloads = () => {
     };
 
     return (
-        <div className="space-y-10 pb-32 max-w-5xl mx-auto px-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="space-y-1">
-                    <h1 className="text-4xl font-black text-on-background flex items-center gap-4">
-                        <Download className="text-primary" size={32} />
-                        Downloads
-                    </h1>
-                    <p className="text-on-surface-variant font-bold text-sm uppercase tracking-widest pl-12 opacity-60">
-                        {downloadList.filter(d => d.state === 'downloading').length} Active • {downloadList.filter(d => d.state === 'completed').length} Completed
-                    </p>
-                </div>
+        <div className="space-y-10 pb-32 max-w-7xl mx-auto px-4 pt-12">
+            {/* Redesigned Title Bar */}
+            <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md py-6 -mx-4 px-4 border-b border-white/5 flex flex-col md:flex-row items-center gap-8">
+                <div className="flex flex-col md:flex-row items-center gap-6 flex-1 w-full">
+                    <div className="flex items-center gap-4 shrink-0">
+                        <div className="w-14 h-14 rounded-[1.25rem] bg-primary/10 flex items-center justify-center text-primary shadow-2xl shadow-primary/20 border border-primary/30 outline outline-1 outline-primary/20">
+                            <Download size={28} />
+                        </div>
+                        <div>
+                            <h1 className="text-4xl font-black text-primary tracking-tighter italic">
+                                Downloads
+                            </h1>
+                            <p className="text-on-surface-variant font-medium text-[10px] tracking-[0.2em] opacity-60">Save Music Offline</p>
+                        </div>
+                    </div>
 
-                <div className="flex items-center gap-4">
-                    <form onSubmit={handleFetchAndDownload} className="flex-1 flex items-center gap-2 bg-surface-variant/20 p-2 rounded-2xl border border-white/5 min-w-[300px]">
-                        <div className="pl-3 text-on-surface-variant/40">
-                            <Link2 size={18} />
+                    <form onSubmit={handleFetchAndDownload} className="relative flex-1 group no-drag w-full md:w-auto">
+                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-primary group-focus-within:scale-110 transition-transform">
+                            <Link2 size={20} />
                         </div>
                         <input
                             type="text"
-                            placeholder="Paste YouTube URL..."
                             value={url}
                             onChange={(e) => setUrl(e.target.value)}
-                            className="flex-1 bg-transparent border-none outline-none text-sm font-bold placeholder:text-on-surface-variant/20 py-2"
+                            placeholder="Paste your source URL here..."
+                            className="w-full h-14 pl-14 pr-32 rounded-full bg-surface-variant/20 border border-primary/20 outline outline-1 outline-primary/10 focus:outline-primary/40 focus:ring-4 focus:ring-primary/10 transition-all text-lg font-bold text-on-surface placeholder:text-on-surface-variant/30 shadow-lg"
                         />
-                        <button
-                            type="submit"
-                            disabled={isFetchingInfo || !url.trim()}
-                            className={clsx(
-                                "flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shrink-0",
-                                isFetchingInfo || !url.trim() ? "bg-white/5 text-on-surface-variant/20" : "bg-primary text-on-primary hover:shadow-lg hover:shadow-primary/20"
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                            {isFetchingInfo && (
+                                <div className="mr-2">
+                                    <Loader2 size={20} className="animate-spin text-primary" />
+                                </div>
                             )}
-                        >
-                            {isFetchingInfo ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                            {isFetchingInfo ? 'Fetching...' : 'Download'}
-                        </button>
+                            <button
+                                type="submit"
+                                disabled={isFetchingInfo || !url.trim()}
+                                className={clsx(
+                                    "px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50",
+                                    "bg-primary text-on-primary hover:shadow-lg hover:shadow-primary/20"
+                                )}
+                            >
+                                Get
+                            </button>
+                        </div>
                     </form>
+                </div>
 
+                <div className="flex items-center gap-3 shrink-0">
                     {downloadList.length > 0 && (
-                        <div className="flex items-center gap-2">
+                        <>
                             <button
                                 onClick={showDownloadedTracks}
-                                className="flex items-center gap-3 px-6 py-4 bg-primary/10 hover:bg-primary/20 text-primary rounded-2xl text-xs font-black uppercase tracking-widest transition-all border border-primary/20 active:scale-95 shrink-0"
+                                className="flex items-center gap-3 px-6 py-3.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-primary/20 active:scale-95"
                             >
                                 <Library size={16} />
                                 Library
                             </button>
                             <button
                                 onClick={clearCompleted}
-                                className="flex items-center gap-2 px-6 py-4 bg-surface-variant/40 hover:bg-red-500/10 hover:text-red-500 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border border-white/5 active:scale-95 shrink-0"
-                                title="Clear UI List"
+                                className="flex items-center gap-3 px-6 py-3.5 bg-surface-variant/20 hover:bg-red-500/10 hover:text-red-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5 active:scale-95"
+                                title="Clear History"
                             >
                                 <Trash2 size={16} />
                             </button>
-                        </div>
+                        </>
                     )}
                 </div>
             </div>
 
-            {downloadList.length === 0 ? (
-                <div className="text-center py-40 bg-surface-variant/10 rounded-[3rem] border-2 border-dashed border-white/5 flex flex-col items-center justify-center grayscale opacity-50">
-                    <Download size={80} className="mb-6" />
-                    <p className="text-2xl font-black uppercase tracking-[0.2em]">Queue is Empty</p>
-                    <p className="mt-2 font-medium">Start downloading some tracks from Search!</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 gap-4">
-                    {downloadList.map((item) => (
-                        <div
-                            key={item.id}
-                            className={clsx(
-                                "group rounded-[2.5rem] p-6 flex flex-col md:flex-row items-start md:items-center gap-6 border transition-all duration-500",
-                                item.state === 'completed'
-                                    ? "bg-green-500/10 border-green-500/20 shadow-lg shadow-green-500/5"
-                                    : item.state === 'failed'
-                                        ? "bg-red-500/10 border-red-500/20"
-                                        : "bg-surface-variant/20 border-white/5 hover:bg-surface-variant/30"
-                            )}
-                        >
-                            <div className={clsx(
-                                "h-16 w-16 rounded-[1.5rem] flex items-center justify-center shrink-0 shadow-2xl",
-                                item.state === 'completed' ? "bg-green-500 text-white" : "bg-primary text-on-primary"
-                            )}>
-                                {item.state === 'downloading' ? (
-                                    <Loader2 size={28} className="animate-spin" />
-                                ) : item.state === 'completed' ? (
-                                    <CheckCircle size={28} />
-                                ) : (
-                                    <Download size={28} />
+            {
+                downloadList.length === 0 ? (
+                    <div className="text-center py-40 bg-surface-variant/10 rounded-[3rem] border-2 border-dashed border-white/5 flex flex-col items-center justify-center grayscale opacity-50">
+                        <Download size={80} className="mb-6" />
+                        <p className="text-2xl font-black uppercase tracking-[0.2em]">Queue is Empty</p>
+                        <p className="mt-2 font-medium">Start downloading some tracks from Search!</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 gap-4">
+                        {downloadList.map((item) => (
+                            <div
+                                key={item.id}
+                                className={clsx(
+                                    "group rounded-[2.5rem] p-6 flex flex-col md:flex-row items-start md:items-center gap-6 border transition-all duration-500",
+                                    item.state === 'completed'
+                                        ? "bg-green-500/10 border-green-500/20 shadow-lg shadow-green-500/5"
+                                        : item.state === 'failed'
+                                            ? "bg-red-500/10 border-red-500/20"
+                                            : "bg-surface-variant/20 border-white/5 hover:bg-surface-variant/30"
                                 )}
-                            </div>
-
-                            <div className="flex-1 min-w-0 space-y-3">
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                                    <h4 className="text-xl font-black text-on-background truncate leading-tight pr-4" title={item.title}>
-                                        {item.title || `Download ${item.id}`}
-                                    </h4>
-                                    <div className="flex items-center gap-3">
-                                        <span className={clsx(
-                                            "text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full",
-                                            item.state === 'completed' ? "bg-green-500/20 text-green-400" : "bg-primary/20 text-primary"
-                                        )}>
-                                            {item.state}
-                                        </span>
-                                        {item.state === 'downloading' && (
-                                            <span className="text-sm font-black text-primary font-mono">{Math.round(item.progress)}%</span>
-                                        )}
-                                    </div>
+                            >
+                                <div className={clsx(
+                                    "h-16 w-16 rounded-[1.5rem] flex items-center justify-center shrink-0 shadow-2xl",
+                                    item.state === 'completed' ? "bg-green-500 text-white" : "bg-primary text-on-primary"
+                                )}>
+                                    {item.state === 'downloading' ? (
+                                        <Loader2 size={28} className="animate-spin" />
+                                    ) : item.state === 'completed' ? (
+                                        <CheckCircle size={28} />
+                                    ) : (
+                                        <Download size={28} />
+                                    )}
                                 </div>
 
-                                {item.state === 'downloading' && (
-                                    <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden p-0.5">
-                                        <div
-                                            className="h-full bg-primary rounded-full transition-all duration-500 shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)]"
-                                            style={{ width: `${item.progress}%` }}
-                                        />
+                                <div className="flex-1 min-w-0 space-y-3">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                                        <h4 className="text-xl font-black text-on-background truncate leading-tight pr-4" title={item.title}>
+                                            {item.title || `Download ${item.id}`}
+                                        </h4>
+                                        <div className="flex items-center gap-3">
+                                            <span className={clsx(
+                                                "text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full",
+                                                item.state === 'completed' ? "bg-green-500/20 text-green-400" : "bg-primary/20 text-primary"
+                                            )}>
+                                                {item.state}
+                                            </span>
+                                            {item.state === 'downloading' && (
+                                                <span className="text-sm font-black text-primary font-mono">{Math.round(item.progress)}%</span>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
 
-                                {item.state === 'failed' && (
-                                    <div className="flex items-center gap-2 text-red-400 text-sm font-bold bg-red-400/5 p-3 rounded-2xl border border-red-400/10">
-                                        <AlertCircle size={16} />
-                                        {item.error}
-                                    </div>
-                                )}
-                            </div>
+                                    {item.state === 'downloading' && (
+                                        <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden p-0.5">
+                                            <div
+                                                className="h-full bg-primary rounded-full transition-all duration-500 shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)]"
+                                                style={{ width: `${item.progress}%` }}
+                                            />
+                                        </div>
+                                    )}
 
-                            <div className="shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {item.state === 'downloading' && (
-                                    <button
-                                        onClick={() => handleCancel(item.id)}
-                                        className="p-4 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all active:scale-90"
-                                        title="Cancel"
-                                    >
-                                        <XCircle size={20} />
-                                    </button>
-                                )}
-                                {(item.state === 'completed' || item.state === 'failed' || item.state === 'cancelled') && (
-                                    <button
-                                        onClick={() => removeDownload(item.id)}
-                                        className="p-4 bg-surface-variant/60 text-on-surface-variant hover:text-red-400 rounded-2xl transition-all"
-                                        title="Clear"
-                                    >
-                                        <Trash2 size={20} />
-                                    </button>
-                                )}
+                                    {item.state === 'failed' && (
+                                        <div className="flex items-center gap-2 text-red-400 text-sm font-bold bg-red-400/5 p-3 rounded-2xl border border-red-400/10">
+                                            <AlertCircle size={16} />
+                                            {item.error}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {item.state === 'downloading' && (
+                                        <button
+                                            onClick={() => handleCancel(item.id)}
+                                            className="p-4 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all active:scale-90"
+                                            title="Cancel"
+                                        >
+                                            <XCircle size={20} />
+                                        </button>
+                                    )}
+                                    {(item.state === 'completed' || item.state === 'failed' || item.state === 'cancelled') && (
+                                        <button
+                                            onClick={() => removeDownload(item.id)}
+                                            className="p-4 bg-surface-variant/60 text-on-surface-variant hover:text-red-400 rounded-2xl transition-all"
+                                            title="Clear"
+                                        >
+                                            <Trash2 size={20} />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+                        ))}
+                    </div>
+                )
+            }
 
             {/* Advanced Download Dialog */}
             <AnimatePresence>

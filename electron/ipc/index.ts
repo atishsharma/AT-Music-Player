@@ -1,11 +1,11 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron';
+import { ipcMain, dialog, BrowserWindow, shell } from 'electron';
 import path from 'path';
 import { getDB } from '../db';
 import { scanDirectory } from '../services/scanner';
 import { searchYouTube, searchYTMusic, getStreamUrl, getCacheStats, clearCache, getVideoInfo } from '../services/ytdlp';
 import { searchYouTubeAPI } from '../services/youtube_api';
 import { startDownload, cancelDownload } from '../services/downloader';
-import { getLyrics } from '../services/lyrics';
+import { getLyrics, fetchLRCLIB } from '../services/lyrics';
 import { searchArtists, getArtistById, getAlbumById, getCoverArt } from '../services/musicbrainz';
 import { getArtistInfo, getAlbumInfo } from '../services/lastfm';
 import { downloadAsset } from '../services/assets';
@@ -38,6 +38,26 @@ export function registerHandlers(mainWindow: BrowserWindow) {
         }
     });
 
+    ipcMain.handle('shell:showItemInFolder', (_event, fullPath) => {
+        shell.showItemInFolder(fullPath);
+    });
+
+    ipcMain.handle('shell:trashItem', async (_event, fullPath) => {
+        try {
+            await shell.trashItem(fullPath);
+            // Also remove from DB to sync UI
+            const db = getDB();
+            db.prepare('DELETE FROM tracks WHERE path = ?').run(fullPath);
+
+            // Notify UI that a file was deleted and library might need refresh
+            mainWindow.webContents.send('scan-complete');
+            return true;
+        } catch (error) {
+            console.error('Failed to trash item:', error);
+            return false;
+        }
+    });
+
     // Library Operations
     ipcMain.handle('library:scan', async (_event, dirPath) => {
         if (!dirPath) return false;
@@ -48,8 +68,13 @@ export function registerHandlers(mainWindow: BrowserWindow) {
 
     ipcMain.handle('library:getTracks', () => {
         const db = getDB();
-        // Return all tracks sorted by added date desc
-        return db.prepare('SELECT * FROM tracks ORDER BY created_at DESC').all();
+        // Return all tracks sorted by added date desc, along with has_lyrics flag from cache
+        return db.prepare(`
+            SELECT t.*, CASE WHEN lc.id IS NOT NULL THEN 1 ELSE 0 END as hasLyrics
+            FROM tracks t
+            LEFT JOIN lyrics_cache lc ON t.title = lc.title AND t.artist = lc.artist
+            ORDER BY t.created_at DESC
+        `).all();
     });
 
     ipcMain.handle('library:getRecent', (_event, limit = 50) => {
@@ -83,12 +108,24 @@ export function registerHandlers(mainWindow: BrowserWindow) {
 
     ipcMain.handle('library:getAlbumTracks', (_event, albumName) => {
         const db = getDB();
-        return db.prepare('SELECT * FROM tracks WHERE album = ? ORDER BY id ASC').all(albumName);
+        return db.prepare(`
+            SELECT t.*, CASE WHEN lc.id IS NOT NULL THEN 1 ELSE 0 END as hasLyrics
+            FROM tracks t
+            LEFT JOIN lyrics_cache lc ON t.title = lc.title AND t.artist = lc.artist
+            WHERE t.album = ? 
+            ORDER BY t.id ASC
+        `).all(albumName);
     });
 
     ipcMain.handle('library:getArtistTracks', (_event, artistName) => {
         const db = getDB();
-        return db.prepare('SELECT * FROM tracks WHERE artist = ? ORDER BY album ASC, id ASC').all(artistName);
+        return db.prepare(`
+            SELECT t.*, CASE WHEN lc.id IS NOT NULL THEN 1 ELSE 0 END as hasLyrics
+            FROM tracks t
+            LEFT JOIN lyrics_cache lc ON t.title = lc.title AND t.artist = lc.artist
+            WHERE t.artist = ? 
+            ORDER BY t.album ASC, t.id ASC
+        `).all(artistName);
     });
 
     // YouTube Operations
@@ -118,7 +155,13 @@ export function registerHandlers(mainWindow: BrowserWindow) {
     ipcMain.handle('search:library', (_event, query) => {
         const db = getDB();
         const term = `%${query}%`;
-        return db.prepare('SELECT * FROM tracks WHERE title LIKE ? OR artist LIKE ? OR album LIKE ? LIMIT 100').all(term, term, term);
+        return db.prepare(`
+            SELECT t.*, CASE WHEN lc.id IS NOT NULL THEN 1 ELSE 0 END as hasLyrics
+            FROM tracks t
+            LEFT JOIN lyrics_cache lc ON t.title = lc.title AND t.artist = lc.artist
+            WHERE t.title LIKE ? OR t.artist LIKE ? OR t.album LIKE ? 
+            LIMIT 100
+        `).all(term, term, term);
     });
 
     ipcMain.handle('search:youtube', async (_event, query, options) => {
@@ -136,11 +179,132 @@ export function registerHandlers(mainWindow: BrowserWindow) {
     });
 
     ipcMain.handle('cache:getStats', () => {
-        return getCacheStats();
+        const stats = getCacheStats();
+        const db = getDB();
+
+        if (stats.files && stats.files.length > 0) {
+            const enrichedFiles = stats.files.map(fileName => {
+                const videoId = fileName.replace('.webm', '').replace('.opus', '').replace('.mp3', '');
+
+                // Try to find in history or tracks
+                const metadata = db.prepare(`
+                    SELECT title, artist, image_path as thumbnail, duration, source, video_id
+                    FROM history 
+                    WHERE video_id = ? 
+                    UNION
+                    SELECT title, artist, image_path as thumbnail, duration, source, video_id
+                    FROM tracks
+                    WHERE video_id = ?
+                    LIMIT 1
+                `).get(videoId, videoId) as any;
+
+                return {
+                    id: videoId,
+                    video_id: videoId,
+                    title: metadata?.title || videoId,
+                    artist: metadata?.artist || 'Unknown Artist',
+                    thumbnail: metadata?.thumbnail || '',
+                    duration: metadata?.duration || 0,
+                    source: metadata?.source || 'youtube',
+                    path: `atmusic://${stats.cacheDir}/${fileName}`
+                };
+            });
+            return { ...stats, files: enrichedFiles };
+        }
+
+        return stats;
     });
 
     ipcMain.handle('cache:clear', () => {
         return clearCache();
+    });
+
+    ipcMain.handle('cache:delete', (_event, fileIds: string[]) => {
+        const { deleteCacheFiles } = require('../services/ytdlp.js');
+        return deleteCacheFiles(fileIds);
+    });
+
+    ipcMain.handle('cache:moveToLibrary', async (_event, track: { id: string; title: string; artist: string; duration: number; thumbnail: string; video_id: string }) => {
+        try {
+            const db = getDB();
+            const { getCacheStats } = await import('../services/ytdlp.js');
+            const stats = getCacheStats();
+            const cacheDir: string = stats.cacheDir || '';
+
+            // Find the cached file for this video ID
+            const fs = await import('fs');
+            const pathMod = await import('path');
+
+            const extensions = ['.webm', '.opus', '.mp3'];
+            let sourcePath: string | null = null;
+            let ext = '';
+            for (const e of extensions) {
+                const candidate = pathMod.join(cacheDir, `${track.id}${e}`);
+                if (fs.existsSync(candidate)) {
+                    sourcePath = candidate;
+                    ext = e;
+                    break;
+                }
+            }
+
+            if (!sourcePath) {
+                return { success: false, error: 'Cached file not found' };
+            }
+
+            // Check if song already exists in library by video_id
+            const videoId = track.video_id || track.id;
+            const alreadyInLibrary = db.prepare(
+                "SELECT id FROM tracks WHERE video_id = ? AND source = 'local'"
+            ).get(videoId) as { id: number } | undefined;
+            if (alreadyInLibrary) {
+                return { success: false, error: 'already_exists' };
+            }
+
+            // Get download path from settings
+            const dlPathSetting = db.prepare('SELECT value FROM settings WHERE key = ?').get('download_path') as { value: string } | undefined;
+            let downloadsDir = dlPathSetting?.value;
+            if (!downloadsDir) {
+                const { app: electronApp } = await import('electron');
+                downloadsDir = pathMod.join(electronApp.getPath('userData'), 'downloads');
+            }
+            if (!fs.existsSync(downloadsDir)) {
+                fs.mkdirSync(downloadsDir, { recursive: true });
+            }
+
+            // Build safe filename
+            const safeTitle = (track.title || track.id).replace(/[<>:"/\\|?*]/g, '_');
+            const destPath = pathMod.join(downloadsDir, `${safeTitle}${ext}`);
+
+            // Move file from cache to downloads (copy then delete)
+            fs.copyFileSync(sourcePath, destPath);
+            fs.unlinkSync(sourcePath);
+
+            // Insert into tracks database
+            const existing = db.prepare('SELECT id FROM tracks WHERE path = ?').get(destPath) as { id: number } | undefined;
+            if (!existing) {
+                db.prepare(`
+                    INSERT INTO tracks (title, artist, album, duration, path, image_path, source, video_id, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 'local', ?, CURRENT_TIMESTAMP)
+                `).run(
+                    track.title || 'Unknown',
+                    track.artist || 'Unknown Artist',
+                    'Unknown Album',
+                    track.duration || 0,
+                    destPath,
+                    track.thumbnail || '',
+                    track.video_id || track.id
+                );
+            }
+
+            // Notify UI to refresh library and cache stats
+            mainWindow.webContents.send('scan-complete');
+            mainWindow.webContents.send('cache:stats-changed');
+
+            return { success: true, title: track.title };
+        } catch (err: any) {
+            console.error('Failed to move cache to library:', err);
+            return { success: false, error: err?.message || 'Unknown error' };
+        }
     });
 
     ipcMain.handle('youtube:getInfo', async (_event, url) => {
@@ -183,6 +347,10 @@ export function registerHandlers(mainWindow: BrowserWindow) {
     // Lyrics
     ipcMain.handle('lyrics:get', async (_event, { artist, title, album, duration }) => {
         return await getLyrics(artist, title, album, duration);
+    });
+
+    ipcMain.handle('lyrics:fetchLRCLIB', async (_event, { searchArtist, searchTitle, saveArtist, saveTitle, duration }) => {
+        return await fetchLRCLIB(searchArtist, searchTitle, saveArtist, saveTitle, duration);
     });
 
     // Playlists
@@ -573,9 +741,14 @@ export function registerHandlers(mainWindow: BrowserWindow) {
 
     // Page Caching Handlers
     const pageCache = new Map();
-    ipcMain.handle('youtube:cacheAudio', async (_event, videoId) => {
+    ipcMain.handle('youtube:cacheAudio', async (event, videoId) => {
         const { cacheAudio } = await import('../services/ytdlp.js');
-        return await cacheAudio(videoId);
+        return await cacheAudio(videoId, event.sender);
+    });
+
+    ipcMain.handle('youtube:cancelCacheAudio', async () => {
+        const { cancelCacheAudio } = await import('../services/ytdlp.js');
+        return cancelCacheAudio();
     });
 
     ipcMain.handle('cache:set', (_event, { key, data }) => {

@@ -1,12 +1,5 @@
 import { app, BrowserWindow, protocol, shell } from 'electron'
 
-// Fix crash on Linux packaged builds – Electron sandbox requires SUID on most distros
-if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('no-sandbox')
-  app.commandLine.appendSwitch('disable-gpu-sandbox')
-  app.commandLine.appendSwitch('disable-setuid-sandbox')
-}
-
 protocol.registerSchemesAsPrivileged([
   { scheme: 'atmusic', privileges: { secure: true, standard: true, supportFetchAPI: true, bypassCSP: false, stream: true } }
 ])
@@ -97,14 +90,38 @@ app.on('activate', () => {
 app.whenReady().then(() => {
   protocol.handle('atmusic', async (request) => {
     try {
-      const filePath = request.url.replace(/^atmusic:\/\//, '');
-      let decodedPath = decodeURIComponent(filePath);
+      let decodedPath = '';
 
-      if (process.platform !== 'win32' && !decodedPath.startsWith('/')) {
-        decodedPath = '/' + decodedPath;
+      try {
+        const parsedUrl = new URL(request.url);
+        if (parsedUrl.searchParams.has('path')) {
+          decodedPath = parsedUrl.searchParams.get('path') || '';
+        }
+      } catch (e) {
+        // Fallback for parsing errors
       }
-      if (process.platform === 'win32' && decodedPath.startsWith('/') && decodedPath.match(/^\/[a-zA-Z]:/)) {
-        decodedPath = decodedPath.substring(1);
+
+      if (!decodedPath) {
+        // Fallback logic for raw paths (atmusic://C:/Users/...)
+        const filePath = request.url.replace(/^atmusic:\/\//, '');
+        decodedPath = decodeURIComponent(filePath.split('?')[0]); // ignore query params if poorly formatted
+
+        if (process.platform === 'win32') {
+          // Electron's URL parser treats the drive letter as the URL hostname,
+          // lowercases it, and strips the colon:
+          //   atmusic://C:/Users/... → request.url = 'atmusic://c/Users/...'
+          if (decodedPath.match(/^[a-zA-Z]\//) && !decodedPath.includes(':')) {
+            decodedPath = decodedPath[0].toUpperCase() + ':/' + decodedPath.slice(2);
+          }
+          // Also handle the '/C:/...' form just in case
+          if (decodedPath.startsWith('/') && decodedPath.match(/^\/[a-zA-Z]:/)) {
+            decodedPath = decodedPath.substring(1);
+          }
+        } else {
+          if (!decodedPath.startsWith('/')) {
+            decodedPath = '/' + decodedPath;
+          }
+        }
       }
 
       const fs = await import('node:fs');

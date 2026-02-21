@@ -4,6 +4,7 @@ import { ArrowLeft, Play, Disc, Calendar, User, RefreshCw, ImagePlus } from 'luc
 import { motion } from 'framer-motion';
 import SongList from '../components/library/SongList';
 import { usePlayerStore } from '../store/playerStore';
+import { toAtmusicUrl } from '../utils/path';
 
 interface AlbumData {
     id: string;
@@ -155,7 +156,7 @@ const AlbumDetail = () => {
                     {/* Album Art */}
                     <div className="w-56 h-56 rounded-2xl bg-surface-variant overflow-hidden shadow-2xl border-4 border-on-surface-variant/10 group relative flex-shrink-0">
                         {albumData?.local_cover || albumData?.cover ? (
-                            <img src={(albumData?.local_cover || albumData?.cover || '').startsWith('http') ? (albumData.local_cover || albumData.cover) : `atmusic://${albumData.local_cover || albumData.cover}`} alt={displayTitle} className="w-full h-full object-cover" />
+                            <img src={(albumData?.local_cover || albumData?.cover || '').startsWith('http') ? (albumData.local_cover || albumData.cover) : toAtmusicUrl(albumData.local_cover || albumData.cover)} alt={displayTitle} className="w-full h-full object-cover" />
                         ) : (
                             <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary">
                                 <Disc size={80} />

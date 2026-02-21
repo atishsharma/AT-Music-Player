@@ -106,3 +106,64 @@ export async function getLyrics(artist: string, title: string, album?: string, d
         return null;
     }
 }
+
+export async function fetchLRCLIB(searchArtist: string, searchTitle: string, saveArtist: string, saveTitle: string, duration?: number) {
+    const db = getDB();
+
+    // Fetch from API directly bypassing cache
+    try {
+        const params: any = {
+            artist_name: searchArtist,
+            track_name: searchTitle,
+        };
+        if (duration) params.duration = duration;
+
+        const response = await axios.get('https://lrclib.net/api/get', { params });
+
+        if (response.data) {
+            const data = response.data;
+            try {
+                // REPLACE will overwrite existing entry due to UNIQUE(artist, title)
+                db.prepare(`
+                    INSERT OR REPLACE INTO lyrics_cache (artist, title, plain_lyrics, synced_lyrics)
+                    VALUES (?, ?, ?, ?)
+                `).run(saveArtist, saveTitle, data.plainLyrics || '', data.syncedLyrics || '');
+            } catch (saveErr) {
+                console.error('Failed to update lyrics cache:', saveErr);
+            }
+
+            return {
+                plainLyrics: data.plainLyrics,
+                syncedLyrics: parseLRC(data.syncedLyrics),
+                isSynced: !!data.syncedLyrics
+            };
+        }
+    } catch (error) {
+        try {
+            const searchRes = await axios.get('https://lrclib.net/api/search', {
+                params: { q: `${searchTitle} ${searchArtist}` }
+            });
+            if (searchRes.data && searchRes.data.length > 0) {
+                const bestMatch = searchRes.data[0];
+
+                try {
+                    db.prepare(`
+                        INSERT OR REPLACE INTO lyrics_cache (artist, title, plain_lyrics, synced_lyrics)
+                        VALUES (?, ?, ?, ?)
+                    `).run(saveArtist, saveTitle, bestMatch.plainLyrics || '', bestMatch.syncedLyrics || '');
+                } catch (saveErr) {
+                    console.error('Failed to update searched lyrics cache:', saveErr);
+                }
+
+                return {
+                    plainLyrics: bestMatch.plainLyrics,
+                    syncedLyrics: parseLRC(bestMatch.syncedLyrics),
+                    isSynced: !!bestMatch.syncedLyrics
+                };
+            }
+        } catch (searchError) {
+            console.error('Lyrics Search Error:', searchError);
+        }
+    }
+    return null;
+}

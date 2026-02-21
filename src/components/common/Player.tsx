@@ -32,14 +32,16 @@ const Player = () => {
                 if (currentTrack.path.startsWith('http://') || currentTrack.path.startsWith('https://')) {
                     setStreamUrl(currentTrack.path);
                 } else {
-                    // Determine if it's already an atmusic protocol string
-                    let encodedPath;
-                    if (currentTrack.path.startsWith('atmusic://')) {
-                        encodedPath = currentTrack.path;
+                    let encodedPath = currentTrack.path;
+                    if (encodedPath.startsWith('atmusic://stream?path=')) {
+                        setStreamUrl(encodedPath);
+                    } else if (encodedPath.startsWith('atmusic://')) {
+                        const rawPath = encodedPath.replace(/^atmusic:\/\//, '');
+                        setStreamUrl(`atmusic://stream?path=${encodeURIComponent(rawPath)}`);
                     } else {
-                        encodedPath = `atmusic://${currentTrack.path.split('/').map(segment => encodeURIComponent(segment)).join('/')}`;
+                        const normalized = encodedPath.replace(/\\/g, '/');
+                        setStreamUrl(`atmusic://stream?path=${encodeURIComponent(normalized)}`);
                     }
-                    setStreamUrl(encodedPath);
                 }
             } else if ((currentTrack.source === 'youtube' || currentTrack.source === 'ytmusic') && currentTrack.id) {
                 try {

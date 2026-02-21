@@ -4,6 +4,7 @@ import { Heart, Music, Disc, Mic2 } from 'lucide-react';
 import { useState } from 'react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
+import { toAtmusicUrl } from '../utils/path';
 
 type Tab = 'songs' | 'albums' | 'artists';
 
@@ -23,44 +24,48 @@ const Favorites = () => {
     ];
 
     return (
-        <div className="space-y-8 pb-24">
-            <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 shadow-lg">
-                    <Heart size={28} fill="currentColor" />
+        <div className="space-y-8 pb-24 pt-10">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-b border-white/5 pb-8">
+                <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 rounded-[1.5rem] bg-primary/10 flex items-center justify-center text-primary shadow-2xl shadow-primary/20 border border-primary/30 outline outline-1 outline-primary/20">
+                        <Heart size={32} fill="currentColor" className="animate-pulse" />
+                    </div>
+                    <div>
+                        <h1 className="text-4xl font-black text-primary tracking-tighter italic outline-primary/20">
+                            Your Favorites
+                        </h1>
+                        <p className="text-on-surface-variant font-medium text-xs tracking-[0.2em] opacity-60">Everything You Love, In One Place.</p>
+                    </div>
                 </div>
-                <div>
-                    <h1 className="text-4xl font-black text-on-background tracking-tight">Your Favorites</h1>
-                    <p className="text-on-surface-variant font-medium">Everything you love, in one place.</p>
-                </div>
-            </div>
 
-            {/* Tabs */}
-            <div className="flex space-x-1 bg-surface-variant/30 p-1 rounded-2xl w-fit">
-                {tabs.map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.id;
-                    return (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as Tab)}
-                            className={clsx(
-                                'flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300',
-                                isActive
-                                    ? 'bg-primary text-on-primary shadow-xl scale-105'
-                                    : 'text-on-surface-variant hover:text-on-background hover:bg-surface-variant/50'
-                            )}
-                        >
-                            <Icon size={18} />
-                            {tab.label}
-                            <span className={clsx(
-                                "ml-1 px-1.5 py-0.5 rounded-md text-[10px]",
-                                isActive ? "bg-on-primary/20 text-on-primary" : "bg-surface-variant/20 text-on-surface-variant"
-                            )}>
-                                {tab.count}
-                            </span>
-                        </button>
-                    );
-                })}
+                {/* Tabs moved to right */}
+                <div className="flex space-x-1 bg-surface-variant/30 p-1.5 rounded-[2rem] border border-white/5 shadow-inner">
+                    {tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as Tab)}
+                                className={clsx(
+                                    'flex items-center gap-2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300',
+                                    isActive
+                                        ? 'bg-primary text-on-primary shadow-xl shadow-primary/20 scale-105 active:scale-95'
+                                        : 'text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-variant/50'
+                                )}
+                            >
+                                <Icon size={14} />
+                                {tab.label}
+                                <span className={clsx(
+                                    "ml-1 px-2 py-0.5 rounded-full text-[8px]",
+                                    isActive ? "bg-on-primary/20 text-on-primary" : "bg-surface-variant/20 text-on-surface-variant"
+                                )}>
+                                    {tab.count}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Content Area */}
@@ -86,7 +91,7 @@ const Favorites = () => {
                                 >
                                     <div className="aspect-square bg-surface-variant rounded-2xl mb-3 overflow-hidden relative shadow-soft group-hover:shadow-xl transition-all border border-white/5">
                                         {album.image_path ? (
-                                            <img src={`atmusic://${album.image_path}`} alt={album.title} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500" />
+                                            <img src={toAtmusicUrl(album.image_path)} alt={album.title} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500" />
                                         ) : (
                                             <div className="w-full h-full bg-gradient-to-br from-primary-500/20 to-secondary-500/20 flex items-center justify-center text-primary-500">
                                                 <Disc size={48} />

@@ -24,5 +24,8 @@ interface Window {
         'metadata:syncAlbum': (data: { artist: string; album: string }) => Promise<{ cover: string; year: number } | null>;
         'settings:get': (key: string) => Promise<string | null>;
         'settings:set': (data: { key: string; value: string }) => Promise<boolean>;
+        'shell:showItemInFolder': (path: string) => Promise<void>;
+        'shell:trashItem': (path: string) => Promise<boolean>;
+        setZoomFactor?: (factor: number) => void;
     };
 }
