@@ -137,7 +137,7 @@ const Home = () => {
                             className="hidden lg:flex items-center justify-center w-40 h-40 bg-surface-variant/40 backdrop-blur-xl rounded-[3rem] outline outline-1 outline-primary shadow-[0_10px_30px_rgba(var(--md-sys-color-primary),0.2)] hover:bg-surface-variant/50 transition-all group shrink-0"
                         >
                             <div className="w-[92%] h-[92%] rounded-full bg-primary/10 flex items-center justify-center overflow-hidden group-hover:rotate-12 transition-transform">
-                                <img src="/app_icon.png" alt="Logo" className="w-full h-full object-cover" />
+                                <img src="./app_icon.png" alt="Logo" className="w-full h-full object-cover" />
                             </div>
                         </a>
 

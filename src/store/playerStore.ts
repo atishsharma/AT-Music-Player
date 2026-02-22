@@ -69,12 +69,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             if (state.currentTrack?.id === track.id) {
                 set({ isPlaying: true });
             } else {
-                // Playing a new track. 
-                // If it's not in queue, what happens? 
-                // For now, simpler logic: just play it.
+                // When we play a new song, push the currently playing song to the top of the queue 
+                // so it's not lost and acts like a "Recently played" mechanism in the queue itself.
+                let updatedQueue = [...state.queue];
+                if (state.currentTrack) {
+                    updatedQueue.unshift(state.currentTrack);
+                }
+
                 set((state) => ({
                     currentTrack: track,
                     isPlaying: true,
+                    queue: updatedQueue,
                     history: state.currentTrack ? [...state.history, state.currentTrack] : state.history
                 }));
             }

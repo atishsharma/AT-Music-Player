@@ -41,3 +41,18 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     webFrame.setZoomFactor(factor);
   }
 })
+
+contextBridge.exposeInMainWorld('yt', {
+  getVideoStream(videoId: string) {
+    return ipcRenderer.invoke('yt:getVideoStream', videoId)
+  },
+  getVideoStreamWithQuality(videoId: string, quality: string) {
+    return ipcRenderer.invoke('yt:getVideoStreamWithQuality', { videoId, quality })
+  }
+})
+
+contextBridge.exposeInMainWorld('ytdlp', {
+  check() {
+    return ipcRenderer.invoke('ytdlp:check')
+  }
+})

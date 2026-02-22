@@ -6,6 +6,7 @@ import { Search as SearchIcon, Play, Plus, Youtube, Music, Clock, X, Video, Down
 import SongList from '../components/library/SongList';
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
+import { YtDlpFooter } from '../components/common/YtDlpFooter';
 
 const SearchPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -222,7 +223,7 @@ const SearchPage = () => {
                         <h1 className="text-4xl font-black text-primary tracking-tighter italic">
                             Search
                         </h1>
-                        <p className="text-on-surface-variant font-medium text-[10px] tracking-[0.2em] opacity-60">Discover New Music</p>
+                        <p className="text-on-surface-variant font-medium text-[10px] tracking-[0.2em] opacity-60">Powered By Yt-DLP</p>
                     </div>
                 </div>
 
@@ -570,7 +571,7 @@ const SearchPage = () => {
                 )}
             </div>
 
-            {/* Removed DownloadModal */}
+            <YtDlpFooter />
         </div>
     );
 };

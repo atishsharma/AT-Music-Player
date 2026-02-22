@@ -106,7 +106,7 @@ const LastFMPage = () => {
             <header className="relative flex flex-col md:flex-row md:items-center justify-between gap-8 pt-10 px-8 py-8 bg-surface-variant/10 rounded-[3rem] border border-primary/20 outline outline-1 outline-primary/10 shadow-2xl backdrop-blur-xl mx-4">
                 <div className="flex items-center gap-6">
                     <div className="p-3 bg-primary/10 rounded-[2rem] border border-primary/30 shadow-2xl shadow-primary/20 flex items-center justify-center w-20 h-20 overflow-hidden outline outline-1 outline-primary/10">
-                        <img src="/last-fm.png" alt="Last.fm" className="w-[85%] h-[85%] object-contain filter drop-shadow-[0_0_8px_rgba(255,0,0,0.5)]" />
+                        <img src="./last-fm.png" alt="Last.fm" className="w-[85%] h-[85%] object-contain filter drop-shadow-[0_0_8px_rgba(255,0,0,0.5)]" />
                     </div>
                     <div>
                         <h1 className="text-5xl font-black tracking-tighter text-primary leading-none italic">Discovery</h1>
@@ -254,7 +254,7 @@ const LastFMPage = () => {
             <footer className="pt-20 pb-8 text-center opacity-40 hover:opacity-100 transition-opacity">
                 <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-2">
                     Thanks to <a href="https://last.fm" target="_blank" rel="noreferrer" className="text-[#D51007] hover:opacity-80 transition-opacity flex items-center gap-2">
-                        <img src="/last-fm.png" alt="Last.fm" className="h-6 object-contain" />
+                        <img src="./last-fm.png" alt="Last.fm" className="h-6 object-contain" />
                     </a> for providing the discovery API.
                 </p>
             </footer>

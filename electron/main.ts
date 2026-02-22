@@ -1,5 +1,11 @@
 import { app, BrowserWindow, protocol, shell } from 'electron'
 
+// Required for Linux: Chromium sandbox needs SUID helper or --no-sandbox
+// Without this, packaged AppImage will core dump (SIGTRAP) on most distros
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox');
+}
+
 protocol.registerSchemesAsPrivileged([
   { scheme: 'atmusic', privileges: { secure: true, standard: true, supportFetchAPI: true, bypassCSP: false, stream: true } }
 ])
@@ -44,7 +50,9 @@ function createWindow() {
     minHeight: 800,
     autoHideMenuBar: true,
     titleBarStyle: 'hiddenInset',
-    icon: path.join(process.env.VITE_PUBLIC, 'app_icon.png'),
+    icon: VITE_DEV_SERVER_URL
+      ? path.join(process.env.APP_ROOT, 'public', 'app_icon.png')
+      : path.join(process.resourcesPath, 'app_icon.png'),
     fullscreenable: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
@@ -104,7 +112,7 @@ app.whenReady().then(() => {
       if (!decodedPath) {
         // Fallback logic for raw paths (atmusic://C:/Users/...)
         const filePath = request.url.replace(/^atmusic:\/\//, '');
-        decodedPath = decodeURIComponent(filePath.split('?')[0]); // ignore query params if poorly formatted
+        decodedPath = decodeURIComponent(filePath.split('?')[0]);
 
         if (process.platform === 'win32') {
           // Electron's URL parser treats the drive letter as the URL hostname,

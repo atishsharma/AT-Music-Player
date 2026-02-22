@@ -1,4 +1,4 @@
-import YoutubeDl from 'yt-dlp-exec';
+import { execYtDlp } from '../utils/ytdlp-bin';
 import path from 'path';
 import fs from 'fs';
 import { app } from 'electron';
@@ -21,11 +21,18 @@ export async function cacheAudio(videoId: string) {
     }
 
     try {
-        await YoutubeDl(`https://www.youtube.com/watch?v=${videoId}`, {
-            output: filePath,
-            format: 'bestaudio[ext=m4a]/bestaudio/best',
-            noWarnings: true,
+        const subprocess = execYtDlp([
+            `https://www.youtube.com/watch?v=${videoId}`,
+            '--output', filePath,
+            '--format', 'bestaudio[ext=m4a]/bestaudio/best',
+            '--no-warnings'
+        ]);
+
+        await new Promise((resolve, reject) => {
+            subprocess.on('close', (code) => code === 0 ? resolve(true) : reject(new Error(`Exit ${code}`)));
+            subprocess.on('error', reject);
         });
+
         return filePath;
     } catch (error) {
         console.error('Audio Caching Error:', error);

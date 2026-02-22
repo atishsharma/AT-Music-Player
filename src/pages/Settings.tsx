@@ -65,14 +65,14 @@ const SettingsPage = () => {
                             className="hidden lg:flex items-center justify-center w-28 h-28 bg-surface-variant/40 backdrop-blur-xl rounded-[2.5rem] outline outline-1 outline-primary shadow-lg hover:bg-surface-variant/50 transition-all group shrink-0"
                         >
                             <div className="w-[90%] h-[90%] rounded-full bg-primary/10 flex items-center justify-center overflow-hidden group-hover:rotate-12 transition-transform">
-                                <img src="/app_icon.png" alt="Logo" className="w-full h-full object-cover" />
+                                <img src="./app_icon.png" alt="Logo" className="w-full h-full object-cover" />
                             </div>
                         </a>
                         <div>
                             <h1 className="text-6xl font-black tracking-tighter text-[rgb(var(--md-sys-color-primary))] leading-none mb-2">
                                 Preferences
                             </h1>
-                            <p className="text-xl text-on-surface-variant font-medium tracking-tight">Customize your playback experience & cloud integrations.</p>
+                            <p className="text-xl text-on-surface-variant font-medium tracking-tight">Customize your Experience & API Integrations.</p>
                         </div>
                     </div>
 
@@ -204,7 +204,7 @@ const SettingsPage = () => {
                                     onClick={() => setAppearance(a)}
                                     title={isDisabled ? "Not available in Lucky" : `Switch to ${a} mode`}
                                     className={clsx(
-                                        "flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 border-2",
+                                        "flex items-center justify-center w-[56px] h-[56px] rounded-full transition-all duration-300 border-2",
                                         appearance === a
                                             ? "bg-primary text-on-primary border-transparent shadow-lg scale-105"
                                             : "text-on-surface-variant border-transparent hover:bg-surface-variant/50 hover:text-on-surface",
@@ -239,7 +239,7 @@ const SettingsPage = () => {
                                 }
                             }}
                             className={clsx(
-                                "flex items-center gap-3 px-6 py-4 rounded-[1.5rem] transition-all duration-300 font-bold border border-transparent shadow-sm hover:shadow-md",
+                                "flex items-center justify-center gap-3 px-6 h-[56px] min-h-[56px] rounded-[1.5rem] transition-all duration-300 font-bold border border-transparent shadow-sm hover:shadow-md",
                                 currentMood === m.type
                                     ? "bg-primary text-on-primary scale-105 border-white/20"
                                     : "bg-surface-variant/50 text-on-surface-variant hover:bg-surface-variant"
@@ -286,7 +286,7 @@ const SettingsPage = () => {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <div className="rounded-[1.5rem] bg-white/5 border border-white/10 flex items-center justify-center p-2.5">
-                                <img src="/last-fm.png" alt="Last.fm API" className="h-8 object-contain" />
+                                <img src="./last-fm.png" alt="Last.fm API" className="h-8 object-contain" />
                             </div>
                             <h2 className="text-2xl font-black text-on-surface">Last.fm Engine</h2>
                         </div>
@@ -314,7 +314,7 @@ const SettingsPage = () => {
                 <div className="bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-10 border border-white/5 flex flex-col justify-center items-start gap-4 hover:bg-surface-variant/30 transition-all group overflow-hidden relative">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-primary/30 transition-all" />
 
-                    <h3 className="text-sm font-black uppercase tracking-[0.3em] text-on-surface-variant/60">Credits</h3>
+                    <h3 className="text-sm font-black uppercase tracking-[0.3em] text-on-surface-variant/60">About AT Music Player</h3>
                     <div className="w-full flex items-center justify-between gap-4">
                         <div className="space-y-1">
                             <p className="text-lg text-on-surface font-medium">Designed & Developed by</p>
@@ -333,7 +333,7 @@ const SettingsPage = () => {
                             <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
                             <a href="https://atishaksharma.com" target="_blank" rel="noreferrer" className="block relative z-10 hover:scale-105 transition-transform duration-300">
                                 <img
-                                    src="/ats-logo.png"
+                                    src="./ats-logo.png"
                                     alt="Atish Ak Sharma logo"
                                     className="w-[144px] h-[144px] rounded-full shadow-2xl object-cover bg-white p-2"
                                 />
@@ -349,7 +349,7 @@ const SettingsPage = () => {
                         </div>
                         <div>
                             <h3 className="text-sm font-black uppercase tracking-[0.3em] text-on-surface-variant/60">License</h3>
-                            <p className="text-xl font-black text-on-surface">Open Source</p>
+                            <p className="text-xl font-black text-on-surface">MIT - Open Source</p>
                         </div>
                     </div>
 
@@ -385,12 +385,11 @@ const SettingsPage = () => {
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-4">
+                    <div className="flex overflow-x-auto no-scrollbar gap-4 pb-4">
                         {[
                             { name: 'LRCLib', url: 'https://lrclib.net', color: 'hover:bg-blue-500/20 border-blue-500/20', icon: Music },
                             { name: 'yt-dlp', url: 'https://github.com/yt-dlp/yt-dlp', color: 'hover:bg-red-500/20 border-red-500/20', icon: Terminal },
                             { name: 'Last.fm', url: 'https://www.last.fm', color: 'hover:bg-red-600/20 border-red-600/20', icon: Music },
-                            { name: 'MusicBrainz', url: 'https://musicbrainz.org', color: 'hover:bg-purple-500/20 border-purple-500/20', icon: Globe },
                             { name: 'Node.js', url: 'https://nodejs.org', color: 'hover:bg-green-500/20 border-green-500/20', icon: Cpu },
                             { name: 'TypeScript', url: 'https://www.typescriptlang.org', color: 'hover:bg-blue-600/20 border-blue-600/20', icon: Code2 },
                             { name: 'React', url: 'https://react.dev', color: 'hover:bg-cyan-500/20 border-cyan-500/20', icon: Atom },
@@ -405,7 +404,7 @@ const SettingsPage = () => {
                                 target="_blank"
                                 rel="noreferrer"
                                 className={clsx(
-                                    "px-6 py-4 rounded-2xl bg-surface-variant/10 border transition-all hover:scale-110 active:scale-95 shadow-xl backdrop-blur-md group relative overflow-hidden",
+                                    "px-6 py-4 rounded-2xl bg-surface-variant/10 border transition-all hover:scale-110 active:scale-95 shadow-xl backdrop-blur-md group relative overflow-hidden shrink-0",
                                     tech.color
                                 )}
                             >

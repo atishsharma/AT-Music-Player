@@ -1,4 +1,4 @@
-import YoutubeDl from 'yt-dlp-exec';
+import { execYtDlp } from '../utils/ytdlp-bin';
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import fs from 'fs';
@@ -90,22 +90,26 @@ export async function startDownload(track: any, options: { format: string, quali
         }
     }
 
-    const subprocess = YoutubeDl.exec(videoId, {
-        output: outputTemplate,
-        format: formatFilter,
-        noPlaylist: true,
-        // Embed metadata and thumbnail
-        embedMetadata: true,
-        embedThumbnail: options.embedThumbnail !== false,
-        parseMetadata: [
-            `:(?P<title>${titleStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
-            `:(?P<artist>${artistStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
-            `:(?P<album>${albumStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
-            `:(?P<uploader>${artistStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`
-        ],
-        // Add extract audio if not mp4
-        ...(options.format !== 'mp4' ? { extractAudio: true, audioFormat: options.format === 'm4a' ? 'm4a' : 'mp3' } : {})
-    });
+    const args = [
+        videoId,
+        '--output', outputTemplate,
+        '--format', formatFilter,
+        '--no-playlist',
+        '--embed-metadata',
+        '--embed-thumbnail',
+        '--parse-metadata', `:(?P<title>${titleStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
+        '--parse-metadata', `:(?P<artist>${artistStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
+        '--parse-metadata', `:(?P<album>${albumStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
+        '--parse-metadata', `:(?P<uploader>${artistStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
+    ];
+
+    if (options.format !== 'mp4') {
+        args.push('--extract-audio');
+        args.push('--audio-format');
+        args.push(options.format === 'm4a' ? 'm4a' : 'mp3');
+    }
+
+    const subprocess = execYtDlp(args);
 
     activeDownloads.set(downloadId, subprocess);
 

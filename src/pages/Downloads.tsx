@@ -4,6 +4,7 @@ import { Download, XCircle, CheckCircle, AlertCircle, Loader2, Trash2, Link2, Mu
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
+import { YtDlpFooter } from '../components/common/YtDlpFooter';
 
 const Downloads = () => {
     const { downloads, setDownload, removeDownload } = useDownloadStore();
@@ -438,6 +439,8 @@ const Downloads = () => {
                     </div>
                 )}
             </AnimatePresence>
+
+            <YtDlpFooter />
         </div>
     );
 };

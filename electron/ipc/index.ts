@@ -10,6 +10,10 @@ import { searchArtists, getArtistById, getAlbumById, getCoverArt } from '../serv
 import { getArtistInfo, getAlbumInfo } from '../services/lastfm';
 import { downloadAsset } from '../services/assets';
 import axios from 'axios';
+import { execFile } from 'child_process';
+import { ytDlpBinaryPath, checkSystemYtDlp } from '../utils/ytdlp-bin';
+import util from 'util';
+const execFilePromise = util.promisify(execFile);
 
 // Register all IPC handlers
 export function registerHandlers(mainWindow: BrowserWindow) {
@@ -138,7 +142,7 @@ export function registerHandlers(mainWindow: BrowserWindow) {
             const results = await searchYouTube(query, 1);
             if (results && results.length > 0) {
                 // Return 'youtubeId' property if available, otherwise fallback to 'id'
-                return results[0].youtubeId || results[0].id;
+                return results[0].id;
             }
             return null;
         } catch (error) {
@@ -149,6 +153,51 @@ export function registerHandlers(mainWindow: BrowserWindow) {
 
     ipcMain.handle('youtube:stream', async (_event, videoId) => {
         return await getStreamUrl(videoId);
+    });
+
+    ipcMain.handle('ytdlp:check', async () => {
+        return checkSystemYtDlp();
+    });
+
+    ipcMain.handle('yt:getVideoStream', async (_event, videoId) => {
+        try {
+            const { stdout } = await execFilePromise(ytDlpBinaryPath, [
+                '-f', 'best[ext=mp4][vcodec!=none][acodec!=none]',
+                '--no-playlist',
+                '--get-url',
+                '--no-warnings',
+                `https://www.youtube.com/watch?v=${videoId}`
+            ]);
+            return stdout.trim();
+        } catch (error) {
+            console.error('Failed to get video stream:', error);
+            throw error;
+        }
+    });
+
+    ipcMain.handle('yt:getVideoStreamWithQuality', async (_event, { videoId, quality }) => {
+        try {
+            // yt-dlp might return two URLs if video and audio are separate (bestvideo+bestaudio)
+            // But HTML5 <video> can only take ONE url for its src.
+            // If we want a SINGLE file with both video and audio in streamable format natively 
+            // without merging on the fly, we must restrict to pre-merged formats:
+            let formatString = 'best[ext=mp4][height<=1080][vcodec!=none][acodec!=none]/best[ext=mp4]';
+            if (quality === '720p') formatString = 'best[ext=mp4][height<=720][vcodec!=none][acodec!=none]/best[ext=mp4]';
+            if (quality === '360p') formatString = 'best[ext=mp4][height<=360][vcodec!=none][acodec!=none]/best[ext=mp4]';
+
+            const { stdout } = await execFilePromise(ytDlpBinaryPath, [
+                '-f', formatString,
+                '--no-playlist',
+                '--get-url',
+                '--no-warnings',
+                `https://www.youtube.com/watch?v=${videoId}`
+            ]);
+
+            return stdout.trim();
+        } catch (error) {
+            console.error('Failed to get video stream with quality:', error);
+            throw error;
+        }
     });
 
     // New Multi-Provider Search

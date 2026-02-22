@@ -67,7 +67,7 @@ const Sidebar = () => {
                     !isCollapsed && "outline outline-1 outline-primary/40 px-4"
                 )}>
                     <div className="w-10 h-10 rounded-full bg-[rgb(var(--md-sys-color-primary))] flex-shrink-0 flex items-center justify-center text-[rgb(var(--md-sys-color-on-primary))] font-black text-lg shadow-lg shadow-primary/40 relative z-10 group-hover:rotate-12 transition-transform overflow-hidden">
-                        <img src="/app_icon.png" alt="Logo" className="w-full h-full object-cover" />
+                        <img src="./app_icon.png" alt="Logo" className="w-full h-full object-cover" />
                     </div>
                     <AnimatePresence>
                         {!isCollapsed && (

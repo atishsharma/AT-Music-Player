@@ -2,6 +2,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.atmusic.pro",
+  "afterPack": "./scripts/afterPack.cjs",
   "asar": true,
   "asarUnpack": [
     "node_modules/better-sqlite3/**/*",
@@ -20,18 +21,34 @@
     "dist-electron",
     "node_modules"
   ],
+  "extraResources": [
+    {
+      "from": "public/app_icon.png",
+      "to": "app_icon.png"
+    },
+    {
+      "from": "bin",
+      "to": "bin"
+    }
+  ],
   "mac": {
-    "target": ["dmg"],
+    "target": ["zip"],
+    "icon": "public/app_icon.png",
     "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
   },
   "win": {
     "target": [
       {
-        "target": "nsis",
+        "target": "portable",
+        "arch": ["x64"]
+      },
+      {
+        "target": "zip",
         "arch": ["x64"]
       }
     ],
-    "artifactName": "${productName}-Windows-${version}-Setup.${ext}"
+    "icon": "public/app_icon.png",
+    "artifactName": "${productName}-Windows-${version}-Portable.${ext}"
   },
   "nsis": {
     "oneClick": false,
@@ -43,7 +60,15 @@
     "target": [
       {
         "target": "AppImage",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
+      },
+      {
+        "target": "deb",
+        "arch": [
+          "x64"
+        ]
       }
     ],
     "category": "AudioVideo",
@@ -70,10 +95,7 @@
       "libsecret-1-0"
     ]
   },
-  "npmRebuild": false,
+  "npmRebuild": true,
   "buildDependenciesFromSource": true,
-  "nodeGypRebuild": false,
-  "electronDownload": {
-    "mirror": "https://github.com/electron/electron/releases/download/"
-  }
+  "nodeGypRebuild": false
 }
