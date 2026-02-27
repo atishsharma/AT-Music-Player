@@ -3,14 +3,11 @@ import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
 
-const ASSETS_DIR = path.join(app.getPath('userData'), 'assets');
-
-if (!fs.existsSync(ASSETS_DIR)) {
-    fs.mkdirSync(ASSETS_DIR, { recursive: true });
-}
-
 export const downloadAsset = async (url: string, subDir: string, fileName: string): Promise<string | null> => {
     try {
+        // Resolve ASSETS_DIR lazily (app must be ready before calling app.getPath)
+        const ASSETS_DIR = path.join(app.getPath('userData'), 'assets');
+
         // Sanitize filename
         const sanitizedFileName = fileName.replace(/[<>:"/\\|?*]/g, '_');
         const targetDir = path.join(ASSETS_DIR, subDir);

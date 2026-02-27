@@ -15,8 +15,10 @@ interface ThemeState {
     currentMood: Mood;
     appearance: Appearance;
     luckyTheme: LuckyTheme | null;
+    zoomLevel: number;
     setMood: (mood: Mood) => void;
     setAppearance: (appearance: Appearance) => void;
+    setZoomLevel: (level: number) => void;
     generateLuckyTheme: () => void;
 }
 
@@ -85,9 +87,16 @@ const updateBodyClass = (mood: Mood, appearance: Appearance, luckyTheme?: LuckyT
 export const useThemeStore = create<ThemeState>()(
     persist(
         (set, get) => ({
-            currentMood: 'focus',
-            appearance: 'dark',
+            currentMood: 'party',
+            appearance: 'light',
             luckyTheme: null,
+            zoomLevel: 1,
+            setZoomLevel: (level) => {
+                set({ zoomLevel: level });
+                if (window.ipcRenderer?.setZoomFactor) {
+                    window.ipcRenderer.setZoomFactor(level);
+                }
+            },
             setMood: (mood) => {
                 const currentAppearance = get().appearance;
                 let nextAppearance = currentAppearance;
@@ -119,6 +128,9 @@ export const useThemeStore = create<ThemeState>()(
             onRehydrateStorage: () => (state) => {
                 if (state) {
                     updateBodyClass(state.currentMood, state.appearance, state.luckyTheme);
+                    if (window.ipcRenderer?.setZoomFactor) {
+                        window.ipcRenderer.setZoomFactor(state.zoomLevel || 1);
+                    }
                 }
             },
         }

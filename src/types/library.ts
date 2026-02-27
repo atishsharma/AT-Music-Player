@@ -11,6 +11,8 @@ export interface Track {
     source?: 'local' | 'youtube' | 'spotify' | 'ytmusic';
     video_id?: string;
     liked?: boolean;
+    date?: string;
+    hasLyrics?: number | boolean;
 }
 
 export interface Album {

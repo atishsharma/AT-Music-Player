@@ -18,6 +18,7 @@ import ArtistDetail from './pages/ArtistDetail';
 import AlbumDetail from './pages/AlbumDetail';
 import SettingsPage from './pages/Settings';
 import LastFMPage from './pages/LastFM';
+import FunPage from './pages/Fun';
 
 
 
@@ -30,6 +31,7 @@ const App = () => {
             <Route index element={<Home />} />
             <Route path="search" element={<Search />} />
             <Route path="library" element={<Library />} />
+            <Route path="fun" element={<FunPage />} />
             <Route path="downloads" element={<Downloads />} />
             <Route path="playlists" element={<PlaylistsPage />} />
             <Route path="playlists/:id" element={<PlaylistDetail />} />

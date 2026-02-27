@@ -1,4 +1,4 @@
-import YoutubeDl from 'yt-dlp-exec';
+import { execYtDlp } from '../utils/ytdlp-bin';
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import fs from 'fs';
@@ -45,21 +45,32 @@ export async function startDownload(track: any, options: { format: string, quali
     mainWindow.webContents.send('download:update', { id: downloadId, title: track.title, state: 'pending', progress: 0 });
 
     let titleStr = track.title;
-    let artistStr = track.artist || 'Unknown Artist';
-    let albumStr = '';
+    let artistStr = 'Unknown Artist';
+    let albumStr = 'Unknown Album';
 
-    if (options.customFilename) {
+    // If customFilename is provided and DIFFERENT from original title, we try to parse it
+    // If it's the SAME or not provided, we follow user request: 
+    // "use video title as song name, unknown artist and unknown album"
+    if (options.customFilename && options.customFilename !== track.title) {
         const parts = options.customFilename.split('-').map(s => s.trim());
         if (parts.length >= 3) {
-            titleStr = parts[0] || titleStr;
-            albumStr = parts[1];
-            artistStr = parts.slice(2).join(' - ') || artistStr;
+            titleStr = parts[0] || track.title;
+            albumStr = parts[1] || 'Unknown Album';
+            artistStr = parts.slice(2).join(' - ') || 'Unknown Artist';
         } else if (parts.length === 2) {
-            titleStr = parts[0] || titleStr;
-            artistStr = parts[1] || artistStr;
+            titleStr = parts[0] || track.title;
+            artistStr = parts[1] || 'Unknown Artist';
+            albumStr = 'Unknown Album';
         } else {
-            titleStr = options.customFilename.trim() || titleStr;
+            titleStr = options.customFilename.trim() || track.title;
+            artistStr = 'Unknown Artist';
+            albumStr = 'Unknown Album';
         }
+    } else {
+        // Not edited: use video title as song name
+        titleStr = track.title;
+        artistStr = 'Unknown Artist';
+        albumStr = 'Unknown Album';
     }
 
     // Build output template using the parsed title instead of full customFilename
@@ -79,21 +90,26 @@ export async function startDownload(track: any, options: { format: string, quali
         }
     }
 
-    const subprocess = YoutubeDl.exec(videoId, {
-        output: outputTemplate,
-        format: formatFilter,
-        noPlaylist: true,
-        // Embed metadata and thumbnail
-        embedMetadata: true,
-        embedThumbnail: options.embedThumbnail !== false,
-        parseMetadata: [
-            `${titleStr.replace(/%/g, '%%')}:%(title)s`,
-            `${artistStr.replace(/%/g, '%%')}:%(artist)s`,
-            ...(albumStr ? [`${albumStr.replace(/%/g, '%%')}:%(album)s`] : [])
-        ],
-        // Add extract audio if not mp4
-        ...(options.format !== 'mp4' ? { extractAudio: true, audioFormat: options.format === 'm4a' ? 'm4a' : 'mp3' } : {})
-    });
+    const args = [
+        videoId,
+        '--output', outputTemplate,
+        '--format', formatFilter,
+        '--no-playlist',
+        '--embed-metadata',
+        '--embed-thumbnail',
+        '--parse-metadata', `:(?P<title>${titleStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
+        '--parse-metadata', `:(?P<artist>${artistStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
+        '--parse-metadata', `:(?P<album>${albumStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
+        '--parse-metadata', `:(?P<uploader>${artistStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
+    ];
+
+    if (options.format !== 'mp4') {
+        args.push('--extract-audio');
+        args.push('--audio-format');
+        args.push(options.format === 'm4a' ? 'm4a' : 'mp3');
+    }
+
+    const subprocess = execYtDlp(args);
 
     activeDownloads.set(downloadId, subprocess);
 

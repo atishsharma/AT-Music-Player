@@ -1,0 +1,271 @@
+import React, { useState } from 'react';
+import { Play, Plus, Minus, Heart, Edit2, Youtube, HardDrive, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { Track } from '../../types/library';
+import { usePlaylistStore } from '../../store/playlistStore';
+import { usePlayerStore } from '../../store/playerStore';
+import { useFavoritesStore } from '../../store/favoritesStore';
+import { useNavigate } from 'react-router-dom';
+
+import clsx from 'clsx';
+import MetadataEditor from './MetadataEditor';
+
+interface SongListProps {
+    tracks: Track[];
+    onPlay: (track: Track) => void;
+    onRemove?: (track: Track) => void;
+}
+
+const SongList: React.FC<SongListProps> = ({ tracks, onPlay, onRemove }) => {
+    const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
+    const navigate = useNavigate();
+    const [editingTrack, setEditingTrack] = useState<Track | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null);
+    const itemsPerPage = 40;
+
+    const formatDuration = (seconds: number) => {
+        const min = Math.floor(seconds / 60);
+        const sec = Math.floor(seconds % 60);
+        return `${min}:${sec.toString().padStart(2, '0')}`;
+    };
+
+    if (tracks.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 text-center text-on-surface-variant">
+                <p>No songs found.</p>
+            </div>
+        );
+    }
+
+    const totalPages = Math.ceil(tracks.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedTracks = tracks.slice(startIndex, startIndex + itemsPerPage);
+
+    const handleAddTrackToPlaylist = async (playlistId: number, track: Track) => {
+        setSelectedPlaylistId(playlistId);
+        const success = await usePlaylistStore.getState().addTrackToPlaylist(playlistId, track.id as number);
+        if (success) {
+            // Toast logic will be handled globally if possible, or we could add a local toast here
+            // But user said "toast should appear... saying song name - added to playlist name"
+            // Let's assume we have a global toast method
+            (window as any).showToast?.(`${track.title} - added to ${usePlaylistStore.getState().playlists.find(p => p.id === playlistId)?.name}`);
+            setTimeout(() => setSelectedPlaylistId(null), 1500);
+        }
+    };
+
+    return (
+        <div className="w-full space-y-6">
+            <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_auto_auto_auto_auto] gap-4 px-4 py-2 border-b border-surface-variant/50 text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] sticky top-16 bg-background/95 backdrop-blur-md z-[11]">
+                <div className="w-8 text-center ml-2">#</div>
+                <div>Title</div>
+                <div className="hidden md:block">Artist</div>
+                <div className="hidden lg:block">Album</div>
+                <div className="hidden xl:block text-center">Source</div>
+                <div className="w-20 text-center outline outline-1 outline-primary/20 rounded-md py-1">Length</div>
+                <div className="w-32 text-center outline outline-1 outline-primary/20 rounded-md py-1">Actions</div>
+            </div>
+
+            <div className="divide-y divide-surface-variant/10">
+                {paginatedTracks.map((track, index) => {
+                    const isFav = isFavorite(track.id as string);
+                    const globalIndex = startIndex + index + 1;
+                    return (
+                        <div
+                            key={track.path + index}
+                            className="group grid grid-cols-[auto_1fr_1fr_1fr_1fr_auto_auto_auto_auto] gap-4 px-4 py-3 items-center hover:bg-surface-variant/30 transition-all cursor-default rounded-2xl mx-1"
+                        >
+                            <div className="w-8 text-center text-on-surface-variant text-sm font-bold group-hover:hidden ml-2 opacity-40">
+                                {globalIndex}
+                            </div>
+                            <div
+                                className="w-8 justify-center hidden group-hover:flex cursor-pointer hover:scale-110 transition-transform ml-2 px-1"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onPlay(track);
+                                }}
+                            >
+                                <Play size={16} className="text-primary fill-current" />
+                            </div>
+
+                            <div
+                                className="flex items-center gap-3 overflow-hidden cursor-pointer"
+                                onClick={() => onPlay(track)}
+                            >
+                                <div className="w-10 h-10 rounded-xl bg-surface-variant flex-shrink-0 flex items-center justify-center overflow-hidden shadow-sm group-hover:shadow-primary/20 transition-all">
+                                    {track.image_path ? (
+                                        <img
+                                            src={track.image_path.startsWith('http') ? track.image_path : `atmusic://${track.image_path}`}
+                                            className="w-full h-full object-cover"
+                                            alt=""
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center text-primary/40 text-xs font-bold font-mono">
+                                            TRK
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="truncate">
+                                    <div className="font-bold text-on-background truncate group-hover:text-primary transition-colors" title={track.title}>{track.title}</div>
+                                    <div className="md:hidden text-xs text-on-surface-variant/60 font-medium truncate" title={track.artist}>{track.artist}</div>
+                                </div>
+                            </div>
+
+                            <div
+                                className="hidden md:block truncate text-on-surface-variant/80 font-medium hover:text-primary transition-colors cursor-pointer"
+                                title={track.artist}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/artist/${encodeURIComponent(track.artist)}`);
+                                }}
+                            >
+                                {track.artist}
+                            </div>
+                            <div
+                                className="hidden lg:block truncate text-on-surface-variant/80 font-medium hover:text-primary transition-colors cursor-pointer"
+                                title={track.album}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/album/${encodeURIComponent(track.album)}`);
+                                }}
+                            >
+                                {track.album}
+                            </div>
+
+                            <div className="hidden xl:flex items-center justify-center">
+                                {track.source === 'youtube' ? (
+                                    <a
+                                        href={`https://www.youtube.com/watch?v=${track.video_id}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 text-red-500 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all scale-90"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <Youtube size={12} /> YouTube <ExternalLink size={10} />
+                                    </a>
+                                ) : (
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-widest scale-90 opacity-60">
+                                        <HardDrive size={12} /> Local
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="w-16 text-center text-sm text-on-surface-variant font-bold tabular-nums">
+                                {formatDuration(track.duration)}
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (isFav) removeFavorite(track.id as string);
+                                        else addFavorite({ ...track, id: track.id as string, type: 'song' });
+                                    }}
+                                    className={clsx(
+                                        "p-2 rounded-full transition-all duration-300 transform",
+                                        isFav ? "text-primary scale-110 opacity-100" : "text-on-surface-variant/40 opacity-0 group-hover:opacity-100 hover:text-primary hover:bg-primary/10"
+                                    )}
+                                >
+                                    <Heart size={18} fill={isFav ? "currentColor" : "none"} />
+                                </button>
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingTrack(track);
+                                    }}
+                                    className="p-2 rounded-full text-on-surface-variant/40 hover:text-primary hover:bg-primary/10 transition-all opacity-0 group-hover:opacity-100"
+                                    title="Edit Metadata"
+                                >
+                                    <Edit2 size={16} />
+                                </button>
+
+                                <div className="relative group/menu">
+                                    {onRemove ? (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onRemove(track);
+                                            }}
+                                            className="p-2 rounded-full text-on-surface-variant/40 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                                            title="Remove from Playlist"
+                                        >
+                                            <Minus size={18} />
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button className="p-2 rounded-full text-on-surface-variant/40 hover:text-primary hover:bg-primary/10 transition-all opacity-0 group-hover:opacity-100">
+                                                <Plus size={18} />
+                                            </button>
+                                            <div className="absolute right-0 bottom-full mb-2 w-56 bg-surface border border-primary/20 rounded-[2rem] shadow-2xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50 overflow-hidden divide-y divide-white/5 backdrop-blur-xl">
+                                                <button
+                                                    className="w-full text-left px-5 py-3 hover:bg-primary hover:text-on-primary text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-3"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        usePlayerStore.getState().addToQueue(track);
+                                                    }}
+                                                >
+                                                    <Plus size={14} /> Add to Queue
+                                                </button>
+                                                <div className="px-5 py-2.5 text-[9px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] bg-white/5">Collect in Playlist</div>
+                                                <div className="max-h-48 overflow-y-auto no-scrollbar">
+                                                    {usePlaylistStore.getState().playlists.map(pl => (
+                                                        <button
+                                                            key={pl.id}
+                                                            className={clsx(
+                                                                "w-full text-left px-5 py-2.5 text-xs font-bold transition-all truncate flex items-center justify-between",
+                                                                selectedPlaylistId === pl.id ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-white/5 hover:text-primary"
+                                                            )}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleAddTrackToPlaylist(pl.id, track);
+                                                            }}
+                                                        >
+                                                            {pl.name}
+                                                            {selectedPlaylistId === pl.id && <Plus size={12} className="animate-pulse" />}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                {usePlaylistStore.getState().playlists.length === 0 && (
+                                                    <div className="px-5 py-4 text-xs text-on-surface-variant/40 italic">No playlists yet</div>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4 pt-8 pb-12">
+                    <button
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        className="p-3 rounded-full bg-surface-variant/30 text-on-surface-variant hover:bg-primary hover:text-on-primary disabled:opacity-20 disabled:cursor-not-allowed transition-all shadow-lg"
+                    >
+                        <ChevronLeft size={24} />
+                    </button>
+                    <div className="px-6 py-2 bg-surface-variant/30 rounded-full text-sm font-black tracking-widest text-on-surface-variant">
+                        PAGE <span className="text-primary">{currentPage}</span> / {totalPages}
+                    </div>
+                    <button
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        className="p-3 rounded-full bg-surface-variant/30 text-on-surface-variant hover:bg-primary hover:text-on-primary disabled:opacity-20 disabled:cursor-not-allowed transition-all shadow-lg"
+                    >
+                        <ChevronRight size={24} />
+                    </button>
+                </div>
+            )}
+
+            {editingTrack && (
+                <MetadataEditor track={editingTrack} onClose={() => setEditingTrack(null)} />
+            )}
+        </div>
+    );
+};
+
+export default SongList;

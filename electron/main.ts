@@ -1,10 +1,9 @@
 import { app, BrowserWindow, protocol, shell } from 'electron'
 
-// Fix crash on Linux packaged builds – Electron sandbox requires SUID on most distros
+// Required for Linux: Chromium sandbox needs SUID helper or --no-sandbox
+// Without this, packaged AppImage will core dump (SIGTRAP) on most distros
 if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('no-sandbox')
-  app.commandLine.appendSwitch('disable-gpu-sandbox')
-  app.commandLine.appendSwitch('disable-setuid-sandbox')
+  app.commandLine.appendSwitch('no-sandbox');
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -51,7 +50,9 @@ function createWindow() {
     minHeight: 800,
     autoHideMenuBar: true,
     titleBarStyle: 'hiddenInset',
-    icon: path.join(process.env.VITE_PUBLIC, 'app_icon.png'),
+    icon: VITE_DEV_SERVER_URL
+      ? path.join(process.env.APP_ROOT, 'public', 'app_icon.png')
+      : path.join(process.resourcesPath, 'app_icon.png'),
     fullscreenable: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
@@ -97,14 +98,38 @@ app.on('activate', () => {
 app.whenReady().then(() => {
   protocol.handle('atmusic', async (request) => {
     try {
-      const filePath = request.url.replace(/^atmusic:\/\//, '');
-      let decodedPath = decodeURIComponent(filePath);
+      let decodedPath = '';
 
-      if (process.platform !== 'win32' && !decodedPath.startsWith('/')) {
-        decodedPath = '/' + decodedPath;
+      try {
+        const parsedUrl = new URL(request.url);
+        if (parsedUrl.searchParams.has('path')) {
+          decodedPath = parsedUrl.searchParams.get('path') || '';
+        }
+      } catch (e) {
+        // Fallback for parsing errors
       }
-      if (process.platform === 'win32' && decodedPath.startsWith('/') && decodedPath.match(/^\/[a-zA-Z]:/)) {
-        decodedPath = decodedPath.substring(1);
+
+      if (!decodedPath) {
+        // Fallback logic for raw paths (atmusic://C:/Users/...)
+        const filePath = request.url.replace(/^atmusic:\/\//, '');
+        decodedPath = decodeURIComponent(filePath.split('?')[0]);
+
+        if (process.platform === 'win32') {
+          // Electron's URL parser treats the drive letter as the URL hostname,
+          // lowercases it, and strips the colon:
+          //   atmusic://C:/Users/... → request.url = 'atmusic://c/Users/...'
+          if (decodedPath.match(/^[a-zA-Z]\//) && !decodedPath.includes(':')) {
+            decodedPath = decodedPath[0].toUpperCase() + ':/' + decodedPath.slice(2);
+          }
+          // Also handle the '/C:/...' form just in case
+          if (decodedPath.startsWith('/') && decodedPath.match(/^\/[a-zA-Z]:/)) {
+            decodedPath = decodedPath.substring(1);
+          }
+        } else {
+          if (!decodedPath.startsWith('/')) {
+            decodedPath = '/' + decodedPath;
+          }
+        }
       }
 
       const fs = await import('node:fs');

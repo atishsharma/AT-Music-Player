@@ -39,6 +39,9 @@ interface PlayerState {
     toggleMute: () => void;
     setLyrics: (lyrics: any) => void;
     setLoadingLyrics: (loading: boolean) => void;
+    removeFromQueue: (index: number) => void;
+    reorderQueue: (newQueue: Track[]) => void;
+    clearQueue: () => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -66,12 +69,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             if (state.currentTrack?.id === track.id) {
                 set({ isPlaying: true });
             } else {
-                // Playing a new track. 
-                // If it's not in queue, what happens? 
-                // For now, simpler logic: just play it.
+                // When we play a new song, push the currently playing song to the top of the queue 
+                // so it's not lost and acts like a "Recently played" mechanism in the queue itself.
+                let updatedQueue = [...state.queue];
+                if (state.currentTrack) {
+                    updatedQueue.unshift(state.currentTrack);
+                }
+
                 set((state) => ({
                     currentTrack: track,
                     isPlaying: true,
+                    queue: updatedQueue,
                     history: state.currentTrack ? [...state.history, state.currentTrack] : state.history
                 }));
             }
@@ -84,33 +92,26 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     next: () => {
         const { queue, currentTrack, history } = get();
-        if (queue.length === 0) return;
+        if (queue.length === 0 && !currentTrack) return;
 
         let nextTrack: Track | null = null;
         const nextQueue = [...queue];
 
-        // If queue has items
-        // Logic depends on where we are in queue.
-        // For simplicity: queue acts as "Up Next".
-
-        // Better logic: Queue is the current playlist context.
-        // We need an index.
-
-        // Let's implement a simple "Up Next" queue for now.
-        // pop from queue? Or just iterate?
-        // Let's pop for now.
-
         if (nextQueue.length > 0) {
             nextTrack = nextQueue.shift() || null;
+            if (currentTrack) {
+                // Endless queue: push the previously played track to the end
+                nextQueue.push(currentTrack);
+            }
             set({
                 currentTrack: nextTrack,
                 queue: nextQueue,
                 history: currentTrack ? [...history, currentTrack] : history,
                 isPlaying: true
             });
-        } else {
-            // Queue empty.
-            set({ isPlaying: false });
+        } else if (currentTrack) {
+            // If queue is empty but we have a current track, just replay it to simulate endless single track
+            set({ isPlaying: true, currentTime: 0 });
         }
     },
 
@@ -146,7 +147,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         loop: state.loop === 'none' ? 'all' : state.loop === 'all' ? 'one' : 'none'
     })),
 
-    toggleShuffle: () => set((state) => ({ shuffle: !state.shuffle })),
+    toggleShuffle: () => set((state) => {
+        const willShuffle = !state.shuffle;
+        let newQueue = [...state.queue];
+        if (willShuffle && newQueue.length > 0) {
+            // Fisher-Yates shuffle
+            for (let i = newQueue.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newQueue[i], newQueue[j]] = [newQueue[j], newQueue[i]];
+            }
+        }
+        return { shuffle: willShuffle, queue: newQueue };
+    }),
 
     togglePlayer: () => set((state) => ({ isPlayerOpen: !state.isPlayerOpen })),
 
@@ -165,4 +177,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     })),
     setLyrics: (lyrics) => set({ lyrics }),
     setLoadingLyrics: (loading) => set({ loadingLyrics: loading }),
+    removeFromQueue: (index) => set((state) => ({
+        queue: state.queue.filter((_, i) => i !== index)
+    })),
+    reorderQueue: (newQueue) => set({ queue: newQueue }),
+    clearQueue: () => set({ queue: [] }),
 }));

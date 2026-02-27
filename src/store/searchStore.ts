@@ -17,6 +17,7 @@ interface SearchState {
     setActiveProvider: (provider: SearchProvider) => void;
     performSearch: (query: string) => Promise<void>;
     loadMore: () => Promise<void>;
+    clearSearch: () => void;
 }
 
 export const useSearchStore = create<SearchState>((set, get) => ({
@@ -26,7 +27,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         youtube: [],
         ytmusic: []
     },
-    activeProvider: 'all',
+    activeProvider: 'youtube',
     isLoading: false,
     offsets: {
         youtube: 7,
@@ -37,6 +38,20 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     setActiveProvider: (activeProvider) => {
         set({ activeProvider });
+        // Optionally if we want to run search upon provider switch? The user asked to only search in library when clicking on it.
+        // Actually, if a query exists, it should probably search again using the new tab or we just re-run search.
+        const currentQuery = get().query;
+        if (currentQuery) {
+            get().performSearch(currentQuery);
+        }
+    },
+
+    clearSearch: () => {
+        set({
+            query: '',
+            lastResults: { library: [], youtube: [], ytmusic: [] },
+            isLoading: false
+        });
     },
 
     performSearch: async (query: string) => {
@@ -44,15 +59,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         set({
             isLoading: true,
             query,
-            activeProvider: 'all',
             offsets: { youtube: 7, ytmusic: 0 },
             lastResults: { library: [], youtube: [], ytmusic: [] }
         });
 
         try {
+            const activeProvider = get().activeProvider;
             const results = await Promise.all([
-                window.ipcRenderer.invoke('search:library', query),
-                window.ipcRenderer.invoke('search:youtube', query, { limit: 7 })
+                activeProvider === 'library' ? window.ipcRenderer.invoke('search:library', query) : Promise.resolve([]),
+                activeProvider === 'youtube' ? window.ipcRenderer.invoke('search:youtube', query, { limit: 7 }) : Promise.resolve([])
             ]);
 
             set({

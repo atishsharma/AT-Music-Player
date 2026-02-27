@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePlaylistStore } from '../store/playlistStore';
-import { ArrowLeft, Play, ImagePlus } from 'lucide-react';
+import { ArrowLeft, Play, ImagePlus, Music } from 'lucide-react';
 import SongList from '../components/library/SongList';
 import { usePlayerStore } from '../store/playerStore';
+import { toAtmusicUrl } from '../utils/path';
 
 const PlaylistDetail = () => {
     const { id } = useParams();
@@ -41,7 +42,7 @@ const PlaylistDetail = () => {
             <div className="p-8 bg-gradient-to-b from-primary/20 to-transparent flex items-end gap-8">
                 <div className="w-52 h-52 bg-surface border border-primary/20 rounded-2xl shadow-xl flex items-center justify-center relative group overflow-hidden flex-shrink-0">
                     {currentPlaylist.image_path ? (
-                        <img src={`atmusic://${currentPlaylist.image_path}`} alt={currentPlaylist.name} className="w-full h-full object-cover" />
+                        <img src={toAtmusicUrl(currentPlaylist.image_path)} alt={currentPlaylist.name} className="w-full h-full object-cover" />
                     ) : (
                         <span className="text-6xl font-bold text-primary opacity-50">{currentPlaylist.name[0]}</span>
                     )}
@@ -49,28 +50,42 @@ const PlaylistDetail = () => {
                         <ImagePlus size={32} />
                     </button>
                 </div>
-                <div className="flex-1">
-                    <button
-                        onClick={() => navigate('/playlists')}
-                        className="flex items-center gap-2 text-on-surface-variant hover:text-on-background transition-colors mb-4"
-                    >
-                        <ArrowLeft size={20} /> Back to Playlists
-                    </button>
-                    <h5 className="uppercase tracking-widest text-sm font-bold text-on-surface-variant">Playlist</h5>
-                    <h1 className="text-6xl font-black text-on-background tracking-tight">{currentPlaylist.name}</h1>
-                    <div className="flex items-center gap-4">
+                <div className="flex-1 flex flex-col md:flex-row items-end md:items-center justify-between gap-6">
+                    <div className="flex-1">
                         <button
-                            onClick={handlePlayPlaylist}
-                            className="w-14 h-14 bg-primary hover:bg-primary/90 rounded-full flex items-center justify-center text-on-primary shadow-lg shadow-primary/30 transition-all hover:scale-105"
+                            onClick={() => navigate('/playlists')}
+                            className="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors mb-6 group"
                         >
-                            <Play size={28} fill="currentColor" className="ml-1" />
+                            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+                            <span className="font-black text-[10px] uppercase tracking-widest">Back to Playlists</span>
                         </button>
+
+                        <div className="flex items-center gap-6">
+                            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/30 outline outline-1 outline-primary/20 shadow-lg shadow-primary/10">
+                                <Music size={28} />
+                            </div>
+                            <div>
+                                <h5 className="uppercase tracking-[0.2em] text-[10px] font-black text-on-surface-variant opacity-60">Playlist Detail</h5>
+                                <h1 className="text-5xl font-black text-primary tracking-tighter italic uppercase">{currentPlaylist.name}</h1>
+                            </div>
+                        </div>
+                        <div className="mt-4">
+                            <button
+                                onClick={handlePlayPlaylist}
+                                className="w-14 h-14 bg-primary hover:bg-primary/90 rounded-full flex items-center justify-center text-on-primary shadow-lg shadow-primary/30 transition-all hover:scale-105"
+                            >
+                                <Play size={28} fill="currentColor" className="ml-1" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="shrink-0 pb-2">
                         <button
                             onClick={() => {
                                 deletePlaylist(currentPlaylist.id);
                                 navigate('/playlists');
                             }}
-                            className="text-on-surface-variant hover:text-red-500 px-4 py-2 border border-primary/20 rounded-full transition-colors font-medium text-sm hover:bg-red-500/10 hover:border-red-500/50"
+                            className="text-on-surface-variant hover:text-red-500 px-6 py-3 bg-surface-variant/20 hover:bg-red-500/10 border border-white/5 hover:border-red-500/30 rounded-2xl transition-all font-black text-[10px] uppercase tracking-[0.2em] active:scale-95 shadow-lg"
                         >
                             Delete Playlist
                         </button>

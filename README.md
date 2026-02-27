@@ -1,87 +1,64 @@
-# AT Music Player — Pro
+# AT Music Player — Pro Edition
 
 <img src="/public/app_icon.png" style="max-width:100%; width:170px;" /> 
 
-✨ **A Premium Desktop Music Player With Local Music Library Management, YouTube Streaming and Last.fm Scrobbling.**
-
-### Designed with ❤️ by **Atish Ak Sharma**
-
-![Platform](https://img.shields.io/badge/platform-Linux-blue?logo=linux)
-![Electron](https://img.shields.io/badge/Electron-30-47848F?logo=electron)
-![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
-![License](https://img.shields.io/badge/license-MIT-green)
+  [![Platform](https://img.shields.io/badge/platform-Linux-blue?style=for-the-badge&logo=linux)](https://github.com/atishsharma/AT-Music-Player)
+  [![Platform](https://img.shields.io/badge/platform-Windows-0078D4?style=for-the-badge&logo=windows)](https://github.com/atishsharma/AT-Music-Player)
+  [![Electron](https://img.shields.io/badge/Electron-30-47848F?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
+  [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+</div>
 
 ---
 
-## Features
+## ✨ Overview
 
-- 🎵 **Local Library** — Scan and play local music files (MP3, FLAC, WAV, OGG)
-- 📺 **YouTube Streaming** — Stream audio from YouTube via yt-dlp (opus/webm)
-- 🎤 **Synced Lyrics** — Real-time scrolling lyrics via LRCLib
-- 📻 **Last.fm Scrobbling** — Auto-scrobble everything you listen to
-- 📥 **Downloads** — Download Songs directly to your library
-- 🌙 **Zen / Fullscreen Mode** — Immersive visualizer experience
-- 🎼 **Playlists** — Create and manage playlists
-- 📖 **History** — Full playback history tracking
-- ⚡ **Smart Caching** — Background audio caching for instant replay
+**AT Music Player** is a state-of-the-art desktop music application designed for audiophiles who demand both functionality and beauty. Built with Electron, React, and Vite, it supports both **Linux** and **Windows** platforms, providing a fluid, responsive experience.
 
 ---
 
-## Tech Stack
+## 🚀 Key Features
 
-| Layer | Technology |
-|---|---|
-| Shell | [Electron 30](https://www.electronjs.org/) |
-| Frontend | [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) |
-| Build | [Vite 5](https://vitejs.dev/) + [vite-plugin-electron](https://github.com/electron-vite/vite-plugin-electron) |
-| Styling | [Tailwind CSS 3](https://tailwindcss.com/) + [Framer Motion](https://www.framer.com/motion/) |
-| Database | [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) |
-| Audio DL | [yt-dlp-exec](https://github.com/nickvdyck/yt-dlp-exec) |
-| Metadata | [music-metadata](https://github.com/borewit/music-metadata) |
-| Packaging | [electron-builder](https://www.electron.build/) |
+### 🎧 Pure Playback
+- **Cross-Platform**: Full support for Linux and Windows desktop environments.
+- **Local Library**: Instantly scan and organize thousands of files (MP3, FLAC, WAV, OGG).
+- **YouTube Engine**: Stream audio directly from YouTube with intelligent webm/opus caching.
 
 ---
 
-## Prerequisites
+## 🛠 Tech Stack
 
-- **Node.js** 18+ and **npm**
-- **yt-dlp** installed and available in PATH: `sudo apt install yt-dlp` or `pip install yt-dlp`
-- **ffmpeg** installed: `sudo apt install ffmpeg`
-
----
-
-## Getting Started
-
-```bash
-# Clone the repository
-git clone https://github.com/atishsharma/AT-Music-Player.git
-cd AT-Music-Player
-
-# Install dependencies (also rebuilds native modules for Electron)
-npm install
-
-# Start in development mode
-npm run dev
-```
+| Layer | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Shell** | [Electron 30](https://www.electronjs.org/) | Cross-platform desktop environment |
+| **Framework** | [React 18](https://react.dev/) | Component-based UI architecture |
+| **Build Tool** | [Vite 5](https://vitejs.dev/) | Ultra-fast development and bundling |
+| **Styling** | [Tailwind CSS](https://tailwindcss.com/) | Modern utility-first CSS |
 
 ---
 
-## Building
+## 📦 Getting Started
 
-```bash
-# Build AppImage for Linux
-npm run build:electron
+### Prerequisites
 
-# Output: release/<version>/AT Music Player - Pro-Linux-<version>.AppImage
-```
+- **Node.js 18+**
+- **FFmpeg**: Required for audio processing
+- **yt-dlp**: Required for YouTube streaming
 
-Make the AppImage executable and run:
+---
 
-```bash
-chmod +x "release/1.1.1/AT Music Player - Pro-Linux-1.1.1.AppImage"
-"./release/1.1.1/AT Music Player - Pro-Linux-1.1.1.AppImage"
-```
+## 🛡️ License & Credits
+
+Distributed under the **MIT License**.
+
+### Powered by Open Source
+- **[React](https://react.dev)** — Frontend framework
+- **[Vite](https://vitejs.dev)** — Build tool
+- **[LRCLib](https://lrclib.net)** — Synced lyrics API
+- **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** — Media extraction
+- **[Last.fm](https://last.fm)** — Music discovery and tracking
+- **[MusicBrainz](https://musicbrainz.org)** — Open music encyclopedia
+- **[Node.js](https://nodejs.org)** & **[TypeScript](https://www.typescriptlang.org)** — The core foundations
 
 ---
 

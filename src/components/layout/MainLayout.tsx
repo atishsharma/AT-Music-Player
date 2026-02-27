@@ -16,7 +16,7 @@ import Toast from '../common/Toast';
 const MainLayout = () => {
     const isPlayerOpen = usePlayerStore(state => state.isPlayerOpen);
     return (
-        <div className="flex h-screen bg-background overflow-hidden relative">
+        <div className="flex h-screen bg-background overflow-hidden relative border-t-4 border-r-4 border-l-4 border-b-4 border-primary/60">
             <Toast />
             <BackgroundWatermarks />
             <SidebarOverlay />

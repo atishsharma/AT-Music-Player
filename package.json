@@ -8,10 +8,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "electron:dev": "vite",
     "build": "tsc && vite build",
-    "build:electron": "tsc && vite build && electron-builder --linux AppImage",
+    "build:electron": "tsc && vite build && electron-builder --win",
     "postinstall": "electron-builder install-app-deps",
     "rebuild-native": "electron-rebuild -f -w better-sqlite3",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
@@ -31,6 +33,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.2",
     "@types/better-sqlite3": "^7.6.13",
     "@types/fluent-ffmpeg": "^2.1.28",
     "@types/node": "^25.3.0",
@@ -40,7 +43,7 @@
     "@typescript-eslint/parser": "^7.1.1",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.24",
-    "electron": "^30.0.1",
+    "electron": "^30.5.1",
     "electron-builder": "^24.13.3",
     "electron-rebuild": "^3.2.9",
     "eslint": "^8.57.0",
