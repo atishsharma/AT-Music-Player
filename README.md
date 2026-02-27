@@ -1,10 +1,6 @@
 # AT Music Player — Pro Edition
 
-<div align="center">
-  <img src="public/app_icon.png" width="180" alt="AT Music Player Logo" />
-  <br />
-  <h3><b>A Premium, High-Performance Desktop Music Player</b></h3>
-  <p>Local Management • YouTube Streaming • Last.fm Scrobbling • High-End Aesthetics</p>
+<img src="/public/app_icon.png" style="max-width:100%; width:170px;" /> 
 
   [![Platform](https://img.shields.io/badge/platform-Linux-blue?style=for-the-badge&logo=linux)](https://github.com/atishsharma/AT-Music-Player)
   [![Platform](https://img.shields.io/badge/platform-Windows-0078D4?style=for-the-badge&logo=windows)](https://github.com/atishsharma/AT-Music-Player)
@@ -66,7 +62,66 @@ Distributed under the **MIT License**.
 
 ---
 
-<div align="center">
-  <p>Designed & Developed with ❤️ by <b>Atish Ak Sharma</b></p>
-  <a href="https://atishaksharma.com">atishaksharma.com</a>
-</div>
+## Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start dev server with hot reload |
+| `npm run build` | Build renderer only (Vite) |
+| `npm run build:electron` | Full production build → AppImage |
+| `npm run rebuild-native` | Rebuild `better-sqlite3` for current Electron |
+
+---
+
+## Project Structure
+
+```
+AT-Music-Player/
+├── electron/               # Main process (Node.js/Electron)
+│   ├── main.ts             # App entry, window creation, protocol handler
+│   ├── preload.ts          # Context bridge
+│   ├── db/                 # SQLite database schema & queries
+│   ├── ipc/                # IPC handler registration
+│   └── services/           # Business logic
+│       ├── ytdlp.ts        # YouTube streaming & download
+│       ├── scanner.ts      # Local music library scanner
+│       ├── downloader.ts   # Download manager
+│       ├── lyrics.ts       # LRCLib lyrics fetching
+│       ├── lastfm.ts       # Last.fm scrobbling
+│       ├── spotify.ts      # Spotify API integration
+│       └── ...
+├── src/                    # Renderer process (React)
+│   ├── components/         # UI components
+│   ├── stores/             # Zustand state stores
+│   ├── views/              # Page-level views
+│   └── App.tsx
+├── public/                 # Static assets
+├── electron-builder.json5  # Packaging config
+├── vite.config.ts
+└── package.json
+```
+
+---
+
+## Notes
+
+- **YouTube audio** is streamed/cached in **opus/webm** format — this is intentional. Standard Electron does not ship proprietary AAC/H264 codecs; opus is royalty-free and fully supported.
+- The app uses `--no-sandbox` on Linux to avoid Chromium sandbox SUID requirements on most distros.
+- User data (database, audio cache) is stored in `~/.config/at-music-pro/`.
+
+---
+
+## Author
+
+**Atish Ak Sharma** — [atishaksharma.com](https://atishaksharma.com)
+
+---
+
+## License
+
+MIT
+
+
+
+
+
