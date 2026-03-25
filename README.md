@@ -1,4 +1,4 @@
-# AT Music Pro
+# 🎶 AT Music Pro - Premium Music Player ❤️
 
 <img src="/public/app_icon.png" style="max-width:100%; width:170px; border-radius: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.3);" /> 
 
@@ -95,7 +95,7 @@ Distributed under the **MIT License**.
 
 ## Author
 
-**Atish Ak Sharma** — [atishaksharma.com](https://atishaksharma.com)
+**Atish Ak Sharma ❤️ ** — [atishaksharma.com](https://atishaksharma.com)
 
 ---
 MIT © 2026 AT Music Pro
