@@ -1,13 +1,12 @@
 # AT Music Pro
 
-<img src="/public/icon_square.png" style="max-width:100%; width:170px; border-radius: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.3);" /> 
+<img src="/public/app_icon.png" style="max-width:100%; width:170px; border-radius: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.3);" /> 
 
-<div align="left">
   [![Platform](https://img.shields.io/badge/platform-Linux-blue?style=for-the-badge&logo=linux)](https://github.com/atishsharma/AT-Music-Player)
   [![Platform](https://img.shields.io/badge/platform-Windows-0078D4?style=for-the-badge&logo=windows)](https://github.com/atishsharma/AT-Music-Player)
-  [![Platform](https://img.shields.io/badge/platform-macOS-000000?style=for-the-badge&logo=apple)](https://github.com/atishsharma/AT-Music-Player)
   [![Electron](https://img.shields.io/badge/Electron-30-47848F?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
   [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 </div>
 
 ---
