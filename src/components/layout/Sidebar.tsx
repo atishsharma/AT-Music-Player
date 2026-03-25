@@ -77,7 +77,7 @@ const Sidebar = () => {
                                 exit={{ opacity: 0, width: 0 }}
                                 className="text-[rgb(var(--md-sys-color-primary))] font-black text-1.8xl tracking-tighter whitespace-nowrap overflow-hidden"
                             >
-                                Music Player
+                                Music Pro
                             </motion.div>
                         )}
                     </AnimatePresence>

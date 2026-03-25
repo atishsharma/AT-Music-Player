@@ -110,7 +110,7 @@ const Player = () => {
             if (!token) return;
 
             const player = new (window as any).Spotify.Player({
-                name: 'AT Music Player',
+                name: 'AT Music Pro',
                 getOAuthToken: (cb: any) => { cb(token); },
                 volume: volume
             });

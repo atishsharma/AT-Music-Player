@@ -791,7 +791,7 @@ const NowPlaying = () => {
                         AT
                     </div>
                     <h1 className="text-xl font-black tracking-widest text-primary drop-shadow-[0_2px_10px_rgba(var(--md-sys-color-primary),0.5)] uppercase">
-                        Music Player
+                        Music Pro
                     </h1>
                 </div>
 
