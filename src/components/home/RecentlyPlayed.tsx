@@ -28,7 +28,22 @@ const RecentlyPlayed = () => {
         fetchRecent();
     }, []);
 
-    if (recent.length === 0) return null;
+    if (recent.length === 0) {
+        return (
+            <div className="space-y-6">
+                <div className="flex items-center justify-between px-1">
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                        <Clock size={20} className="text-primary" /> Recently Played
+                    </h2>
+                </div>
+                <div className="h-40 rounded-[2rem] border border-dashed border-primary/20 bg-primary/5 flex flex-col items-center justify-center text-primary/50">
+                    <Clock size={32} className="mb-2 opacity-50" />
+                    <p className="font-bold text-sm">No history yet</p>
+                    <p className="text-xs">Songs you play will appear here</p>
+                </div>
+            </div>
+        );
+    }
 
     const visibleItems = recent.slice(0, Math.min(visibleCount, 14));
 

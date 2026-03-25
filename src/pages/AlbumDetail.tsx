@@ -64,7 +64,7 @@ const AlbumDetail = () => {
                 // MusicBrainz enrichment
                 const query = artistName ? `release:${id} AND artist:${artistName}` : `release:${id}`;
                 const mbSearchResponse = await fetch(`https://musicbrainz.org/ws/2/release?query=${encodeURIComponent(query)}&fmt=json`, {
-                    headers: { 'User-Agent': 'ATMusicPro/1.1.1' }
+                    headers: { 'User-Agent': 'ATMusicPro/1.2.1' }
                 });
                 const mbSearchData = await mbSearchResponse.json();
 

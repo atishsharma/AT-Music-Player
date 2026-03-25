@@ -12,7 +12,7 @@
     "node_modules/@ffmpeg-installer/**/*",
     "node_modules/@img/**/*"
   ],
-  "productName": "AT Music Player - Pro",
+  "productName": "AT Music Pro",
   "directories": {
     "output": "release/${version}"
   },
@@ -39,16 +39,12 @@
   "win": {
     "target": [
       {
-        "target": "portable",
-        "arch": ["x64"]
-      },
-      {
         "target": "zip",
         "arch": ["x64"]
       }
     ],
     "icon": "public/app_icon.png",
-    "artifactName": "${productName}-Windows-${version}-Portable.${ext}"
+    "artifactName": "${productName}-Windows-${version}.${ext}"
   },
   "nsis": {
     "oneClick": false,
@@ -76,7 +72,7 @@
     "artifactName": "${productName}-Linux-${version}.${ext}",
     "executableName": "at-music-pro",
     "desktop": {
-      "Name": "AT Music Player Pro",
+      "Name": "AT Music Pro",
       "Comment": "Premium music player with Last.fm and YouTube integration",
       "Categories": "Audio;Music;Player;AudioVideo;",
       "StartupWMClass": "at-music-pro"

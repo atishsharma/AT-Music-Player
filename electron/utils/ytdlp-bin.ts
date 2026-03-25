@@ -5,11 +5,12 @@ import path from 'path';
 
 export function getYtDlpPath(): string {
     const isWin = process.platform === 'win32';
+    const binaryName = isWin ? 'yt-dlp.exe' : 'yt-dlp';
 
-    // 1. Try 'which' or 'where' to get it from system PATH first
+    // 1. Try system PATH first (User preference)
     try {
         const cmd = isWin ? 'where yt-dlp' : 'which yt-dlp';
-        const systemPath = execSync(cmd, { encoding: 'utf8' }).split('\n')[0].trim();
+        const systemPath = execSync(cmd, { encoding: 'utf8', stdio: 'pipe' }).split('\n')[0].trim();
         if (systemPath && fs.existsSync(systemPath)) {
             console.log('Using system PATH yt-dlp:', systemPath);
             return systemPath;
@@ -35,21 +36,21 @@ export function getYtDlpPath(): string {
         }
     }
 
-    // 3. Check for bundled binary in production/resources
-    const bundledPath = path.join(process.resourcesPath, 'bin', isWin ? 'yt-dlp.exe' : 'yt-dlp');
+    // 3. Fallback to bundled binary in production/resources
+    const bundledPath = path.join(process.resourcesPath, 'bin', binaryName);
     if (fs.existsSync(bundledPath)) {
         console.log('Using bundled yt-dlp:', bundledPath);
         return bundledPath;
     }
 
-    // 4. Check in project bin/ if not found in resources (for dev)
-    const devBinPath = path.join(app.getAppPath(), 'bin', isWin ? 'yt-dlp.exe' : 'yt-dlp');
+    // 4. Check in project bin/ (for development)
+    const devBinPath = path.join(app.getAppPath(), 'bin', binaryName);
     if (fs.existsSync(devBinPath)) {
         console.log('Using dev bin yt-dlp:', devBinPath);
         return devBinPath;
     }
 
-    return isWin ? 'yt-dlp.exe' : 'yt-dlp'; // Default to PATH
+    return binaryName; // Fallback to PATH as last resort
 }
 
 export function checkSystemYtDlp(): boolean {

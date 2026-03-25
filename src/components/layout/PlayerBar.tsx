@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Play, SkipBack, SkipForward, Repeat, Shuffle, Volume2, VolumeX, Pause, ChevronUp, Maximize2, ListMusic, Mic2, Heart, Plus } from 'lucide-react';
+import { Play, SkipBack, SkipForward, Repeat, Shuffle, Volume2, VolumeX, Pause, ChevronUp, Maximize2, ListMusic, Mic2, Heart, Plus, PictureInPicture2 } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useFavoritesStore } from '../../store/favoritesStore';
@@ -340,6 +340,22 @@ const PlayerBar = () => {
                     </div>
                 </div>
 
+                <button
+                    onClick={async () => {
+                        try {
+                            await (window as any).windowControls.miniPlayer();
+                        } catch (err) {
+                            console.error('Failed to switch to mini player:', err);
+                        }
+                    }}
+                    className={clsx(
+                        "p-3 rounded-xl transition-all",
+                        isLight ? "bg-black/5 hover:bg-white text-on-primary hover:text-primary" : "bg-primary/10 hover:bg-primary text-primary hover:text-on-primary"
+                    )}
+                    title="Mini Player"
+                >
+                    <PictureInPicture2 size={20} />
+                </button>
                 <button
                     onClick={() => usePlayerStore.getState().togglePlayer()}
                     className={clsx(

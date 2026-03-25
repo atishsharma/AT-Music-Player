@@ -11,7 +11,7 @@ import { getArtistInfo, getAlbumInfo } from '../services/lastfm';
 import { downloadAsset } from '../services/assets';
 import axios from 'axios';
 import { execFile } from 'child_process';
-import { ytDlpBinaryPath, checkSystemYtDlp } from '../utils/ytdlp-bin';
+import { ytDlpBinaryPath, checkSystemYtDlp, execYtDlpJson } from '../utils/ytdlp-bin';
 import util from 'util';
 const execFilePromise = util.promisify(execFile);
 
@@ -137,12 +137,24 @@ export function registerHandlers(mainWindow: BrowserWindow) {
         return await searchYouTube(query);
     });
 
+    // Search for a video ID using yt-dlp search — uses the query AS-IS (no 'music' appended)
     ipcMain.handle('youtube:getVideoId', async (_event, query) => {
         try {
-            const results = await searchYouTube(query, 1);
-            if (results && results.length > 0) {
-                // Return 'youtubeId' property if available, otherwise fallback to 'id'
-                return results[0].id;
+            // Search YouTube directly without appending 'music' so video searches work properly
+            const output = await execYtDlpJson([
+                `ytsearch1:${query}`,
+                '--flat-playlist',
+            ]);
+
+            // Handle both single result and playlist format
+            if (output) {
+                if (output.entries && output.entries.length > 0) {
+                    return output.entries[0].id || null;
+                }
+                // Single result (not wrapped in entries)
+                if (output.id) {
+                    return output.id;
+                }
             }
             return null;
         } catch (error) {
@@ -161,14 +173,39 @@ export function registerHandlers(mainWindow: BrowserWindow) {
 
     ipcMain.handle('yt:getVideoStream', async (_event, videoId) => {
         try {
+            const { isFFmpegAvailable, startVideoProxyServer, configureStream } = await import('../services/videoProxy');
+
+            if (isFFmpegAvailable()) {
+                // Get separate best video + best audio stream URLs
+                const { stdout } = await execFilePromise(ytDlpBinaryPath, [
+                    '-f', 'bestvideo+bestaudio/best',
+                    '--no-playlist',
+                    '--get-url',
+                    '--no-warnings',
+                    `https://www.youtube.com/watch?v=${videoId}`
+                ]);
+
+                const urls = stdout.trim().split('\n').filter(Boolean);
+
+                if (urls.length >= 2) {
+                    // Two URLs = separate video + audio → merge via ffmpeg proxy
+                    const port = await startVideoProxyServer();
+                    configureStream(urls[0], urls[1]);
+                    return `http://127.0.0.1:${port}/stream`;
+                }
+                // Single URL = pre-merged format
+                return urls[0];
+            }
+
+            // Fallback: no ffmpeg, use pre-merged format
             const { stdout } = await execFilePromise(ytDlpBinaryPath, [
-                '-f', 'best[ext=mp4][vcodec!=none][acodec!=none]',
+                '-f', 'best[vcodec!=none][acodec!=none]/best',
                 '--no-playlist',
                 '--get-url',
                 '--no-warnings',
                 `https://www.youtube.com/watch?v=${videoId}`
             ]);
-            return stdout.trim();
+            return stdout.trim().split('\n')[0];
         } catch (error) {
             console.error('Failed to get video stream:', error);
             throw error;
@@ -177,27 +214,83 @@ export function registerHandlers(mainWindow: BrowserWindow) {
 
     ipcMain.handle('yt:getVideoStreamWithQuality', async (_event, { videoId, quality }) => {
         try {
-            // yt-dlp might return two URLs if video and audio are separate (bestvideo+bestaudio)
-            // But HTML5 <video> can only take ONE url for its src.
-            // If we want a SINGLE file with both video and audio in streamable format natively 
-            // without merging on the fly, we must restrict to pre-merged formats:
-            let formatString = 'best[ext=mp4][height<=1080][vcodec!=none][acodec!=none]/best[ext=mp4]';
-            if (quality === '720p') formatString = 'best[ext=mp4][height<=720][vcodec!=none][acodec!=none]/best[ext=mp4]';
-            if (quality === '360p') formatString = 'best[ext=mp4][height<=360][vcodec!=none][acodec!=none]/best[ext=mp4]';
+            let heightLimit = '1080';
+            if (quality === '720p') heightLimit = '720';
+            if (quality === '480p') heightLimit = '480';
+            if (quality === '360p') heightLimit = '360';
 
+            // Step 1: Try to find a pre-merged format (has both video + audio in one file)
+            // This avoids ffmpeg entirely and is the fastest path
+            try {
+                const preMergedFormat = `best[height<=${heightLimit}][vcodec!=none][acodec!=none]/best[ext=mp4][height<=${heightLimit}][vcodec!=none][acodec!=none]`;
+                const { stdout: preMergedOut } = await execFilePromise(ytDlpBinaryPath, [
+                    '-f', preMergedFormat,
+                    '--no-playlist',
+                    '--get-url',
+                    '--no-warnings',
+                    `https://www.youtube.com/watch?v=${videoId}`
+                ]);
+
+                const urls = preMergedOut.trim().split('\n').filter(Boolean);
+                if (urls.length === 1) {
+                    console.log(`[VideoStream] Serving ${quality} directly (pre-merged format)`);
+                    // Stop any running ffmpeg proxy since we don't need it
+                    try {
+                        const { stopStream } = await import('../services/videoProxy');
+                        stopStream();
+                    } catch { /* ignore */ }
+                    return urls[0];
+                }
+            } catch {
+                // No pre-merged format found at this resolution, fall through to ffmpeg
+            }
+
+            // Step 2: No pre-merged format available — use ffmpeg to merge separate streams
+            const { isFFmpegAvailable, startVideoProxyServer, configureStream } = await import('../services/videoProxy');
+
+            if (isFFmpegAvailable()) {
+                const formatString = `bestvideo[height<=${heightLimit}]+bestaudio/best[height<=${heightLimit}]/best`;
+
+                const { stdout } = await execFilePromise(ytDlpBinaryPath, [
+                    '-f', formatString,
+                    '--no-playlist',
+                    '--get-url',
+                    '--no-warnings',
+                    `https://www.youtube.com/watch?v=${videoId}`
+                ]);
+
+                const urls = stdout.trim().split('\n').filter(Boolean);
+
+                if (urls.length >= 2) {
+                    const port = await startVideoProxyServer();
+                    configureStream(urls[0], urls[1]);
+                    console.log(`[VideoStream] Serving ${quality} via ffmpeg proxy (port ${port})`);
+                    return `http://127.0.0.1:${port}/stream`;
+                }
+                return urls[0];
+            }
+
+            // Step 3: No ffmpeg — last resort, get whatever best format is available
             const { stdout } = await execFilePromise(ytDlpBinaryPath, [
-                '-f', formatString,
+                '-f', `best[height<=${heightLimit}]/best`,
                 '--no-playlist',
                 '--get-url',
                 '--no-warnings',
                 `https://www.youtube.com/watch?v=${videoId}`
             ]);
-
-            return stdout.trim();
+            return stdout.trim().split('\n')[0];
         } catch (error) {
             console.error('Failed to get video stream with quality:', error);
             throw error;
         }
+    });
+
+    // Stop any active ffmpeg video proxy stream
+    ipcMain.handle('yt:stopVideoStream', async () => {
+        try {
+            const { stopStream } = await import('../services/videoProxy');
+            stopStream();
+        } catch { /* ignore */ }
     });
 
     // New Multi-Provider Search
@@ -741,30 +834,42 @@ export function registerHandlers(mainWindow: BrowserWindow) {
             return cached;
         }
 
-        // Fetch new recommendations using YouTube API search
+        // Fetch new recommendations using YouTube API search or yt-dlp fallback
         try {
             const apiKeyRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('youtube_api_key') as { value: string } | undefined;
-            if (!apiKeyRow) return [];
+            const searchQuery = `${mood} mood songs playlist`;
+            let items: any[] = [];
 
-            // Search for "mood songs" or "mood music" in both English and Hindi for variety
-            const searchQuery = `${mood} songs music`;
-            const res = await axios.get('https://www.googleapis.com/youtube/v3/search', {
-                params: {
-                    part: 'snippet',
-                    q: searchQuery,
-                    type: 'video',
-                    videoCategoryId: '10', // Music
-                    maxResults: 15,
-                    key: apiKeyRow.value
-                }
-            });
+            if (apiKeyRow && apiKeyRow.value) {
+                const res = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+                    params: {
+                        part: 'snippet',
+                        q: searchQuery,
+                        type: 'video',
+                        videoCategoryId: '10', // Music
+                        maxResults: 15,
+                        key: apiKeyRow.value
+                    }
+                });
 
-            const items = res.data.items.map((item: any) => ({
-                video_id: item.id.videoId,
-                title: item.snippet.title,
-                artist: item.snippet.channelTitle,
-                thumbnail: item.snippet.thumbnails.high?.url
-            })).filter((item: any) => item.video_id);
+                items = res.data.items.map((item: any) => ({
+                    video_id: item.id.videoId,
+                    title: item.snippet.title,
+                    artist: item.snippet.channelTitle,
+                    thumbnail: item.snippet.thumbnails.high?.url
+                })).filter((item: any) => item.video_id);
+            } else {
+                // FALLBACK: Use yt-dlp scraping via searchYTMusic
+                const fallbackItems = await searchYTMusic(searchQuery, 15);
+                items = fallbackItems.map((item: any) => ({
+                    video_id: item.id,
+                    title: item.title,
+                    artist: item.artist,
+                    thumbnail: item.thumbnail
+                })).filter((item: any) => item.video_id);
+            }
+
+            if (items.length === 0) return [];
 
             // Clear old recommendations for THIS mood and save new ones
             db.prepare('DELETE FROM recommendations WHERE mood = ?').run(mood);

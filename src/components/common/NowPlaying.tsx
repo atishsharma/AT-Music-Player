@@ -3,7 +3,7 @@ import { usePlayerStore } from '../../store/playerStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useFavoritesStore } from '../../store/favoritesStore';
 import { usePlaylistStore } from '../../store/playlistStore';
-import { ChevronDown, ChevronUp, ListMusic, Mic2, Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Music2, X, Activity, RefreshCw, Maximize2, Minimize2, Volume2, VolumeX, Box, Dna, Hexagon, Sun, ArrowUpLeft, Heart, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, ListMusic, Mic2, Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Music2, X, Activity, RefreshCw, Maximize2, Minimize2, Volume2, VolumeX, Box, Dna, Hexagon, Sun, ArrowUpLeft, Heart, Plus, PictureInPicture2 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import BackgroundWatermarks from './BackgroundWatermarks';
@@ -154,108 +154,6 @@ const ZenQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, rem
     );
 };
 
-// Extracted Item for Mini Queue Popup
-const MiniQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, removeFavorite, setShowQueuePopup, appearance, queue, reorderQueue }: any) => {
-    const [showPlaylistPopup, setShowPlaylistPopup] = useState(false);
-    const [playlists, setPlaylists] = useState<any[]>([]);
-    const playlistPopupRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (playlistPopupRef.current && !playlistPopupRef.current.contains(event.target as Node)) {
-                setShowPlaylistPopup(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    return (
-        <motion.div
-            layout
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white transition-colors group border border-transparent cursor-pointer"
-        >
-
-            <QueueStepControls index={i} queue={queue} reorderQueue={reorderQueue} appearance={appearance} />
-
-            <div className="w-8 h-8 rounded-lg overflow-hidden bg-black/10 shadow-inner shrink-0 cursor-pointer relative" onClick={() => { play(track); removeFromQueue(i); setShowQueuePopup(false); }}>
-                <img src={track.image_path?.startsWith('http') ? track.image_path : track.image_path ? toAtmusicUrl(track.image_path) : track.thumbnail} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <Play size={12} className="text-white fill-current drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
-                </div>
-            </div>
-            <div className="flex-1 min-w-0 pointer-events-none text-left">
-                <p className="text-xs font-bold truncate text-on-primary group-hover:text-primary transition-colors">{track.title}</p>
-                <p className="text-[10px] text-on-primary/70 truncate group-hover:text-primary/70">{track.artist}</p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-0.5 transition-opacity">
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        const id = track.id?.toString() || track.id;
-                        isFav ? removeFavorite(id) : addFavorite({ ...track, id, type: 'song' });
-                    }}
-                    className={clsx("p-1.5 rounded-full transition-colors", isFav ? "text-primary bg-primary/10" : "text-primary hover:bg-primary/20")}
-                >
-                    <Heart size={14} fill={isFav ? "currentColor" : "none"} />
-                </button>
-                <div className="relative" ref={playlistPopupRef}>
-                    <button
-                        onClick={async (e) => {
-                            e.stopPropagation();
-                            if (!showPlaylistPopup) {
-                                const all = await window.ipcRenderer.invoke('playlist:getAll');
-                                setPlaylists(all);
-                            }
-                            setShowPlaylistPopup(!showPlaylistPopup);
-                        }}
-                        className={clsx("p-1.5 rounded-full text-primary hover:bg-primary/20 transition-colors", showPlaylistPopup && "bg-primary/20")}
-                    >
-                        <Plus size={14} />
-                    </button>
-                    {showPlaylistPopup && (
-                        <div className="absolute bottom-full right-0 mb-2 w-48 bg-primary rounded-xl shadow-2xl z-50 outline outline-1 outline-white/20 border border-white/10 overflow-hidden flex flex-col text-on-primary">
-                            <div className="px-3 py-2 bg-black/10 border-b border-white/10 flex flex-col">
-                                <h4 className="text-[8px] font-black uppercase tracking-widest text-on-primary/60">Add to Playlist</h4>
-                            </div>
-                            <div className="max-h-40 overflow-y-auto no-scrollbar flex flex-col p-1">
-                                {playlists.length > 0 ? playlists.map((pl) => (
-                                    <button
-                                        key={pl.id}
-                                        onClick={async (e) => {
-                                            e.stopPropagation();
-                                            if (track?.id) {
-                                                await window.ipcRenderer.invoke('playlist:addTrack', { playlistId: pl.id, trackId: track.id });
-                                                (window as any).showToast?.(`Added to ${pl.name}`);
-                                            }
-                                            setShowPlaylistPopup(false);
-                                        }}
-                                        className="text-left px-3 py-2 text-[10px] font-bold hover:bg-white hover:text-primary rounded-lg transition-all truncate"
-                                    >
-                                        {pl.name}
-                                    </button>
-                                )) : (
-                                    <p className="text-[8px] text-on-primary/70 italic px-2 py-3 text-center">No playlists found</p>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-                <button
-                    onClick={(e) => { e.stopPropagation(); removeFromQueue(i); }}
-                    className="p-1.5 rounded-full text-primary hover:bg-red-500/20 hover:text-red-500 transition-colors"
-                >
-                    <X size={14} />
-                </button>
-            </div>
-        </motion.div>
-    );
-};
 
 const NowPlaying = () => {
     const appearance = useThemeStore(state => state.appearance);
@@ -285,10 +183,13 @@ const NowPlaying = () => {
     const [fetchedVideoId, setFetchedVideoId] = useState<string | null>(null);
     const [videoStreamUrl, setVideoStreamUrl] = useState<string | null>(null);
     const [isVideoLoading, setIsVideoLoading] = useState(false);
+    const [isSearchingVideo, setIsSearchingVideo] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [videoQuality, setVideoQuality] = useState<'360p' | '720p' | '1080p'>('1080p');
+    const [videoQuality, setVideoQuality] = useState<'360p' | '480p' | '720p' | '1080p'>('360p');
 
-    const videoId = fetchedVideoId || currentTrack?.video_id || (currentTrack?.id?.toString().length > 10 ? currentTrack.id : null);
+    // Priority: fetchedVideoId (from YouTube search for local tracks) > video_id (stored on track) > id (for searched YouTube tracks where id IS the video ID)
+    const isYouTubeIdInTrackId = typeof currentTrack?.id === 'string' && currentTrack.id.length >= 10;
+    const videoId = fetchedVideoId || currentTrack?.video_id || (isYouTubeIdInTrackId ? currentTrack.id : null);
 
     // Lyrics Search State
     const [searchForm, setSearchForm] = useState({ title: '', artist: '', album: '' });
@@ -351,6 +252,7 @@ const NowPlaying = () => {
     useEffect(() => {
         const fetchLyricsAndVideo = async () => {
             setFetchedVideoId(null);
+            setIsSearchingVideo(false);
             if (currentTrack) {
                 setLyrics(null);
 
@@ -376,18 +278,26 @@ const NowPlaying = () => {
                     setLoadingLyrics(false);
                 }
 
-                // Fetch Video ID if missing (for local files)
-                // Also if we have a 'youtubeId' in the track object (from search), use it directly
-                if (currentTrack.youtubeId) {
-                    setFetchedVideoId(currentTrack.youtubeId);
+                // Fetch Video ID for playback
+                // If track already has youtubeId (from search results), use it directly
+                if ((currentTrack as any).youtubeId) {
+                    setFetchedVideoId((currentTrack as any).youtubeId);
                 }
-                else if (!currentTrack.video_id && !currentTrack.id?.toString().startsWith('http')) {
+                // If track already has a video_id, or ID is a YouTube video ID string — no search needed
+                else if (currentTrack.video_id || (typeof currentTrack.id === 'string' && currentTrack.id.length >= 10)) {
+                    // videoId derivation will pick it up automatically
+                }
+                // For local library tracks (numeric id, no video_id), search YouTube
+                else if (currentTrack.title && currentTrack.artist) {
                     try {
-                        const query = `${currentTrack.title} ${currentTrack.artist} Official Music Video`;
+                        setIsSearchingVideo(true);
+                        const query = `${currentTrack.title} ${currentTrack.artist} Official Video`;
                         const vidId = await window.ipcRenderer.invoke('youtube:getVideoId', query);
                         if (vidId) setFetchedVideoId(vidId);
                     } catch (err) {
                         console.error("Failed to fetch video ID", err);
+                    } finally {
+                        setIsSearchingVideo(false);
                     }
                 }
             }
@@ -409,6 +319,8 @@ const NowPlaying = () => {
                 }
             } else {
                 setVideoStreamUrl(null);
+                // Stop ffmpeg proxy when leaving video mode
+                try { (window as any).yt.stopVideoStream(); } catch { /* ignore */ }
             }
         };
         fetchVideoStream();
@@ -944,43 +856,53 @@ const NowPlaying = () => {
 
                     {/* Secondary Controls Row (Song/Video Toggle + Full Screen) */}
                     <div className="mb-8 mt-2 flex items-center justify-center gap-4 z-30 shrink-0">
-                        {(videoId || !currentTrack.video_id) && (
-                            <div className="bg-surface-variant/20 backdrop-blur-md p-1.5 rounded-full border border-white/10 flex items-center shadow-xl">
-                                <button
-                                    onClick={() => {
-                                        setPlaybackMode('audio');
-                                        seek(currentTime); // Force audio player to sync to the exact time on switch
-                                        if (!isPlaying) play(); // Resume audio
-                                    }}
-                                    className={clsx("px-8 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all duration-300",
-                                        playbackMode === 'audio'
-                                            ? "bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105"
-                                            : "text-on-surface-variant hover:text-primary hover:bg-primary/5")}
-                                >
-                                    Song
-                                </button>
-                                <button
-                                    disabled={!videoId}
-                                    onClick={() => {
-                                        setPlaybackMode('video');
-                                        // Pause audio playback when switching to video
-                                        if (isPlaying) pause();
-                                    }}
-                                    className={clsx("px-8 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2",
-                                        playbackMode === 'video'
-                                            ? "bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105"
-                                            : "text-on-surface-variant hover:text-primary hover:bg-primary/5",
-                                        !videoId && "opacity-50 cursor-not-allowed")}
-                                >
-                                    {videoId ? "Video" : (
-                                        <>
-                                            <RefreshCw size={12} className="animate-spin" />
-                                            Finding...
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        )}
+                        <div className="bg-surface-variant/20 backdrop-blur-md p-1.5 rounded-full border border-white/10 flex items-center shadow-xl">
+                            <button
+                                onClick={() => {
+                                    setPlaybackMode('audio');
+                                    seek(currentTime); // Force audio player to sync to the exact time on switch
+                                    if (!isPlaying) play(); // Resume audio
+                                }}
+                                className={clsx("px-8 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all duration-300",
+                                    playbackMode === 'audio'
+                                        ? "bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105"
+                                        : "text-on-surface-variant hover:text-primary hover:bg-primary/5")}
+                            >
+                                Song
+                            </button>
+                            <button
+                                disabled={!videoId && !isSearchingVideo}
+                                onClick={() => {
+                                    if (!videoId) return;
+                                    setPlaybackMode('video');
+                                    // Pause audio playback when switching to video
+                                    if (isPlaying) pause();
+                                }}
+                                className={clsx("px-8 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2",
+                                    playbackMode === 'video'
+                                        ? "bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105"
+                                        : "text-on-surface-variant hover:text-primary hover:bg-primary/5",
+                                    !videoId && "opacity-50 cursor-not-allowed")}
+                            >
+                                {videoId ? "Video" : isSearchingVideo ? (
+                                    <>
+                                        <RefreshCw size={12} className="animate-spin" />
+                                        Finding...
+                                    </>
+                                ) : "Video"}
+                            </button>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                try {
+                                    await (window as any).windowControls.miniPlayer();
+                                } catch (err) { }
+                            }}
+                            className="p-3 bg-surface-variant/20 hover:bg-primary text-on-surface-variant hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md shadow-xl"
+                            title="Mini Player"
+                        >
+                            <PictureInPicture2 size={24} />
+                        </button>
                         <button
                             onClick={() => setIsFullScreenViz(true)}
                             className="p-3 bg-surface-variant/20 hover:bg-primary text-on-surface-variant hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md shadow-xl"
@@ -1023,7 +945,7 @@ const NowPlaying = () => {
 
                             {/* Video Quality Selector Overlay */}
                             <div className="absolute top-4 left-4 z-40 bg-black/60 backdrop-blur-md rounded-full p-1 border border-white/10 shadow-inner flex pointer-events-auto">
-                                {(['360p', '720p', '1080p'] as const).map((q) => (
+                                {(['360p', '480p', '720p', '1080p'] as const).map((q) => (
                                     <button
                                         key={q}
                                         onClick={(e) => { e.stopPropagation(); setVideoQuality(q); }}
@@ -1570,58 +1492,81 @@ const NowPlaying = () => {
                                                 animate={{ x: 0 }}
                                                 exit={{ x: '100%' }}
                                                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                                                className="fixed top-0 right-0 h-full w-[26%] bg-primary shadow-[-20px_0_50px_rgba(var(--md-sys-color-primary),0.3)] z-[100] outline outline-1 outline-white/20 border-l border-white/10 flex flex-col text-on-primary"
+                                                className="fixed top-0 right-0 h-full w-[26%] bg-surface/80 backdrop-blur-2xl border-l border-white/5 z-[100] flex flex-col shadow-2xl outline outline-1 outline-primary outline-offset-[-1px]"
                                             >
-                                                <div className="flex items-center justify-between p-6 border-b border-white/10 shrink-0">
+                                                <div className="flex items-center justify-between p-6 border-b border-white/5 shrink-0">
                                                     <div className="flex items-center gap-2">
-                                                        <ListMusic size={20} className="text-on-primary" />
-                                                        <h4 className="text-lg font-black uppercase tracking-widest text-on-primary">Up Next</h4>
+                                                        <ListMusic size={20} className="text-primary" />
+                                                        <h3 className="font-bold text-lg text-on-background">Playing Queue</h3>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        {queue && queue.length > 0 && (
-                                                            <button
-                                                                onClick={clearQueue}
-                                                                className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border border-white/20 text-on-primary/70 hover:text-white hover:border-white/50 hover:bg-white/10 transition-colors"
-                                                            >
-                                                                Clear
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => setShowQueuePopup(false)}
-                                                            className="p-2 hover:bg-white/10 rounded-full text-on-primary/70 hover:text-white transition-colors"
-                                                        >
-                                                            <X size={20} />
-                                                        </button>
-                                                    </div>
+                                                    <button
+                                                        onClick={() => setShowQueuePopup(false)}
+                                                        className="p-2 hover:bg-white/10 rounded-full text-on-surface-variant transition-colors"
+                                                    >
+                                                        <X size={20} />
+                                                    </button>
                                                 </div>
-                                                <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-1">
-                                                    {queue && queue.length > 0 ? (
-                                                        queue.map((track: any, i: number) => {
-                                                            const id = track.id?.toString() || track.id;
-                                                            const isFavOfItem = isFavorite(id);
-                                                            return (
-                                                                <MiniQueueItem
-                                                                    key={track.id + '-' + i}
-                                                                    track={track}
-                                                                    i={i}
-                                                                    isFav={isFavOfItem}
-                                                                    play={play}
-                                                                    removeFromQueue={removeFromQueue}
-                                                                    addFavorite={addFavorite}
-                                                                    removeFavorite={removeFavorite}
-                                                                    setShowQueuePopup={setShowQueuePopup}
-                                                                    appearance={appearance}
-                                                                    queue={queue}
-                                                                    reorderQueue={reorderQueue}
-                                                                />
-                                                            )
-                                                        })
-                                                    ) : (
-                                                        <div className="h-full flex flex-col items-center justify-center text-on-primary/30 py-20">
-                                                            <ListMusic size={64} className="mb-4 opacity-50" />
-                                                            <p className="text-sm font-black uppercase tracking-widest">Queue is empty</p>
+
+                                                <div className="flex-1 overflow-y-auto no-scrollbar p-6">
+                                                    <div className="space-y-4">
+                                                        {currentTrack && (
+                                                            <div className="bg-primary/10 p-4 rounded-2xl border border-primary/20 pointer-events-none">
+                                                                <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Now Playing</p>
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-primary/20">
+                                                                        {currentTrack.image_path || currentTrack.thumbnail ? (
+                                                                            <img src={currentTrack.image_path?.startsWith('http') ? currentTrack.image_path : currentTrack.image_path ? toAtmusicUrl(currentTrack.image_path) : currentTrack.thumbnail} className="w-full h-full object-cover" />
+                                                                        ) : <div className="w-full h-full flex items-center justify-center"><ListMusic size={16} /></div>}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <h4 className="text-sm font-bold truncate text-on-background">{currentTrack.title}</h4>
+                                                                        <p className="text-xs text-on-surface-variant truncate">{currentTrack.artist}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="pt-4">
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">Up Next</h4>
+                                                                {queue && queue.length > 0 && (
+                                                                    <button
+                                                                        onClick={clearQueue}
+                                                                        className={clsx("text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border transition-colors cursor-pointer", appearance === 'light' ? "text-primary border-primary/20 hover:bg-primary hover:text-white" : "text-primary border-primary/30 hover:bg-primary/20")}
+                                                                    >
+                                                                        Clear Queue
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                            <div className="space-y-2 pb-20">
+                                                                {queue && queue.length > 0 ? (
+                                                                    queue.map((track: any, i: number) => {
+                                                                        const id = track.id?.toString() || track.id;
+                                                                        const isFavOfItem = isFavorite(id);
+                                                                        return (
+                                                                            <ZenQueueItem
+                                                                                key={track.id + '-' + i}
+                                                                                track={track}
+                                                                                i={i}
+                                                                                isFav={isFavOfItem}
+                                                                                play={play}
+                                                                                removeFromQueue={removeFromQueue}
+                                                                                addFavorite={addFavorite}
+                                                                                removeFavorite={removeFavorite}
+                                                                                appearance={appearance}
+                                                                                queue={queue}
+                                                                                reorderQueue={reorderQueue}
+                                                                            />
+                                                                        )
+                                                                    })
+                                                                ) : (
+                                                                    <div className="py-12 text-center text-on-surface-variant/20 italic">
+                                                                        Queue is empty
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    )}
+                                                    </div>
                                                 </div>
                                             </motion.div>
                                         )}
@@ -1629,7 +1574,18 @@ const NowPlaying = () => {
                                 </div>
 
 
-                                <button onClick={() => setIsFullScreenViz(false)} className="p-3 bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white rounded-full transition-all backdrop-blur-sm border border-red-500/30 shadow-lg">
+                                <button 
+                                    onClick={async () => {
+                                        try {
+                                            await (window as any).windowControls.miniPlayer();
+                                        } catch (err) { }
+                                    }} 
+                                    className="p-3 bg-surface-variant/10 hover:bg-primary text-on-surface-variant hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md shadow-xl"
+                                    title="Mini Player"
+                                >
+                                    <PictureInPicture2 size={24} />
+                                </button>
+                                <button onClick={() => setIsFullScreenViz(false)} className="p-3 bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white rounded-full transition-all backdrop-blur-sm border border-red-500/30 shadow-lg" title="Exit Visualizer">
                                     <Minimize2 size={24} />
                                 </button>
                             </div>
@@ -1696,7 +1652,7 @@ const NowPlaying = () => {
                             </div>
 
                             {/* Bottom: Floating Lyrics Display */}
-                            <div className="w-full px-8 flex flex-col items-center pointer-events-none">
+                            <div className={clsx("w-full px-8 flex flex-col items-center pointer-events-none transition-all duration-300", showQueuePopup ? "pr-[28%]" : "")}>
                                 <div className={clsx("w-full max-w-6xl text-center flex flex-col items-center transition-all duration-500 backdrop-blur-md outline outline-1 rounded-[3rem] p-12", appearance === 'light' ? "bg-white/50 outline-primary/30 shadow-[0_20px_50px_rgba(var(--md-sys-color-primary),0.15)]" : "bg-black/20 outline-primary/30 shadow-[0_20px_50px_rgba(0,0,0,0.5)]")}>
                                     {lyrics?.syncedLyrics ? (
                                         (() => {
