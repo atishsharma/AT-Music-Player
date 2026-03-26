@@ -1,0 +1,31 @@
+
+> at-music-pro@1.2.1 lint
+> eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --quiet
+
+
+/home/alpha/Documents/Projects/AT-Music-Player/electron/ipc/index.ts
+  362:38  error  Require statement not part of import statement  @typescript-eslint/no-var-requires
+
+/home/alpha/Documents/Projects/AT-Music-Player/src/components/common/MiniPlayer.tsx
+  35:11  error  Unexpected empty object pattern  no-empty-pattern
+
+/home/alpha/Documents/Projects/AT-Music-Player/src/components/common/NowPlaying.tsx
+   927:47  error  Empty block statement  no-empty
+  1600:55  error  Empty block statement  no-empty
+
+/home/alpha/Documents/Projects/AT-Music-Player/src/components/common/Player.tsx
+   43:25  error  'encodedPath' is never reassigned. Use 'const' instead  prefer-const
+  243:31  error  Empty block statement                                   no-empty
+
+/home/alpha/Documents/Projects/AT-Music-Player/src/components/layout/TitleBar.tsx
+  20:21  error  Empty block statement  no-empty
+  31:21  error  Empty block statement  no-empty
+  54:17  error  Empty block statement  no-empty
+
+/home/alpha/Documents/Projects/AT-Music-Player/src/store/playerStore.ts
+   74:21  error  'updatedQueue' is never reassigned. Use 'const' instead  prefer-const
+  157:13  error  'newQueue' is never reassigned. Use 'const' instead      prefer-const
+
+✖ 11 problems (11 errors, 0 warnings)
+  3 errors and 0 warnings potentially fixable with the `--fix` option.
+

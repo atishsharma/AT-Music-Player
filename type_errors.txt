@@ -1,0 +1,4 @@
+
+> at-music-pro@1.2.1 typecheck
+> tsc --noEmit
+

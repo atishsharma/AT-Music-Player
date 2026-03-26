@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Maximize2, Heart, Mic2, Pin, PinOff, Airplay, ListMusic, X, Music2, Shuffle, Repeat, Volume1, Volume2, VolumeX, SlidersHorizontal } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
 import { useFavoritesStore } from '../../store/favoritesStore';
-import { useThemeStore } from '../../store/themeStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { toAtmusicUrl } from '../../utils/path';
@@ -32,7 +31,6 @@ const MiniPlayer = () => {
         isMuted
     } = usePlayerStore() as any;
 
-    const { } = useThemeStore();
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
 
     const [lyrics, setLyrics] = useState<any>(null);

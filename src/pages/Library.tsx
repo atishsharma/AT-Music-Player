@@ -63,10 +63,10 @@ const Library = () => {
         if (!window.ipcRenderer) return;
 
         // Listen for scan events
-        const removeProgress = window.ipcRenderer.on('scan-progress', (_event, data) => {
+        const removeProgress = window.ipcRenderer?.on?.('scan-progress', (_event, data) => {
             setScanProgress(data);
         });
-        const removeComplete = window.ipcRenderer.on('scan-complete', () => {
+        const removeComplete = window.ipcRenderer?.on?.('scan-complete', () => {
             setScanProgress(null);
             refreshLibrary();
             loadFolders();

@@ -52,7 +52,7 @@ const NavItem = ({ to, icon: Icon, label, isCollapsed }: { to: string; icon: Rea
 };
 
 const Sidebar = () => {
-    const [isCollapsed, setIsCollapsed] = useState(true);
+    const [isCollapsed, setIsCollapsed] = useState(false);
 
     return (
         <motion.div

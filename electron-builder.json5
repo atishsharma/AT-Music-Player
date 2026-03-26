@@ -37,12 +37,7 @@
     "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
   },
   "win": {
-    "target": [
-      {
-        "target": "zip",
-        "arch": ["x64"]
-      }
-    ],
+    "target": ["zip"],
     "icon": "public/app_icon_win.ico",
     "artifactName": "${productName}-Windows-${version}.${ext}"
   },
@@ -54,30 +49,9 @@
   },
   "linux": {
     "target": [
-      {
-        "target": "AppImage",
-        "arch": [
-          "x64"
-        ]
-      },
-      {
-        "target": "deb",
-        "arch": [
-          "x64"
-        ]
-      },
-      {
-        "target": "flatpak",
-        "arch": [
-          "x64"
-        ]
-      },
-      {
-        "target": "snap",
-        "arch": [
-          "x64"
-        ]
-      }
+      "AppImage",
+      "deb",
+      "snap"
     ],
     "category": "AudioVideo",
     "icon": "public/icon_square.png",
@@ -87,7 +61,8 @@
       "Name": "AT Music Pro",
       "Comment": "Premium music player with Last.fm and YouTube integration",
       "Categories": "Audio;Music;Player;AudioVideo;",
-      "StartupWMClass": "at-music-pro"
+      "StartupWMClass": "at-music-pro",
+      "Icon": "at-music-pro"
     }
   },
   "deb": {
@@ -101,42 +76,11 @@
       "libatspi2.0-0",
       "libuuid1",
       "libsecret-1-0"
-    ]
+    ],
+    "priority": "optional",
+    "afterInstall": "scripts/postinst.sh"
   },
   "npmRebuild": false,
-  "buildDependenciesFromSource": false,
-  "nodeGypRebuild": false,
-  "flatpak": {
-    "runtime": "org.freedesktop.Platform",
-    "runtimeVersion": "23.08",
-    "sdk": "org.freedesktop.Sdk",
-    "branch": "stable",
-    "finishArgs": [
-      "--share=network",
-      "--share=ipc",
-      "--socket=x11",
-      "--socket=wayland",
-      "--socket=pulseaudio",
-      "--device=dri",
-      "--filesystem=home:rw"
-    ]
-  },
-  "snap": {
-    "publish": ["github"],
-    "confinement": "strict",
-    "grade": "stable",
-    "summary": "Premium music player with Last.fm and YouTube integration",
-    "plugs": [
-      "default",
-      "home",
-      "network",
-      "network-bind",
-      "audio-playback",
-      "pulseaudio",
-      "opengl",
-      "removable-media"
-    ]
-  },
   "snap": {
     "confinement": "strict",
     "grade": "stable",

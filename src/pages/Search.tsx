@@ -72,8 +72,8 @@ const SearchPage = () => {
             fetchCacheStats();
         };
 
-        const unsubProgress = window.ipcRenderer.on('cache:progress', handleProgress);
-        const unsubStats = window.ipcRenderer.on('cache:stats-changed', handleStatsChanged);
+        const unsubProgress = window.ipcRenderer?.on?.('cache:progress', handleProgress);
+        const unsubStats = window.ipcRenderer?.on?.('cache:stats-changed', handleStatsChanged);
 
         return () => {
             if (unsubProgress) unsubProgress();

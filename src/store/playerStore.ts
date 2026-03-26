@@ -71,7 +71,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             } else {
                 // When we play a new song, push the currently playing song to the top of the queue 
                 // so it's not lost and acts like a "Recently played" mechanism in the queue itself.
-                let updatedQueue = [...state.queue];
+                const updatedQueue = [...state.queue];
                 if (state.currentTrack) {
                     updatedQueue.unshift(state.currentTrack);
                 }
@@ -154,7 +154,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     toggleShuffle: () => set((state) => {
         const willShuffle = !state.shuffle;
-        let newQueue = [...state.queue];
+        const newQueue = [...state.queue];
         if (willShuffle && newQueue.length > 0) {
             // Fisher-Yates shuffle
             for (let i = newQueue.length - 1; i > 0; i--) {
