@@ -8,6 +8,8 @@ import { MUSIC_QUOTES } from '../constants/quotes';
 import { Smile, Zap, Target, Frown, Music, Dices, Sparkles, RefreshCw, Quote } from 'lucide-react';
 import clsx from 'clsx';
 import FidgetSpinner from '../components/home/FidgetSpinner';
+import { useSettingsStore } from '../store/settingsStore';
+import Trending from '../components/home/Trending';
 
 const QuoteSection = () => {
     const [currentQuote, setCurrentQuote] = useState({ text: '', author: '' });
@@ -60,6 +62,7 @@ const QuoteSection = () => {
 
 const Home = () => {
     const { currentMood, setMood } = useThemeStore();
+    const { youtubeApiKey } = useSettingsStore();
     const [greeting, setGreeting] = useState('');
     const [_accentColor] = useState(() => {
         const colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#A8E6CF', '#FF8A5C', '#D4A5FF', '#5CE1E6', '#FF6F91', '#67E8F9', '#FCA5A5'];
@@ -190,15 +193,24 @@ const Home = () => {
                 </div>
             </section>
 
-            {/* Section 1: Recently Played */}
+            {/* Section 1: Trending (Only with API Key) */}
+            {youtubeApiKey && (
+                <section>
+                    <Trending />
+                </section>
+            )}
+
+            {/* Section 2: Recently Played */}
             <section>
                 <RecentlyPlayed />
             </section>
 
-            {/* Section 2: Recommended */}
-            <section>
-                <Recommended />
-            </section>
+            {/* Section 3: Recommended (Only with API Key) */}
+            {youtubeApiKey && (
+                <section>
+                    <Recommended />
+                </section>
+            )}
 
         </motion.div>
     );

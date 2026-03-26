@@ -1,11 +1,13 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Play, SkipBack, SkipForward, Repeat, Shuffle, Volume2, VolumeX, Pause, ChevronUp, Maximize2, ListMusic, Mic2, Heart, Plus, PictureInPicture2 } from 'lucide-react';
+import { Play, SkipBack, SkipForward, Repeat, Shuffle, Volume2, VolumeX, Pause, ChevronUp, Maximize2, ListMusic, Mic2, Heart, Plus, PictureInPicture2, SlidersHorizontal } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useFavoritesStore } from '../../store/favoritesStore';
+import { useEqualizerStore } from '../../store/equalizerStore';
 import clsx from 'clsx';
 import { toAtmusicUrl } from '../../utils/path';
+import Equalizer from '../common/Equalizer';
 
 const PlayerBar = () => {
     const {
@@ -34,6 +36,7 @@ const PlayerBar = () => {
     } = usePlayerStore() as any;
 
     const { appearance } = useThemeStore();
+    const { isOpen: isEqOpen, toggleOpen: toggleEq, setOpen: setEqOpen, enabled: isEqEnabled } = useEqualizerStore();
 
     const [isDraggingSeek, setIsDraggingSeek] = useState(false);
     const [seekValue, setSeekValue] = useState(0);
@@ -310,6 +313,28 @@ const PlayerBar = () => {
                 </button>
 
                 <div className={clsx("h-4 w-px mx-1", isLight ? "bg-black/10" : "bg-white/10")} />
+
+                {/* EQ Button */}
+                <div className="relative">
+                    <button
+                        onClick={toggleEq}
+                        className={clsx(
+                            "p-2 rounded-full transition-all hover:scale-110",
+                            isEqOpen || isEqEnabled
+                                ? (isLight ? "bg-white text-primary" : "bg-primary text-on-primary")
+                                : (isLight ? "text-on-primary/70 hover:bg-black/5" : "text-on-surface-variant hover:bg-white/5")
+                        )}
+                        title="Equalizer"
+                    >
+                        <SlidersHorizontal size={18} />
+                    </button>
+                    <Equalizer
+                        isOpen={isEqOpen}
+                        onClose={() => setEqOpen(false)}
+                        anchor="bottom"
+                        align="right"
+                    />
+                </div>
 
                 {/* Android-Style Volume */}
                 <div className={clsx(

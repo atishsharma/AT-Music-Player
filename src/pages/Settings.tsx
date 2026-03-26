@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
 import { useThemeStore } from '../store/themeStore';
-import { Globe, Sparkles, ShieldCheck, Sun, Moon, Zap, FolderPlus, Monitor, ExternalLink } from 'lucide-react';
+import { Globe, Sparkles, ShieldCheck, Sun, Moon, Zap, FolderPlus, Monitor, ExternalLink, Eye, EyeOff, LayoutTemplate } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import SettingSpinner from '../components/settings/SettingSpinner';
@@ -21,6 +21,8 @@ const SettingsPage = () => {
 
     const [tempKey, setTempKey] = useState('');
     const [ytKey, setYtKey] = useState('');
+    const [showYtKey, setShowYtKey] = useState(false);
+    const [showLfmKey, setShowLfmKey] = useState(false);
     const [message, setMessage] = useState('');
 
     useEffect(() => {
@@ -175,10 +177,11 @@ const SettingsPage = () => {
                         <h2 className="text-2xl font-black text-on-surface">Theme & Appearance</h2>
                     </div>
                     <div className="flex items-center gap-3 bg-surface-variant/30 p-2 rounded-full border border-white/5 outline outline-1 outline-primary">
-                        {(['light', 'dark', 'oled'] as const).map((a) => (
+                        {(['light', 'dark', 'oled', 'glass'] as const).map((a) => (
                             <button
                                 key={a}
                                 onClick={() => setAppearance(a)}
+                                title={a.charAt(0).toUpperCase() + a.slice(1)}
                                 className={clsx(
                                     "flex items-center justify-center w-[56px] h-[56px] rounded-full transition-all border-2",
                                     appearance === a ? "bg-primary text-on-primary border-transparent shadow-lg scale-105" : "text-on-surface-variant border-transparent hover:bg-surface-variant/50"
@@ -187,6 +190,7 @@ const SettingsPage = () => {
                                 {a === 'light' && <Sun size={20} />}
                                 {a === 'dark' && <Moon size={20} />}
                                 {a === 'oled' && <Zap size={20} />}
+                                {a === 'glass' && <LayoutTemplate size={20} />}
                             </button>
                         ))}
                     </div>
@@ -227,13 +231,21 @@ const SettingsPage = () => {
                         </div>
                         <h2 className="text-2xl font-black text-on-surface">YouTube Engine</h2>
                     </div>
-                    <input
-                        type="password"
-                        value={ytKey}
-                        onChange={(e) => setYtKey(e.target.value)}
-                        placeholder="YouTube API Key"
-                        className="w-full bg-surface-variant/5 border border-outline/10 rounded-[1.5rem] px-6 py-4 text-on-surface font-mono"
-                    />
+                    <div className="relative">
+                        <input
+                            type={showYtKey ? "text" : "password"}
+                            value={ytKey}
+                            onChange={(e) => setYtKey(e.target.value)}
+                            placeholder="YouTube API Key"
+                            className="w-full bg-surface-variant/5 border border-outline/10 rounded-[1.5rem] px-6 py-4 pr-16 text-on-surface font-mono"
+                        />
+                        <button
+                            onClick={() => setShowYtKey(!showYtKey)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl text-on-surface-variant hover:text-primary transition-all"
+                        >
+                            {showYtKey ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                    </div>
                 </div>
                 <div className="bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-10 border border-white/5 space-y-8">
                     <div className="flex items-center gap-4">
@@ -242,13 +254,21 @@ const SettingsPage = () => {
                         </div>
                         <h2 className="text-2xl font-black text-on-surface">Last.fm Engine</h2>
                     </div>
-                    <input
-                        type="password"
-                        value={tempKey}
-                        onChange={(e) => setTempKey(e.target.value)}
-                        placeholder="Last.fm API Key"
-                        className="w-full bg-surface-variant/5 border border-outline/10 rounded-[1.5rem] px-6 py-4 text-on-surface font-mono"
-                    />
+                    <div className="relative">
+                        <input
+                            type={showLfmKey ? "text" : "password"}
+                            value={tempKey}
+                            onChange={(e) => setTempKey(e.target.value)}
+                            placeholder="Last.fm API Key"
+                            className="w-full bg-surface-variant/5 border border-outline/10 rounded-[1.5rem] px-6 py-4 pr-16 text-on-surface font-mono"
+                        />
+                        <button
+                            onClick={() => setShowLfmKey(!showLfmKey)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl text-on-surface-variant hover:text-primary transition-all"
+                        >
+                            {showLfmKey ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                    </div>
                 </div>
             </div>
 

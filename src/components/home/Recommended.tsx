@@ -26,17 +26,20 @@ const Recommended = () => {
                     }
                 }
 
-                const data = await window.ipcRenderer.invoke('youtube:getRecommendations', currentMood);
+                // Enhanced recommendation logic: Top Song + Mixed Languages + Mood + Official Music
+                const moodQuery = `Top Song English or Hindi Or Punjabi For ${currentMood} Mood Official Music`;
+                const data = await window.ipcRenderer.invoke('youtube:search', moodQuery);
 
-                // Filter for unique artists and take top 5
+                // Filter for unique artists and take top 5 most viewed/relevant
                 const uniqueArtistsSongs: any[] = [];
                 const seenArtists = new Set<string>();
 
                 for (const item of data) {
                     if (!item.artist) continue;
-                    if (!seenArtists.has(item.artist)) {
+                    const artistNormalized = item.artist.toLowerCase().trim();
+                    if (!seenArtists.has(artistNormalized)) {
                         uniqueArtistsSongs.push(item);
-                        seenArtists.add(item.artist);
+                        seenArtists.add(artistNormalized);
                     }
                     if (uniqueArtistsSongs.length === 5) break;
                 }
@@ -52,7 +55,6 @@ const Recommended = () => {
                 setIsLoading(false);
             }
         };
-        setRecommended([]); // Instant feedback
         fetchRecommended();
     }, [currentMood]);
 

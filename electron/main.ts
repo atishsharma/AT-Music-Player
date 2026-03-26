@@ -216,13 +216,13 @@ ipcMain.handle('window:miniPlayer', () => {
   win.unmaximize();
   win.setMaximizable(false);
   win.setResizable(false);
-  win.setMinimumSize(380, 700);
-  win.setSize(380, 700);
+  win.setMinimumSize(380, 712);
+  win.setSize(380, 712);
   win.setAlwaysOnTop(true);
   win.setResizable(false);
   // Position bottom-right of screen
   const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
-  win.setPosition(screenWidth - 400, screenHeight - 720);
+  win.setPosition(screenWidth - 400, screenHeight - 732);
 });
 
 ipcMain.handle('window:normalMode', () => {

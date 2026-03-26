@@ -171,7 +171,6 @@ const NowPlaying = () => {
 
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
     const { addTrackToPlaylist } = usePlaylistStore();
-
     const isFav = currentTrack ? isFavorite(currentTrack.id?.toString() || currentTrack.id) : false;
 
     const handleFavToggle = () => {
@@ -193,6 +192,29 @@ const NowPlaying = () => {
 
     // Lyrics Search State
     const [searchForm, setSearchForm] = useState({ title: '', artist: '', album: '' });
+    const isPlayingRef = useRef(isPlaying);
+
+    useEffect(() => {
+        isPlayingRef.current = isPlaying;
+    }, [isPlaying]);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Only trigger if not typing in an input/textarea
+            if (
+                e.code === 'Space' &&
+                document.activeElement?.tagName !== 'INPUT' &&
+                document.activeElement?.tagName !== 'TEXTAREA'
+            ) {
+                e.preventDefault();
+                if (isPlayingRef.current) pause();
+                else play();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [play, pause]);
 
     // Save Playlist State
     const [isDraggingSlider, setIsDraggingSlider] = useState(false);
@@ -743,7 +765,7 @@ const NowPlaying = () => {
 
 
             {/* Header Controls */}
-            <div className="h-20 flex items-center justify-between px-8 z-30 relative shrink-0">
+            <div className="h-20 flex items-center justify-between px-8 z-[100] relative shrink-0">
                 {/* Left side */}
                 <div className="flex items-center gap-6 flex-1">
                     <button onClick={() => {
@@ -801,7 +823,7 @@ const NowPlaying = () => {
                 </div>
 
                 {/* Right: Android-Style Volume Slider */}
-                <div className="flex items-center justify-end flex-1">
+                <div className="flex items-center justify-end flex-1 gap-4">
                     <div className="flex items-center gap-3 group bg-surface-variant/10 rounded-full pl-3 pr-4 py-1.5 outline outline-1 outline-primary/50 backdrop-blur-sm transition-all hover:bg-surface-variant/20 shadow-sm">
                         <button onClick={toggleMute} className="hover:scale-110 transition-transform">
                             {isMuted || volume === 0 ? <VolumeX size={18} className="text-primary" /> : <Volume2 size={18} className="text-primary" />}
@@ -897,6 +919,7 @@ const NowPlaying = () => {
                                 ) : "Video"}
                             </button>
                         </div>
+
                         <button
                             onClick={async () => {
                                 try {

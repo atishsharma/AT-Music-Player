@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePlayerStore } from '../../store/playerStore';
+import { useEqualizerStore, EQ_BANDS } from '../../store/equalizerStore';
 
 
 const Player = () => {
@@ -15,12 +16,17 @@ const Player = () => {
         lastSeekTime,
         currentTime
     } = usePlayerStore();
+    const { gains, enabled } = useEqualizerStore();
     const [streamUrl, setStreamUrl] = useState<string>('');
     const analyserRef = useRef<AnalyserNode | null>(null);
+    const eqFiltersRef = useRef<BiquadFilterNode[]>([]);
     const spotifyPlayerRef = useRef<any>(null);
     const [isSpotifyReady, setIsSpotifyReady] = useState(false);
 
     useEffect(() => {
+        // Reset EQ on each song change
+        useEqualizerStore.getState().reset();
+        
         // Clear stream URL immediately to stop previous playback
         setStreamUrl('');
 
@@ -70,8 +76,6 @@ const Player = () => {
                 // Ensure image path is properly formatted for remote or local resources
                 let artworkUrl = currentTrack.image_path || currentTrack.thumbnail || '';
                 if (artworkUrl && !artworkUrl.startsWith('http')) {
-                    // Assuming we might need a custom protocol for local image in media session
-                    // E.g. atmusic://stream?path=...
                     artworkUrl = `atmusic://stream?path=${encodeURIComponent(artworkUrl.replace(/\\/g, '/'))}`;
                 }
 
@@ -115,16 +119,47 @@ const Player = () => {
             const analyser = audioContext.createAnalyser();
             const source = audioContext.createMediaElementSource(audioRef.current);
 
-            source.connect(analyser);
+            // Create 10-band EQ filter chain
+            const filters: BiquadFilterNode[] = EQ_BANDS.map((band, index) => {
+                const filter = audioContext.createBiquadFilter();
+                if (index === 0) {
+                    filter.type = 'lowshelf';
+                } else if (index === EQ_BANDS.length - 1) {
+                    filter.type = 'highshelf';
+                } else {
+                    filter.type = 'peaking';
+                }
+                filter.frequency.value = band.frequency;
+                filter.gain.value = 0;
+                filter.Q.value = 1.4;
+                return filter;
+            });
+
+            // Chain: source -> filter[0] -> filter[1] -> ... -> filter[9] -> analyser -> destination
+            source.connect(filters[0]);
+            for (let i = 0; i < filters.length - 1; i++) {
+                filters[i].connect(filters[i + 1]);
+            }
+            filters[filters.length - 1].connect(analyser);
             analyser.connect(audioContext.destination);
 
             analyser.fftSize = 256;
             analyserRef.current = analyser;
+            eqFiltersRef.current = filters;
             (window as any)._audioAnalyser = analyser;
         } catch (e) {
             console.error("AudioContext error:", e);
         }
     }, []);
+
+    // Sync EQ gains with filter nodes
+    useEffect(() => {
+        if (eqFiltersRef.current.length > 0) {
+            eqFiltersRef.current.forEach((filter, index) => {
+                filter.gain.value = enabled ? (gains[index] || 0) : 0;
+            });
+        }
+    }, [gains, enabled]);
 
     useEffect(() => {
         if ((window as any).Spotify) {

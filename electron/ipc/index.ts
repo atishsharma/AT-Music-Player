@@ -3,7 +3,6 @@ import path from 'path';
 import { getDB } from '../db';
 import { scanDirectory } from '../services/scanner';
 import { searchYouTube, searchYTMusic, getStreamUrl, getCacheStats, clearCache, getVideoInfo } from '../services/ytdlp';
-import { searchYouTubeAPI } from '../services/youtube_api';
 import { startDownload, cancelDownload } from '../services/downloader';
 import { getLyrics, fetchLRCLIB } from '../services/lyrics';
 import { searchArtists, getArtistById, getAlbumById, getCoverArt } from '../services/musicbrainz';
@@ -308,8 +307,6 @@ export function registerHandlers(mainWindow: BrowserWindow) {
 
     ipcMain.handle('search:youtube', async (_event, query, options) => {
         const limit = options?.limit || 20;
-        const ytapiRes = await searchYouTubeAPI(query);
-        if (ytapiRes && ytapiRes.length > 0) return ytapiRes.slice(0, limit);
         return await searchYouTube(query, limit);
     });
 

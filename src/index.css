@@ -65,6 +65,19 @@
   --md-sys-color-on-surface-variant: 195 198 207;
 }
 
+.mood-calm.appearance-glass {
+  --md-sys-color-primary: 0 95 175;
+  --md-sys-color-on-primary: 255 255 255;
+  --md-sys-color-primary-container: 212 227 255;
+  --md-sys-color-on-primary-container: 0 28 58;
+  --md-sys-color-background: 248 250 255;
+  --md-sys-color-on-background: 10 25 50;
+  --md-sys-color-surface: 0 95 175;
+  --md-sys-color-on-surface: 10 25 50;
+  --md-sys-color-surface-variant: 0 95 175;
+  --md-sys-color-on-surface-variant: 30 50 80;
+}
+
 /* 
      ========================================
      MOOD: ENERGETIC (ORANGE)
@@ -107,6 +120,19 @@
   --md-sys-color-on-surface: 255 255 255;
   --md-sys-color-surface-variant: 40 30 20;
   --md-sys-color-on-surface-variant: 209 196 180;
+}
+
+.mood-energetic.appearance-glass {
+  --md-sys-color-primary: 139 80 0;
+  --md-sys-color-on-primary: 255 255 255;
+  --md-sys-color-primary-container: 255 220 190;
+  --md-sys-color-on-primary-container: 43 21 0;
+  --md-sys-color-background: 255 248 245;
+  --md-sys-color-on-background: 30 15 5;
+  --md-sys-color-surface: 139 80 0;
+  --md-sys-color-on-surface: 30 15 5;
+  --md-sys-color-surface-variant: 139 80 0;
+  --md-sys-color-on-surface-variant: 90 60 30;
 }
 
 
@@ -154,6 +180,19 @@
   --md-sys-color-on-surface-variant: 191 200 200;
 }
 
+.mood-focus.appearance-glass {
+  --md-sys-color-primary: 0 106 106;
+  --md-sys-color-on-primary: 255 255 255;
+  --md-sys-color-primary-container: 112 247 247;
+  --md-sys-color-on-primary-container: 0 32 32;
+  --md-sys-color-background: 245 252 250;
+  --md-sys-color-on-background: 10 25 25;
+  --md-sys-color-surface: 0 106 106;
+  --md-sys-color-on-surface: 10 25 25;
+  --md-sys-color-surface-variant: 0 106 106;
+  --md-sys-color-on-surface-variant: 30 70 70;
+}
+
 /* 
      ========================================
      MOOD: SAD (INDIGO)
@@ -196,6 +235,19 @@
   --md-sys-color-on-surface: 255 255 255;
   --md-sys-color-surface-variant: 25 25 35;
   --md-sys-color-on-surface-variant: 199 198 208;
+}
+
+.mood-sad.appearance-glass {
+  --md-sys-color-primary: 84 85 169;
+  --md-sys-color-on-primary: 255 255 255;
+  --md-sys-color-primary-container: 225 224 255;
+  --md-sys-color-on-primary-container: 13 8 99;
+  --md-sys-color-background: 248 248 255;
+  --md-sys-color-on-background: 15 15 35;
+  --md-sys-color-surface: 84 85 169;
+  --md-sys-color-on-surface: 15 15 35;
+  --md-sys-color-surface-variant: 84 85 169;
+  --md-sys-color-on-surface-variant: 40 40 80;
 }
 
 
@@ -243,10 +295,32 @@
   --md-sys-color-on-surface-variant: 215 193 195;
 }
 
+.mood-party.appearance-glass {
+  --md-sys-color-primary: 176 11 106;
+  --md-sys-color-on-primary: 255 255 255;
+  --md-sys-color-primary-container: 255 217 223;
+  --md-sys-color-on-primary-container: 64 0 32;
+  --md-sys-color-background: 255 248 250;
+  --md-sys-color-on-background: 40 10 20;
+  --md-sys-color-surface: 176 11 106;
+  --md-sys-color-on-surface: 40 10 20;
+  --md-sys-color-surface-variant: 176 11 106;
+  --md-sys-color-on-surface-variant: 90 20 50;
+}
+
 body {
   background-color: rgb(var(--md-sys-color-background));
   color: rgb(var(--md-sys-color-on-background));
   @apply font-sans antialiased overflow-hidden min-h-screen transition-colors duration-500;
+}
+
+body.appearance-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% -20%, rgba(var(--md-sys-color-primary), 0.15) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* Semantic Map to Tailwind Utility Classes if needed? 
