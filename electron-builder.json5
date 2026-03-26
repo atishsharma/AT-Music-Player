@@ -103,8 +103,8 @@
       "libsecret-1-0"
     ]
   },
-  "npmRebuild": true,
-  "buildDependenciesFromSource": true,
+  "npmRebuild": false,
+  "buildDependenciesFromSource": false,
   "nodeGypRebuild": false,
   "flatpak": {
     "runtime": "org.freedesktop.Platform",

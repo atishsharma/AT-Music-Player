@@ -56,7 +56,7 @@ const MainLayout = () => {
     return (
         <div className={clsx(
             "flex h-screen bg-background overflow-hidden relative transition-all duration-300",
-            isMiniMode ? "border-2 border-primary/40 rounded-xl" : "border-t-4 border-r-4 border-l-4 border-b-4 border-primary/60"
+            isMiniMode ? "border-x-4 border-b-4 border-primary/60" : "border-r-4 border-l-4 border-b-4 border-primary/60"
         )}>
             <Toast />
             <Player />
@@ -71,7 +71,7 @@ const MainLayout = () => {
                         <NowPlaying />
                     </AnimatePresence>
                     <Sidebar />
-                    <div className="flex-1 flex flex-col min-w-0">
+                    <div className="flex-1 flex flex-col min-w-0 pt-[40px]">
                         <div className="flex-1 overflow-y-auto no-scrollbar relative p-6">
                             <Outlet />
                         </div>

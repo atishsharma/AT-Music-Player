@@ -144,7 +144,7 @@ function createWindow() {
     minWidth: 1200,
     minHeight: 800,
     autoHideMenuBar: true,
-    titleBarStyle: 'hiddenInset',
+    frame: false,
     icon: getIconPath(),
     fullscreenable: true,
     webPreferences: {
@@ -214,14 +214,15 @@ ipcMain.handle('window:toggleAlwaysOnTop', (_event, alwaysOnTop: boolean) => {
 ipcMain.handle('window:miniPlayer', () => {
   if (!win) return;
   win.unmaximize();
-  win.setMaximizable(false); // Remove "blank button" by disabling the maximize state completely at the OS-level
-  win.setMinimumSize(360, 580);
-  win.setSize(360, 580);
+  win.setMaximizable(false);
+  win.setResizable(false);
+  win.setMinimumSize(380, 700);
+  win.setSize(380, 700);
   win.setAlwaysOnTop(true);
   win.setResizable(false);
   // Position bottom-right of screen
   const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
-  win.setPosition(screenWidth - 380, screenHeight - 600);
+  win.setPosition(screenWidth - 400, screenHeight - 720);
 });
 
 ipcMain.handle('window:normalMode', () => {
@@ -236,7 +237,7 @@ ipcMain.handle('window:normalMode', () => {
 ipcMain.handle('window:isMiniPlayer', () => {
   if (!win) return false;
   const [width] = win.getSize();
-  return width <= 380;
+  return width <= 400;
 });
 
 app.on('before-quit', () => {

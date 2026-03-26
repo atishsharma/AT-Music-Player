@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Maximize2, Heart, Mic2, Pin, PinOff, Airplay, ListMusic, X, Music2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Maximize2, Heart, Mic2, Pin, PinOff, Airplay, ListMusic, X, Music2, Shuffle, Repeat, Volume1, Volume2, VolumeX } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
 import { useFavoritesStore } from '../../store/favoritesStore';
 import { useThemeStore } from '../../store/themeStore';
@@ -20,6 +20,14 @@ const MiniPlayer = () => {
         seek,
         queue,
         removeFromQueue,
+        shuffle,
+        toggleShuffle,
+        loop,
+        toggleLoop,
+        volume,
+        setVolume,
+        toggleMute,
+        isMuted
     } = usePlayerStore() as any;
 
     const { } = useThemeStore();
@@ -85,6 +93,79 @@ const MiniPlayer = () => {
                 : currentTrack.thumbnail || '')
         : '';
 
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const animationRef = useRef<number>();
+
+    useEffect(() => {
+        if (!canvasRef.current) return;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        let active = true;
+
+        const checkAnalyserAndDraw = () => {
+            if (!active) return;
+            const analyser = (window as any)._audioAnalyser;
+            
+            if (!analyser) {
+                // Poll every 100ms if not found
+                setTimeout(checkAnalyserAndDraw, 100);
+                return;
+            }
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            const draw = () => {
+                if (!active) return;
+                animationRef.current = requestAnimationFrame(draw);
+                analyser.getByteTimeDomainData(dataArray);
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                const time = Date.now() / 1000;
+                const hue = (time * 20) % 360;
+
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                const sliceWidth = canvas.width * 1.0 / bufferLength;
+                let x = 0;
+                const baseY = canvas.height * 0.8;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const v = dataArray[i] / 128.0;
+                    const y = v * (canvas.height * 0.4) + (baseY - (canvas.height * 0.4));
+
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+
+                    x += sliceWidth;
+                }
+
+                const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+                gradient.addColorStop(0, `hsl(${hue}, 100%, 50%)`);
+                gradient.addColorStop(0.5, `hsl(${(hue + 90) % 360}, 100%, 50%)`);
+                gradient.addColorStop(1, `hsl(${(hue + 180) % 360}, 100%, 50%)`);
+
+                ctx.strokeStyle = gradient;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            };
+
+            draw();
+        };
+
+        checkAnalyserAndDraw();
+
+        return () => {
+            active = false;
+            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+        };
+    }, [isPlaying]);
+
     if (!currentTrack) {
         return (
             <div className="h-screen w-full flex flex-col items-center justify-center bg-background">
@@ -99,8 +180,7 @@ const MiniPlayer = () => {
 
     return (
         <div
-            className="h-screen w-full flex flex-col bg-background overflow-hidden select-none relative"
-            style={{ WebkitAppRegion: 'no-drag' } as any}
+            className="h-screen w-full flex flex-col bg-background overflow-hidden select-none relative drag"
         >
             {/* Ambient background from album art */}
             {artUrl && (
@@ -110,55 +190,58 @@ const MiniPlayer = () => {
                 </div>
             )}
 
+            {/* ── SPACING FOR MAIN TITLE BAR ────────────────────── */}
+            <div className="h-[40px] shrink-0 w-full" />
+
             {/* ── HEADER ─────────────────────────────────────────── */}
             <div
-                className="relative z-10 flex items-center justify-between px-4 pt-3 pb-2 shrink-0"
-                style={{ WebkitAppRegion: 'drag' } as any}
+                className="relative z-10 flex items-center justify-between px-4 pt-2 pb-2 shrink-0 drag"
             >
                 {/* Left: Pin + Fav */}
-                <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
+                <div className="flex items-center gap-1.5 no-drag">
                     <button
                         onClick={() => {
                             setIsAlwaysOnTop(!isAlwaysOnTop);
                             (window as any).windowControls.toggleAlwaysOnTop(!isAlwaysOnTop);
                         }}
                         className={clsx(
-                            "p-1.5 rounded-full transition-all",
-                            isAlwaysOnTop ? "text-primary" : "text-on-surface-variant/40 hover:text-primary"
+                            "p-2 rounded-full transition-all text-primary border-2 border-primary",
+                            isAlwaysOnTop ? "bg-primary/20" : "bg-transparent opacity-60 hover:opacity-100 hover:bg-primary/10"
                         )}
                         title={isAlwaysOnTop ? "Always on Top: On" : "Always on Top: Off"}
                     >
-                        {isAlwaysOnTop ? <Pin size={14} /> : <PinOff size={14} />}
+                        {isAlwaysOnTop ? <Pin size={16} /> : <PinOff size={16} />}
                     </button>
                     <button
                         onClick={handleFavToggle}
                         className={clsx(
-                            "p-1.5 rounded-full transition-all",
-                            isFav ? "text-primary" : "text-on-surface-variant/40 hover:text-primary"
+                            "p-2 rounded-full transition-all text-primary border-2 border-primary",
+                            isFav ? "bg-primary/20" : "bg-transparent opacity-60 hover:opacity-100 hover:bg-primary/10"
                         )}
                     >
-                        <Heart size={14} fill={isFav ? "currentColor" : "none"} />
+                        <Heart size={16} fill={isFav ? "currentColor" : "none"} />
                     </button>
                 </div>
 
-                <span className="text-[9px] font-black uppercase tracking-[0.35em] text-primary/40">Mini Player</span>
+                <div className="flex items-center gap-2 border-2 border-primary rounded-full pl-2 pr-4 py-2 shadow-md shadow-primary/20 bg-primary/10 no-drag">
+                    <img src="./app_icon.png" alt="" className="w-5 h-5 drop-shadow-md" />
+                    <span className="text-[12px] font-black uppercase tracking-[0.4em] text-primary">Mini Player</span>
+                </div>
 
                 {/* Right: Expand */}
                 <button
                     onClick={exitMiniPlayer}
-                    className="p-1.5 rounded-full text-on-surface-variant/40 hover:text-primary transition-all"
-                    style={{ WebkitAppRegion: 'no-drag' } as any}
+                    className="p-2 rounded-full text-primary border-2 border-primary bg-primary/5 opacity-60 hover:opacity-100 hover:bg-primary/10 transition-all no-drag"
                 >
-                    <Maximize2 size={14} />
+                    <Maximize2 size={16} />
                 </button>
             </div>
 
             {/* ── SQUARE ALBUM ART CARD (Flip for Lyrics) ─────────── */}
-            <div className="relative z-10 w-full px-4 shrink-0">
+            <div className="relative z-10 w-full px-6 pt-6 shrink-0">
                 <div
-                    className="w-full aspect-square cursor-pointer [perspective:1000px] group"
+                    className="w-full aspect-square cursor-pointer [perspective:1000px] group no-drag"
                     onClick={() => setIsFlipped(f => !f)}
-                    style={{ WebkitAppRegion: 'no-drag' } as any}
                 >
                     <motion.div
                         animate={{ rotateY: isFlipped ? 180 : 0 }}
@@ -243,7 +326,7 @@ const MiniPlayer = () => {
                     key={currentTrack.id + '-title'}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-[15px] font-black text-on-surface truncate"
+                    className="text-[19px] font-black text-primary truncate"
                 >
                     {currentTrack.title}
                 </motion.h3>
@@ -251,15 +334,25 @@ const MiniPlayer = () => {
                     key={currentTrack.id + '-artist'}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="text-[10px] font-black text-primary/60 uppercase tracking-[0.2em] truncate mt-0.5"
+                    className="text-[14px] font-black text-primary/70 uppercase tracking-[0.2em] truncate mt-1"
                 >
                     {currentTrack.artist}
                 </motion.p>
+                {currentTrack.album && (
+                    <motion.p
+                        key={currentTrack.id + '-album'}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-[11px] font-black text-primary/40 uppercase tracking-[0.2em] truncate mt-1"
+                    >
+                        {currentTrack.album}
+                    </motion.p>
+                )}
             </div>
 
             {/* ── SCRUBBER ─────────────────────────────────────────── */}
-            <div className="relative z-10 w-full px-5 pt-3 pb-1 shrink-0 group" style={{ WebkitAppRegion: 'no-drag' } as any}>
-                <div className="relative h-5 flex items-center">
+            <div className="relative z-10 w-full px-8 pt-3 pb-1 shrink-0 group no-drag">
+                <div className="relative h-6 flex items-center">
                     <input
                         type="range"
                         min={0}
@@ -276,66 +369,123 @@ const MiniPlayer = () => {
                         }}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                     />
-                    <div className="w-full h-[3px] bg-primary/15 rounded-full overflow-hidden">
+                    <div className="w-full h-[5px] bg-primary/10 rounded-full overflow-hidden border border-primary/40">
                         <motion.div
-                            className="h-full bg-primary rounded-full"
+                            className="h-full bg-primary"
                             style={{ width: `${progress}%` }}
                         />
                     </div>
                     <motion.div
-                        className="absolute h-3 w-3 bg-primary rounded-full shadow-lg border-2 border-background z-10 pointer-events-none"
-                        style={{ left: `calc(${progress}% - 6px)` }}
+                        className="absolute h-5 w-5 bg-primary rounded-full shadow-[0_0_12px_rgba(var(--md-sys-color-primary),0.6)] border-2 border-background z-10 pointer-events-none"
+                        style={{ left: `calc(${progress}% - 10px)` }}
                         animate={{ scale: isDragging ? 1.4 : 1 }}
                     />
                 </div>
-                <div className="flex justify-between text-[9px] font-black text-primary/30 mt-1 tabular-nums tracking-widest">
+                <div className="flex justify-between text-[11px] font-black text-primary/40 mt-1 tabular-nums tracking-widest">
                     <span>{formatTime(isDragging ? dragValue : currentTime)}</span>
                     <span>{formatTime(duration)}</span>
                 </div>
             </div>
 
             {/* ── CONTROLS ─────────────────────────────────────────── */}
-            <div className="relative z-10 w-full flex items-center justify-between px-4 py-3 shrink-0" style={{ WebkitAppRegion: 'no-drag' } as any}>
+            <div className="relative z-10 w-full flex items-center justify-between px-6 pt-2 pb-2 shrink-0 no-drag">
                 {/* Queue */}
                 <button
                     onClick={() => setShowQueue(s => !s)}
                     className={clsx(
-                        "p-2 rounded-full transition-all",
-                        showQueue ? "text-primary bg-primary/10" : "text-on-surface-variant/30 hover:text-primary hover:bg-primary/5"
+                        "p-3 rounded-full transition-all border-2 border-primary",
+                        showQueue ? "text-primary bg-primary/30 shadow-lg shadow-primary/20" : "text-primary/60 hover:text-primary hover:bg-primary/10"
                     )}
                 >
-                    <ListMusic size={17} />
+                    <ListMusic size={22} />
                 </button>
 
                 {/* Transport */}
-                <div className="flex items-center gap-3">
-                    <button onClick={prev} className="p-2 text-on-surface-variant/70 hover:text-primary active:scale-90 transition-all">
-                        <SkipBack size={22} fill="currentColor" />
+                <div className="flex items-center gap-1 md:gap-4">
+                    <button 
+                        onClick={toggleShuffle} 
+                        className={clsx(
+                            "p-3 transition-all active:scale-90 rounded-full border-2", 
+                            shuffle ? "text-primary bg-primary/30 border-primary shadow-md" : "text-primary/40 border-primary/40 hover:text-primary hover:border-primary"
+                        )}
+                    >
+                        <Shuffle size={20} />
+                    </button>
+                    <button onClick={prev} className="p-3 text-primary hover:scale-110 active:scale-90 transition-all">
+                        <SkipBack size={28} fill="currentColor" />
                     </button>
                     <button
                         onClick={isPlaying ? pause : () => play()}
-                        className="w-14 h-14 bg-primary text-on-primary rounded-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20 border border-primary/40"
+                        className="w-16 h-16 bg-primary text-on-primary rounded-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/50 border-2 border-white/20 mx-1"
                     >
                         {isPlaying
-                            ? <Pause size={26} fill="currentColor" />
-                            : <Play size={26} className="ml-1" fill="currentColor" />}
+                            ? <Pause size={34} fill="currentColor" />
+                            : <Play size={34} className="ml-1" fill="currentColor" />}
                     </button>
-                    <button onClick={next} className="p-2 text-on-surface-variant/70 hover:text-primary active:scale-90 transition-all">
-                        <SkipForward size={22} fill="currentColor" />
+                    <button onClick={next} className="p-3 text-primary hover:scale-110 active:scale-90 transition-all">
+                        <SkipForward size={28} fill="currentColor" />
+                    </button>
+                    <button 
+                        onClick={toggleLoop} 
+                        className={clsx(
+                            "p-3 transition-all active:scale-90 rounded-full relative border-2", 
+                            loop !== 'none' ? "text-primary bg-primary/30 border-primary shadow-md" : "text-primary/40 border-primary/40 hover:text-primary hover:border-primary"
+                        )}
+                    >
+                        <Repeat size={20} />
+                        {loop === 'one' && <span className="absolute text-[10px] font-black -top-2 -right-2 bg-primary text-on-primary rounded-full w-5 h-5 flex items-center justify-center border-2 border-on-primary shadow-sm leading-none">1</span>}
                     </button>
                 </div>
 
-                {/* Open full player */}
                 <button
-                    onClick={() => {
-                        const state = usePlayerStore.getState();
-                        if (!state.isPlayerOpen) state.togglePlayer();
-                        exitMiniPlayer();
+                    onClick={async () => {
+                        await exitMiniPlayer();
+                        setTimeout(() => usePlayerStore.getState().togglePlayer(), 300);
                     }}
-                    className="p-2 text-on-surface-variant/30 hover:text-primary hover:bg-primary/5 rounded-full transition-all"
+                    className="p-3 rounded-full transition-all border-2 border-primary text-primary/60 hover:text-primary hover:bg-primary/10"
+                    title="Zen Mode"
                 >
-                    <Airplay size={17} />
+                    <Airplay size={22} />
                 </button>
+            </div>
+
+            {/* ── VOLUME (Android-Style) ────────────── */}
+            <div className="relative z-10 w-auto flex items-center justify-center gap-3 px-6 py-2 shrink-0 outline outline-1 outline-primary/30 rounded-full mx-8 mb-6 mt-1 bg-primary/5 hover:bg-primary/10 transition-all no-drag group">
+                <button onClick={toggleMute} className="text-primary/60 hover:text-primary transition-transform hover:scale-110">
+                    {isMuted || volume === 0 ? <VolumeX size={18} /> : volume < 0.5 ? <Volume1 size={18} /> : <Volume2 size={18} />}
+                </button>
+                <div className="relative flex-1 w-full max-w-[200px] h-6 flex items-center">
+                    <input
+                        type="range"
+                        min="0" max="1" step="0.01"
+                        value={isMuted ? 0 : volume}
+                        onChange={(e) => setVolume(parseFloat(e.target.value))}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    />
+                    <div className="w-full h-1.5 rounded-full overflow-hidden bg-primary/20">
+                        <div
+                            className="h-full transition-all duration-100 ease-out bg-primary"
+                            style={{ width: `${(isMuted ? 0 : volume) * 100}%` }}
+                        />
+                    </div>
+                    <div
+                        className="h-3 w-3 bg-white rounded-full absolute pointer-events-none shadow-sm transition-all duration-100 ease-out"
+                        style={{ left: `calc(${(isMuted ? 0 : volume) * 100}% - 6px)` }}
+                    />
+                </div>
+                <span className="text-[10px] font-black text-primary/40 w-8 text-right tabular-nums">
+                    {Math.round((isMuted ? 0 : volume) * 100)}%
+                </span>
+            </div>
+
+            {/* ── VISUALIZER (At Bottom) ─────────────────────────────── */}
+            <div className="absolute bottom-[7px] left-0 right-0 h-24 pointer-events-none z-[5] overflow-hidden opacity-100">
+                <canvas
+                    ref={canvasRef}
+                    className="w-full h-full object-fill drop-shadow-[0_0_20px_rgba(var(--md-sys-color-primary),0.9)]"
+                    width={400}
+                    height={96}
+                />
             </div>
 
             {/* ── QUEUE OVERLAY ─────────────────────────────────────── */}

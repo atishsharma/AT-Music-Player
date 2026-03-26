@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import { parseFile } from 'music-metadata';
 import { getDB } from '../db';
 import { BrowserWindow, app } from 'electron';
 import crypto from 'crypto';
@@ -8,6 +7,7 @@ import crypto from 'crypto';
 const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.flac', '.wav', '.ogg'];
 
 export async function scanDirectory(dirPath: string, window?: BrowserWindow) {
+    const { parseFile } = await import('music-metadata');
     const db = getDB();
     const files: string[] = [];
 

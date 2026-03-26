@@ -59,7 +59,7 @@ const Sidebar = () => {
             initial={{ width: 256 }}
             animate={{ width: isCollapsed ? 98 : 256 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="h-full bg-surface/50 backdrop-blur-xl flex flex-col p-4 border-right overflow-hidden flex-shrink-0 outline outline-1 outline-primary z-50 shadow-lg shadow-primary/5"
+            className="h-full bg-surface/50 backdrop-blur-xl flex flex-col p-4 pt-[40px] border-r border-primary/60 overflow-hidden flex-shrink-0 z-50 shadow-lg shadow-primary/5"
         >
             <div className={clsx("flex items-center gap-4 px-2 py-8 mb-4", isCollapsed ? "justify-center" : "")}>
                 <div className={clsx(

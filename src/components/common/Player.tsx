@@ -9,6 +9,8 @@ const Player = () => {
         isPlaying,
         volume,
         pause,
+        play,
+        prev,
         next,
         lastSeekTime,
         currentTime
@@ -63,6 +65,45 @@ const Player = () => {
 
         if (currentTrack) {
             window.ipcRenderer.invoke('library:markPlayed', currentTrack);
+
+            if ('mediaSession' in navigator) {
+                // Ensure image path is properly formatted for remote or local resources
+                let artworkUrl = currentTrack.image_path || currentTrack.thumbnail || '';
+                if (artworkUrl && !artworkUrl.startsWith('http')) {
+                    // Assuming we might need a custom protocol for local image in media session
+                    // E.g. atmusic://stream?path=...
+                    artworkUrl = `atmusic://stream?path=${encodeURIComponent(artworkUrl.replace(/\\/g, '/'))}`;
+                }
+
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: currentTrack.title || 'Unknown Title',
+                    artist: currentTrack.artist || 'Unknown Artist',
+                    album: currentTrack.album || 'Unknown Album',
+                    artwork: artworkUrl ? [{ src: artworkUrl, sizes: '512x512' }] : []
+                });
+
+                navigator.mediaSession.setActionHandler('play', () => play());
+                navigator.mediaSession.setActionHandler('pause', () => pause());
+                navigator.mediaSession.setActionHandler('previoustrack', () => prev());
+                navigator.mediaSession.setActionHandler('nexttrack', () => next());
+                navigator.mediaSession.setActionHandler('seekto', (details) => {
+                    const seekTime = details.seekTime || 0;
+                    if (audioRef.current) audioRef.current.currentTime = seekTime;
+                    usePlayerStore.getState().seek(seekTime);
+                });
+                navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+                    const skipTime = details.seekOffset || 10;
+                    const newTime = Math.max((audioRef.current?.currentTime || 0) - skipTime, 0);
+                    if (audioRef.current) audioRef.current.currentTime = newTime;
+                    usePlayerStore.getState().seek(newTime);
+                });
+                navigator.mediaSession.setActionHandler('seekforward', (details) => {
+                    const skipTime = details.seekOffset || 10;
+                    const newTime = Math.min((audioRef.current?.currentTime || 0) + skipTime, audioRef.current?.duration || 0);
+                    if (audioRef.current) audioRef.current.currentTime = newTime;
+                    usePlayerStore.getState().seek(newTime);
+                });
+            }
         }
     }, [currentTrack]);
 
@@ -154,6 +195,27 @@ const Player = () => {
             audioRef.current.currentTime = currentTime;
         }
     }, [lastSeekTime]);
+
+    useEffect(() => {
+        const updatePositionState = () => {
+            if ('mediaSession' in navigator && audioRef.current && !isNaN(audioRef.current.duration)) {
+                try {
+                    navigator.mediaSession.setPositionState({
+                        duration: audioRef.current.duration,
+                        playbackRate: audioRef.current.playbackRate,
+                        position: audioRef.current.currentTime
+                    });
+                } catch (err) {}
+            }
+        };
+
+        updatePositionState();
+
+        if (isPlaying) {
+            const interval = setInterval(updatePositionState, 5000);
+            return () => clearInterval(interval);
+        }
+    }, [isPlaying, lastSeekTime]);
 
     return (
         <audio

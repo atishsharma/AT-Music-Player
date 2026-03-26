@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
 import { useThemeStore } from '../store/themeStore';
-import { Globe, Sparkles, ShieldCheck, Sun, Moon, Zap, FolderPlus, Monitor } from 'lucide-react';
+import { Globe, Sparkles, ShieldCheck, Sun, Moon, Zap, FolderPlus, Monitor, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import SettingSpinner from '../components/settings/SettingSpinner';
@@ -96,13 +96,13 @@ const SettingsPage = () => {
                         <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden relative shadow-inner">
                             <div
                                 className="absolute left-0 h-full bg-primary transition-all duration-300 ease-out"
-                                style={{ width: `${([0.9, 1, 1.1, 1.25, 1.5].indexOf(zoomLevel || 1) / 4) * 100}%` }}
+                            style={{ width: `${([0.7, 0.8, 1, 1.1, 1.25, 1.5].indexOf(zoomLevel || 0.8) / 5) * 100}%` }}
                             />
                         </div>
                     </div>
                     <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 flex items-center justify-between pointer-events-none z-10">
-                        {[0.9, 1, 1.1, 1.25, 1.5].map((val, idx) => {
-                            const names = ["Tiny", "Normal", "Large", "Huge", "Max"];
+                        {[0.7, 0.8, 1, 1.1, 1.25, 1.5].map((val, idx) => {
+                            const names = ["X-Tiny", "Tiny", "Normal", "Large", "Huge", "Max"];
                             const isSelected = zoomLevel === val;
                             return (
                                 <div key={val} className="flex flex-col items-center relative w-0">
@@ -123,10 +123,10 @@ const SettingsPage = () => {
                     <input
                         type="range"
                         min="0"
-                        max="4"
+                        max="5"
                         step="1"
-                        value={[0.9, 1, 1.1, 1.25, 1.5].indexOf(zoomLevel || 1)}
-                        onChange={(e) => setZoomLevel([0.9, 1, 1.1, 1.25, 1.5][Number(e.target.value)])}
+                        value={[0.7, 0.8, 1, 1.1, 1.25, 1.5].indexOf(zoomLevel || 0.8)}
+                        onChange={(e) => setZoomLevel([0.7, 0.8, 1, 1.1, 1.25, 1.5][Number(e.target.value)])}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                     />
                 </div>
@@ -258,8 +258,23 @@ const SettingsPage = () => {
                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16" />
                     <h3 className="text-sm font-black uppercase tracking-[0.3em] text-on-surface-variant/60">Designed By</h3>
                     <div className="w-full flex items-center justify-between">
-                        <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-500">Atish Ak Sharma</h2>
-                        <img src="./ats-logo.png" alt="Logo" className="w-24 h-24 rounded-full border-4 border-white shadow-2xl object-cover" />
+                        <a
+                            href="https://atishaksharma.com"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-500 hover:opacity-80 transition-opacity"
+                        >
+                            Atish Ak Sharma
+                        </a>
+                        <a
+                            href="https://atishaksharma.com"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-black uppercase tracking-widest transition-all hover:scale-105 border border-primary/20"
+                        >
+                            <ExternalLink size={12} />
+                            Portfolio
+                        </a>
                     </div>
                 </div>
 
@@ -275,13 +290,22 @@ const SettingsPage = () => {
                             <Zap className="text-primary" size={24} />
                         </div>
                         <p className="text-xl font-black text-primary">v1.2.1</p>
+                        <a
+                            href="https://github.com/atishsharma/AT-Music-Player/releases"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105"
+                        >
+                            <ExternalLink size={11} />
+                            Check Update
+                        </a>
                     </div>
                 </div>
 
                 {/* Final App Branding */}
                 <div className="md:col-span-2 flex flex-col items-center gap-8 pt-12">
                     <a
-                        href="https://github.com/atishsharma/AT-Music-Player/"
+                        href="https://atishaksharma.com/atmusic"
                         target="_blank"
                         rel="noreferrer"
                         className="block hover:scale-105 transition-all active:scale-95"

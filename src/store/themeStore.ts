@@ -90,7 +90,7 @@ export const useThemeStore = create<ThemeState>()(
             currentMood: 'party',
             appearance: 'light',
             luckyTheme: null,
-            zoomLevel: 1,
+            zoomLevel: 0.8,
             setZoomLevel: (level) => {
                 set({ zoomLevel: level });
                 if (window.ipcRenderer?.setZoomFactor) {
@@ -129,7 +129,7 @@ export const useThemeStore = create<ThemeState>()(
                 if (state) {
                     updateBodyClass(state.currentMood, state.appearance, state.luckyTheme);
                     if (window.ipcRenderer?.setZoomFactor) {
-                        window.ipcRenderer.setZoomFactor(state.zoomLevel || 1);
+                        window.ipcRenderer.setZoomFactor(state.zoomLevel ?? 0.8);
                     }
                 }
             },

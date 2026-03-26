@@ -6,7 +6,6 @@
   "description": "Premium music player with Last.fm and YouTube integration",
   "author": "Atish Ak Sharma <mail@atishaksharma.com>",
   "homepage": "https://github.com/atishsharma/At-Music-Pro",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "electron:dev": "vite",

@@ -477,6 +477,12 @@ export function registerHandlers(mainWindow: BrowserWindow) {
         return db.prepare(sql).run(...values);
     });
 
+    ipcMain.handle('library:updateVideoId', (_event, { trackId, videoId }) => {
+        const db = getDB();
+        // Set the video_id column for this track so we avoid re-searching YouTube next time
+        return db.prepare('UPDATE tracks SET video_id = ? WHERE id = ?').run(videoId, trackId);
+    });
+
     // Downloads
     ipcMain.handle('download:start', async (_event, { track, options }) => {
         return await startDownload(track, options, mainWindow);
