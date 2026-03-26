@@ -10,7 +10,7 @@
     "dev": "vite",
     "electron:dev": "vite",
     "build": "tsc && vite build",
-    "build:electron": "tsc && vite build && electron-builder --win",
+    "build:win": "tsc && vite build && electron-builder --win",
     "build:linux": "tsc && vite build && electron-builder --linux",
     "build:mac": "tsc && vite build && electron-builder --mac",
     "build:all": "tsc && vite build && electron-builder --win --linux --mac",

@@ -73,7 +73,7 @@ const Downloads = () => {
     useEffect(() => {
         if (!window.ipcRenderer) return;
 
-        const removeListener = window.ipcRenderer.on('download:update', (_event, data) => {
+        const removeListener = window.ipcRenderer?.on?.('download:update', (_event, data) => {
             setDownload(data);
         });
         return () => {

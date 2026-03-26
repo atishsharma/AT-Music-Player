@@ -40,7 +40,7 @@ const Player = () => {
                 if (currentTrack.path.startsWith('http://') || currentTrack.path.startsWith('https://')) {
                     setStreamUrl(currentTrack.path);
                 } else {
-                    let encodedPath = currentTrack.path;
+                    const encodedPath = currentTrack.path;
                     if (encodedPath.startsWith('atmusic://stream?path=')) {
                         setStreamUrl(encodedPath);
                     } else if (encodedPath.startsWith('atmusic://')) {
@@ -240,7 +240,7 @@ const Player = () => {
                         playbackRate: audioRef.current.playbackRate,
                         position: audioRef.current.currentTime
                     });
-                } catch (err) {}
+                } catch (err) { /* ignore */ }
             }
         };
 

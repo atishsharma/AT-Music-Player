@@ -137,33 +137,69 @@ const SettingsPage = () => {
                 </div>
             </div>
 
-            {/* Download Location */}
-            <div className="lg:col-span-2 bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-8 border border-white/5 flex flex-col md:flex-row md:items-center gap-6 justify-between mt-8">
-                <div className="flex items-center gap-4 whitespace-nowrap">
-                    <div className="p-4 bg-primary/10 rounded-[1.5rem]">
-                        <FolderPlus className="text-primary" size={24} />
+            {/* Settings Sections Grouped (Download Location & Mini Player) */}
+            <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-8 mt-4">
+                {/* Download Location */}
+                <div className="bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-10 border border-white/5 flex flex-col justify-between">
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="p-4 bg-primary/10 rounded-[1.5rem]">
+                            <FolderPlus className="text-primary" size={24} />
+                        </div>
+                        <h2 className="text-2xl font-black text-on-surface">Download Location</h2>
                     </div>
-                    <h2 className="text-2xl font-black text-on-surface">Download Location</h2>
+                    <div className="space-y-4">
+                        <div className="w-full bg-surface-variant/5 border border-outline/10 rounded-[1.5rem] px-6 py-4 text-sm text-on-surface font-mono overflow-hidden whitespace-nowrap flex items-center h-[56px]">
+                            <span className="truncate w-full block">
+                                {downloadPath || 'Default: App Data Folder'}
+                            </span>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                const path = await window.ipcRenderer.invoke('dialog:openDirectory');
+                                if (path) {
+                                    setDownloadPath(path);
+                                    setMessage('Folder updated!');
+                                    setTimeout(() => setMessage(''), 3000);
+                                }
+                            }}
+                            className="w-full px-8 bg-primary text-on-primary rounded-[1.5rem] font-black uppercase tracking-widest text-xs transition-all hover:scale-[1.02] h-[56px] shadow-lg shadow-primary/20"
+                        >
+                            Change Folder
+                        </button>
+                    </div>
                 </div>
-                <div className="flex-1 flex flex-col md:flex-row md:items-center gap-4 w-full">
-                    <div className="flex-1 w-full bg-surface-variant/5 border border-outline/10 rounded-[1.5rem] px-6 py-4 text-sm text-on-surface font-mono overflow-hidden whitespace-nowrap flex items-center h-[56px]">
-                        <span className="truncate w-full block">
-                            {downloadPath || 'Default: App Data Folder'}
-                        </span>
+
+                {/* Mini Player Resizable Settings */}
+                <div className="bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-10 border border-white/5 flex flex-col justify-between">
+                    <div className="flex flex-col gap-4 mb-6">
+                        <div className="flex items-center gap-4">
+                            <div className="p-4 bg-primary/10 rounded-[1.5rem]">
+                                <Monitor className="text-primary" size={24} />
+                            </div>
+                            <h2 className="text-2xl font-black text-on-surface">Mini Player Controls</h2>
+                        </div>
+                        <p className="text-xs text-on-surface-variant/60 font-bold uppercase tracking-widest pl-2">Enable resizing & fixed aspect ratio</p>
                     </div>
-                    <button
-                        onClick={async () => {
-                            const path = await window.ipcRenderer.invoke('dialog:openDirectory');
-                            if (path) {
-                                setDownloadPath(path);
-                                setMessage('Folder updated!');
-                                setTimeout(() => setMessage(''), 3000);
-                            }
-                        }}
-                        className="px-8 bg-primary text-on-primary rounded-[1.5rem] font-black uppercase tracking-widest text-xs transition-all hover:scale-105 h-[56px]"
-                    >
-                        Change Folder
-                    </button>
+                    <div className="flex items-center">
+                        <button
+                            onClick={() => {
+                                const current = useSettingsStore.getState().isMiniPlayerResizable;
+                                useSettingsStore.getState().setMiniPlayerResizable(!current);
+                            }}
+                            className={clsx(
+                                "w-full px-8 py-5 rounded-[1.5rem] font-black uppercase tracking-widest text-xs transition-all flex items-center justify-between group",
+                                useSettingsStore(s => s.isMiniPlayerResizable)
+                                    ? "bg-primary text-on-primary shadow-lg shadow-primary/40"
+                                    : "bg-surface-variant/5 text-on-surface-variant border border-white/10 hover:bg-surface-variant/30"
+                            )}
+                        >
+                            <span>{useSettingsStore(s => s.isMiniPlayerResizable) ? 'Resizable Enabled' : 'Fixed Mode'}</span>
+                            <div className={clsx(
+                                "w-3 h-3 rounded-full border-2",
+                                useSettingsStore(s => s.isMiniPlayerResizable) ? "bg-on-primary border-white animate-pulse" : "bg-transparent border-on-surface-variant/20"
+                            )} />
+                        </button>
+                    </div>
                 </div>
             </div>
 

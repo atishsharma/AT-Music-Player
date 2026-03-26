@@ -358,8 +358,8 @@ export function registerHandlers(mainWindow: BrowserWindow) {
         return clearCache();
     });
 
-    ipcMain.handle('cache:delete', (_event, fileIds: string[]) => {
-        const { deleteCacheFiles } = require('../services/ytdlp.js');
+    ipcMain.handle('cache:delete', async (_event, fileIds: string[]) => {
+        const { deleteCacheFiles } = await import('../services/ytdlp.js');
         return deleteCacheFiles(fileIds);
     });
 

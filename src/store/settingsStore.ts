@@ -11,6 +11,7 @@ interface SettingsState {
     albumSortBy: 'name' | 'artist' | 'count';
     albumSortOrder: 'asc' | 'desc';
     albumThumbnailSize: number;
+    isMiniPlayerResizable: boolean;
 
     artistSortBy: 'name' | 'count';
     artistSortOrder: 'asc' | 'desc';
@@ -26,6 +27,7 @@ interface SettingsState {
 
     setArtistSortBy: (by: 'name' | 'count') => Promise<void>;
     setArtistSortOrder: (order: 'asc' | 'desc') => Promise<void>;
+    setMiniPlayerResizable: (resizable: boolean) => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -41,9 +43,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
     artistSortBy: 'name',
     artistSortOrder: 'asc',
+    isMiniPlayerResizable: false,
 
     fetchSettings: async () => {
-        const [lfm, sId, sSec, yt, dlPath, sortBy, sortOrder, thumbSize, artistBy, artistOrder] = await Promise.all([
+        const [lfm, sId, sSec, yt, dlPath, sortBy, sortOrder, thumbSize, artistBy, artistOrder, resizable] = await Promise.all([
             window.ipcRenderer.invoke('settings:get', 'lastfm_api_key'),
             window.ipcRenderer.invoke('settings:get', 'spotify_client_id'),
             window.ipcRenderer.invoke('settings:get', 'spotify_client_secret'),
@@ -53,7 +56,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
             window.ipcRenderer.invoke('settings:get', 'album_sort_order'),
             window.ipcRenderer.invoke('settings:get', 'album_thumbnail_size'),
             window.ipcRenderer.invoke('settings:get', 'artist_sort_by'),
-            window.ipcRenderer.invoke('settings:get', 'artist_sort_order')
+            window.ipcRenderer.invoke('settings:get', 'artist_sort_order'),
+            window.ipcRenderer.invoke('settings:get', 'miniplayer_resizable')
         ]);
         set({
             lastfmKey: lfm || '',
@@ -66,6 +70,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
             albumThumbnailSize: thumbSize ? parseInt(thumbSize) : 150,
             artistSortBy: (artistBy as any) || 'name',
             artistSortOrder: (artistOrder as any) || 'asc',
+            isMiniPlayerResizable: resizable === 'true',
         });
     },
 
@@ -115,5 +120,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     setArtistSortOrder: async (order) => {
         await window.ipcRenderer.invoke('settings:set', { key: 'artist_sort_order', value: order });
         set({ artistSortOrder: order });
+    },
+
+    setMiniPlayerResizable: async (resizable: boolean) => {
+        await window.ipcRenderer.invoke('settings:set', { key: 'miniplayer_resizable', value: resizable.toString() });
+        set({ isMiniPlayerResizable: resizable });
+        // Notify main process immediately
+        window.ipcRenderer.invoke('window:setMiniPlayerResizable', resizable);
     },
 }));

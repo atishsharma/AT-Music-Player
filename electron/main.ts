@@ -4,11 +4,16 @@ import { app, BrowserWindow, protocol, shell, Tray, Menu, nativeImage, ipcMain, 
 // Without this, packaged AppImage will core dump (SIGTRAP) on most distros
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('disable-setuid-sandbox');
+  app.commandLine.appendSwitch('disable-gpu-sandbox');
 }
 // Fix compositor tile memory limits and GPU performance
 app.commandLine.appendSwitch('force-gpu-mem-available-mb', '2048');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('enable-oop-rasterization');
+
+// Disable hardware acceleration to maximize compatibility on Linux (fixes blank screens/VSync errors)
+app.disableHardwareAcceleration();
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'atmusic', privileges: { secure: true, standard: true, supportFetchAPI: true, bypassCSP: false, stream: true } }
@@ -148,7 +153,7 @@ function createWindow() {
     icon: getIconPath(),
     fullscreenable: true,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.mjs'),
+      preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: true,
@@ -215,19 +220,35 @@ ipcMain.handle('window:miniPlayer', () => {
   if (!win) return;
   win.unmaximize();
   win.setMaximizable(false);
-  win.setResizable(false);
   win.setMinimumSize(380, 712);
   win.setSize(380, 712);
   win.setAlwaysOnTop(true);
-  win.setResizable(false);
+  win.setResizable(false); 
+  
   // Position bottom-right of screen
   const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
-  win.setPosition(screenWidth - 400, screenHeight - 732);
+  win.setPosition(screenWidth - 420, screenHeight - 752);
+});
+
+ipcMain.handle('window:setMiniPlayerResizable', (_event, resizable: boolean) => {
+  if (win) {
+    const [width] = win.getSize();
+    if (width <= 500) { // Check if we are mostly in mini mode
+      win.setResizable(resizable);
+      if (resizable) {
+        win.setAspectRatio(380 / 712);
+      } else {
+        win.setAspectRatio(0);
+        win.setSize(380, 712);
+      }
+    }
+  }
 });
 
 ipcMain.handle('window:normalMode', () => {
   if (!win) return;
-  win.setMaximizable(true); // Restore the maximize button in full mode
+  win.setAspectRatio(0); // Remove aspect ratio lock
+  win.setMaximizable(true); 
   win.setAlwaysOnTop(false);
   win.setResizable(true);
   win.setMinimumSize(1200, 800);
@@ -237,7 +258,7 @@ ipcMain.handle('window:normalMode', () => {
 ipcMain.handle('window:isMiniPlayer', () => {
   if (!win) return false;
   const [width] = win.getSize();
-  return width <= 400;
+  return width <= 500;
 });
 
 app.on('before-quit', () => {

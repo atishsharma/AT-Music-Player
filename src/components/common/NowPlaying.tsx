@@ -924,7 +924,7 @@ const NowPlaying = () => {
                             onClick={async () => {
                                 try {
                                     await (window as any).windowControls.miniPlayer();
-                                } catch (err) { }
+                                } catch (err) { /* ignore */ }
                             }}
                             className="p-3 bg-surface-variant/20 hover:bg-primary text-on-surface-variant hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md shadow-xl"
                             title="Mini Player"
@@ -1597,7 +1597,7 @@ const NowPlaying = () => {
                                     onClick={async () => {
                                         try {
                                             await (window as any).windowControls.miniPlayer();
-                                        } catch (err) { }
+                                        } catch (err) { /* ignore */ }
                                     }}
                                     className="p-3 bg-surface-variant/10 hover:bg-primary text-on-surface-variant hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md shadow-xl"
                                     title="Mini Player"

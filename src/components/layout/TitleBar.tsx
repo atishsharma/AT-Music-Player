@@ -17,7 +17,7 @@ const TitleBar = () => {
 
                 const max = await (window as any).windowControls.isMaximized();
                 setIsMaximized(max);
-            } catch { }
+            } catch { /* ignore */ }
         };
         checkMode();
 
@@ -28,7 +28,7 @@ const TitleBar = () => {
                 
                 const mini = await (window as any).windowControls.isMiniPlayer();
                 setIsMiniMode(mini);
-            } catch { }
+            } catch { /* ignore */ }
         }, 500);
 
         // Listen for ESC key to exit fullscreen
@@ -51,7 +51,7 @@ const TitleBar = () => {
         try {
             const fs = await (window as any).windowControls.toggleFullScreen();
             setIsFullScreen(fs);
-        } catch { }
+        } catch { /* ignore */ }
     };
 
     return (
@@ -81,8 +81,8 @@ const TitleBar = () => {
                 )}
             </div>
 
-            <div className="flex-1 flex shrink-0 items-center justify-end h-full drag-none">
-                <div className="flex h-full no-drag">
+            <div className="flex-1 flex shrink-0 items-center justify-end h-full no-drag">
+                <div className="flex h-full">
                 <button
                     onClick={() => (window as any).windowControls.minimize()}
                     className="h-full px-4 hover:bg-surface-variant/30 text-on-surface-variant transition-colors flex items-center justify-center"
