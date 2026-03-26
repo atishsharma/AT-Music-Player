@@ -1,7 +1,7 @@
 # 🎶 AT Music Pro - Premium Music Player ❤️
 
 <div align="center">
-<img src="/public/app_icon.png" style="max-width:100%; width:170px; border-radius: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.3);" /> 
+<img src="/public/app_icon.png" style="max-width:100%; width:170px; border-radius: 40px; box-shadow: 0 20px 20px rgba(0,0,0,0.3);" /> 
 
   [![Platform](https://img.shields.io/badge/platform-Linux-blue?style=for-the-badge&logo=linux)](https://github.com/atishsharma/AT-Music-Player)
   [![Platform](https://img.shields.io/badge/platform-macOS-lightgrey?style=for-the-badge&logo=apple)](https://github.com/atishsharma/AT-Music-Player)
@@ -30,7 +30,7 @@
     </div>
     <div style="flex: 1; min-width: 300px; text-align: center;">
       <img src="/pics/Image-02.png" width="95%" style="border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);" alt="YouTube Search" />
-      <br><i>YouTube Streaming & Global Search</i>
+      <br><i>Main Home Page With Lyrics Side Opened</i>
     </div>
   </div>
 </div>
