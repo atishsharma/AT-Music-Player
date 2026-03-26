@@ -12,7 +12,7 @@
     "node_modules/@ffmpeg-installer/**/*",
     "node_modules/@img/**/*"
   ],
-  "productName": "AT Music Player - Pro",
+  "productName": "AT Music Pro",
   "directories": {
     "output": "release/${version}"
   },
@@ -23,7 +23,7 @@
   ],
   "extraResources": [
     {
-      "from": "public/app_icon.png",
+      "from": "public/icon_square.png",
       "to": "app_icon.png"
     },
     {
@@ -33,22 +33,18 @@
   ],
   "mac": {
     "target": ["zip"],
-    "icon": "public/app_icon.png",
+    "icon": "public/icon_square.png",
     "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
   },
   "win": {
     "target": [
       {
-        "target": "portable",
-        "arch": ["x64"]
-      },
-      {
         "target": "zip",
         "arch": ["x64"]
       }
     ],
-    "icon": "public/app_icon.png",
-    "artifactName": "${productName}-Windows-${version}-Portable.${ext}"
+    "icon": "public/app_icon_win.ico",
+    "artifactName": "${productName}-Windows-${version}.${ext}"
   },
   "nsis": {
     "oneClick": false,
@@ -69,14 +65,26 @@
         "arch": [
           "x64"
         ]
+      },
+      {
+        "target": "flatpak",
+        "arch": [
+          "x64"
+        ]
+      },
+      {
+        "target": "snap",
+        "arch": [
+          "x64"
+        ]
       }
     ],
     "category": "AudioVideo",
-    "icon": "public/app_icon.png",
+    "icon": "public/icon_square.png",
     "artifactName": "${productName}-Linux-${version}.${ext}",
     "executableName": "at-music-pro",
     "desktop": {
-      "Name": "AT Music Player Pro",
+      "Name": "AT Music Pro",
       "Comment": "Premium music player with Last.fm and YouTube integration",
       "Categories": "Audio;Music;Player;AudioVideo;",
       "StartupWMClass": "at-music-pro"
@@ -95,7 +103,53 @@
       "libsecret-1-0"
     ]
   },
-  "npmRebuild": true,
-  "buildDependenciesFromSource": true,
-  "nodeGypRebuild": false
+  "npmRebuild": false,
+  "buildDependenciesFromSource": false,
+  "nodeGypRebuild": false,
+  "flatpak": {
+    "runtime": "org.freedesktop.Platform",
+    "runtimeVersion": "23.08",
+    "sdk": "org.freedesktop.Sdk",
+    "branch": "stable",
+    "finishArgs": [
+      "--share=network",
+      "--share=ipc",
+      "--socket=x11",
+      "--socket=wayland",
+      "--socket=pulseaudio",
+      "--device=dri",
+      "--filesystem=home:rw"
+    ]
+  },
+  "snap": {
+    "publish": ["github"],
+    "confinement": "strict",
+    "grade": "stable",
+    "summary": "Premium music player with Last.fm and YouTube integration",
+    "plugs": [
+      "default",
+      "home",
+      "network",
+      "network-bind",
+      "audio-playback",
+      "pulseaudio",
+      "opengl",
+      "removable-media"
+    ]
+  },
+  "snap": {
+    "confinement": "strict",
+    "grade": "stable",
+    "summary": "Premium music player with Last.fm and YouTube integration",
+    "plugs": [
+      "default",
+      "home",
+      "network",
+      "network-bind",
+      "audio-playback",
+      "pulseaudio",
+      "opengl",
+      "removable-media"
+    ]
+  }
 }

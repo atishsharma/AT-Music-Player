@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type Mood = 'calm' | 'energetic' | 'focus' | 'sad' | 'party' | 'lucky';
-export type Appearance = 'light' | 'dark' | 'oled';
+export type Appearance = 'light' | 'dark' | 'oled' | 'glass';
 
 export interface LuckyTheme {
     name: string;
@@ -64,6 +64,13 @@ const updateBodyClass = (mood: Mood, appearance: Appearance, luckyTheme?: LuckyT
             document.body.style.setProperty('--md-sys-color-on-surface', '26 28 30');
             document.body.style.setProperty('--md-sys-color-primary-container', '212 227 255');
             document.body.style.setProperty('--md-sys-color-on-primary-container', '0 49 95');
+        } else if (appearance === 'glass') {
+            document.body.style.setProperty('--md-sys-color-background', '250 250 255'); // Light glass backdrop
+            document.body.style.setProperty('--md-sys-color-on-background', '20 20 20'); // Dark text
+            document.body.style.setProperty('--md-sys-color-surface', luckyTheme.primaryColor); // Use primary color for frost tint
+            document.body.style.setProperty('--md-sys-color-on-surface', '10 10 10');
+            document.body.style.setProperty('--md-sys-color-primary-container', luckyTheme.primaryColor);
+            document.body.style.setProperty('--md-sys-color-on-primary-container', '255 255 255');
         } else {
             document.body.style.setProperty('--md-sys-color-primary-container', luckyTheme.primaryColor);
             document.body.style.setProperty('--md-sys-color-on-primary-container', '255 255 255');
@@ -90,7 +97,7 @@ export const useThemeStore = create<ThemeState>()(
             currentMood: 'party',
             appearance: 'light',
             luckyTheme: null,
-            zoomLevel: 1,
+            zoomLevel: 0.8,
             setZoomLevel: (level) => {
                 set({ zoomLevel: level });
                 if (window.ipcRenderer?.setZoomFactor) {
@@ -129,7 +136,7 @@ export const useThemeStore = create<ThemeState>()(
                 if (state) {
                     updateBodyClass(state.currentMood, state.appearance, state.luckyTheme);
                     if (window.ipcRenderer?.setZoomFactor) {
-                        window.ipcRenderer.setZoomFactor(state.zoomLevel || 1);
+                        window.ipcRenderer.setZoomFactor(state.zoomLevel ?? 0.8);
                     }
                 }
             },

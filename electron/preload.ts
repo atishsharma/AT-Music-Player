@@ -48,11 +48,45 @@ contextBridge.exposeInMainWorld('yt', {
   },
   getVideoStreamWithQuality(videoId: string, quality: string) {
     return ipcRenderer.invoke('yt:getVideoStreamWithQuality', { videoId, quality })
+  },
+  stopVideoStream() {
+    return ipcRenderer.invoke('yt:stopVideoStream')
   }
 })
 
 contextBridge.exposeInMainWorld('ytdlp', {
   check() {
     return ipcRenderer.invoke('ytdlp:check')
+  }
+})
+
+// Window controls for custom title bar and mini player
+contextBridge.exposeInMainWorld('windowControls', {
+  minimize() {
+    return ipcRenderer.invoke('window:minimize')
+  },
+  maximize() {
+    return ipcRenderer.invoke('window:maximize')
+  },
+  close() {
+    return ipcRenderer.invoke('window:close')
+  },
+  isMaximized() {
+    return ipcRenderer.invoke('window:isMaximized')
+  },
+  toggleFullScreen() {
+    return ipcRenderer.invoke('window:toggleFullScreen')
+  },
+  toggleAlwaysOnTop(alwaysOnTop: boolean) {
+    return ipcRenderer.invoke('window:toggleAlwaysOnTop', alwaysOnTop)
+  },
+  miniPlayer() {
+    return ipcRenderer.invoke('window:miniPlayer')
+  },
+  normalMode() {
+    return ipcRenderer.invoke('window:normalMode')
+  },
+  isMiniPlayer() {
+    return ipcRenderer.invoke('window:isMiniPlayer')
   }
 })

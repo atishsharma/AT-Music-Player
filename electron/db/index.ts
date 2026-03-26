@@ -10,11 +10,11 @@ export function initDB() {
 
   console.log(`Initializing database at ${dbPath}`);
 
-  // Create directory if it doesn't exist (though userData should exist)
-  db = new Database(dbPath);
+  try {
+    db = new Database(dbPath);
 
-  // Performance optimization
-  db.pragma('journal_mode = WAL');
+    // Performance optimization
+    db.pragma('journal_mode = WAL');
 
   // Schema Definition
   const schema = `
@@ -158,7 +158,15 @@ export function initDB() {
     db.exec("ALTER TABLE playlists ADD COLUMN image_path TEXT");
   }
 
-  console.log('Database initialized successfully');
+    console.log('Database initialized successfully');
+  } catch (err) {
+    console.warn("Could not load better-sqlite3 native plugin. Database features are disabled for this session.", err);
+    db = {
+      pragma: () => {},
+      exec: () => {},
+      prepare: () => ({ all: () => [], run: () => ({ changes: 0 }), get: () => null })
+    } as any;
+  }
 
   return db;
 }

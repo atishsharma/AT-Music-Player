@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
-import { FolderPlus, Music, Disc, Mic2, RefreshCw, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FolderPlus, Music, Disc, Mic2, RefreshCw, Search, X, ChevronLeft, ChevronRight, Play, Shuffle, LayoutGrid, List } from 'lucide-react';
 import { useLibraryStore } from '../store/libraryStore';
 import { usePlayerStore } from '../store/playerStore';
 import SongList from '../components/library/SongList';
+import SongGrid from '../components/library/SongGrid';
 import AlbumGrid from '../components/library/AlbumGrid';
 import ArtistGrid from '../components/library/ArtistGrid';
 import clsx from 'clsx';
@@ -12,6 +13,7 @@ type Tab = 'songs' | 'albums' | 'artists' | 'folders';
 
 const Library = () => {
     const [activeTab, setActiveTab] = useState<Tab>('songs');
+    const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [searchQuery, setSearchQuery] = useState('');
     const [refreshKey, setRefreshKey] = useState(0);
     const [folders, setFolders] = useState<{ id: number; path: string; added_at: string }[]>([]);
@@ -144,11 +146,39 @@ const Library = () => {
                         <span className="font-bold text-sm">Refresh</span>
                     </button>
                     <button
+                        onClick={() => {
+                            if (tracks.length > 0) {
+                                const state = usePlayerStore.getState() as any;
+                                state.setQueue(tracks);
+                                state.play(tracks[0]);
+                            }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-full transition-colors shadow-lg hover:shadow-primary/30 active:scale-95 transform duration-200"
+                    >
+                        <Play size={18} fill="currentColor" />
+                        <span className="font-bold text-sm cursor-pointer select-none">Play All</span>
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (tracks.length > 0) {
+                                const shuffled = [...tracks].sort(() => Math.random() - 0.5);
+                                const state = usePlayerStore.getState() as any;
+                                state.setQueue(shuffled);
+                                state.play(shuffled[0]);
+                                if (!state.shuffle) state.toggleShuffle();
+                            }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-full transition-colors shadow-lg hover:shadow-primary/30 active:scale-95 transform duration-200"
+                    >
+                        <Shuffle size={18} />
+                        <span className="font-bold text-sm cursor-pointer select-none">Shuffle All</span>
+                    </button>
+                    <button
                         onClick={handleAddFolder}
                         className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-full transition-colors hover:bg-primary hover:text-on-primary active:scale-95 transform duration-200"
                     >
                         <FolderPlus size={18} />
-                        <span className="font-bold text-sm">Add Folder</span>
+                        <span className="font-bold text-sm cursor-pointer select-none">Add Folder</span>
                     </button>
                 </div>
             </div>
@@ -200,8 +230,18 @@ const Library = () => {
                             </button>
                         )}
                     </div>
+                    
+                    {activeTab === 'songs' && (
+                        <button 
+                            onClick={() => setViewMode(prev => prev === 'list' ? 'grid' : 'list')} 
+                            className="p-3 bg-surface-variant/20 rounded-full border border-primary/30 text-primary hover:bg-primary/10 hover:shadow-lg transition-all"
+                            title={viewMode === 'list' ? 'Thumbnail View' : 'List View'}
+                        >
+                            {viewMode === 'list' ? <LayoutGrid size={18} /> : <List size={18} />}
+                        </button>
+                    )}
 
-                    {activeTab === 'songs' && !searchResults && (
+                    {activeTab === 'songs' && !searchResults && viewMode === 'list' && (
                         <div className="flex items-center gap-3 bg-surface-variant/20 rounded-full border border-primary/30 p-1.5 outline outline-1 outline-primary/20 shadow-lg shadow-black/20">
                             <button
                                 disabled={currentPage === 1}
@@ -308,7 +348,11 @@ const Library = () => {
                                     <div className="p-2 bg-primary/20 text-primary rounded-xl"><Music size={20} /></div>
                                     <h2 className="text-2xl font-black">Matching Songs</h2>
                                 </div>
-                                <SongList tracks={searchResults.songs} onPlay={(t) => usePlayerStore.getState().play(t)} />
+                                {viewMode === 'grid' ? (
+                                    <SongGrid tracks={searchResults.songs} onPlay={(t) => usePlayerStore.getState().play(t)} />
+                                ) : (
+                                    <SongList tracks={searchResults.songs} onPlay={(t) => usePlayerStore.getState().play(t)} />
+                                )}
                             </div>
                         )}
                         {searchResults.songs.length === 0 && searchResults.albums.length === 0 && searchResults.artists.length === 0 && (
@@ -320,14 +364,18 @@ const Library = () => {
                 ) : (
                     <>
                         {activeTab === 'songs' && (
-                            <SongList
-                                key={refreshKey}
-                                tracks={tracks}
-                                onPlay={(t) => usePlayerStore.getState().play(t)}
-                                currentPage={currentPage}
-                                itemsPerPage={itemsPerPage}
-                                onPageChange={setCurrentPage}
-                            />
+                            viewMode === 'grid' ? (
+                                <SongGrid tracks={tracks} onPlay={(t) => usePlayerStore.getState().play(t)} />
+                            ) : (
+                                <SongList
+                                    key={refreshKey}
+                                    tracks={tracks}
+                                    onPlay={(t) => usePlayerStore.getState().play(t)}
+                                    currentPage={currentPage}
+                                    itemsPerPage={itemsPerPage}
+                                    onPageChange={setCurrentPage}
+                                />
+                            )
                         )}
                         {activeTab === 'albums' && (
                             <AlbumGrid tracks={tracks} />

@@ -19,13 +19,13 @@ import AlbumDetail from './pages/AlbumDetail';
 import SettingsPage from './pages/Settings';
 import LastFMPage from './pages/LastFM';
 import FunPage from './pages/Fun';
-
-
+import TitleBar from './components/layout/TitleBar';
 
 const App = () => {
   return (
     <HashRouter>
       <ErrorBoundary>
+        <TitleBar />
         <Routes>
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Home />} />

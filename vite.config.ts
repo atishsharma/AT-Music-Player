@@ -3,6 +3,8 @@ import path from 'node:path'
 import electron from 'vite-plugin-electron/simple'
 import react from '@vitejs/plugin-react'
 
+delete process.env.ELECTRON_RUN_AS_NODE;
+
 // https://vitejs.dev/config/
 export default defineConfig({
   base: './',
@@ -17,6 +19,11 @@ export default defineConfig({
         },
         vite: {
           build: {
+            lib: {
+              entry: 'electron/main.ts',
+              formats: ['cjs'],
+              fileName: () => '[name].js',
+            },
             rollupOptions: {
               external: [
                 'better-sqlite3',

@@ -5,11 +5,13 @@ import { useThemeStore } from '../../store/themeStore';
 
 const Recommended = () => {
     const [recommended, setRecommended] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const { play } = usePlayerStore();
     const { currentMood } = useThemeStore();
 
     useEffect(() => {
         const fetchRecommended = async () => {
+            setIsLoading(true);
             try {
                 const cacheKey = `recommended-${currentMood}`;
                 const cached = localStorage.getItem(cacheKey);
@@ -19,21 +21,25 @@ const Recommended = () => {
                     const parsed = JSON.parse(cached);
                     if (parsed.date === today) {
                         setRecommended(parsed.songs);
+                        setIsLoading(false);
                         return;
                     }
                 }
 
-                const data = await window.ipcRenderer.invoke('youtube:getRecommendations', currentMood);
+                // Enhanced recommendation logic: Top Song + Mixed Languages + Mood + Official Music
+                const moodQuery = `Top Song English or Hindi Or Punjabi For ${currentMood} Mood Official Music`;
+                const data = await window.ipcRenderer.invoke('youtube:search', moodQuery);
 
-                // Filter for unique artists and take top 5
+                // Filter for unique artists and take top 5 most viewed/relevant
                 const uniqueArtistsSongs: any[] = [];
                 const seenArtists = new Set<string>();
 
                 for (const item of data) {
                     if (!item.artist) continue;
-                    if (!seenArtists.has(item.artist)) {
+                    const artistNormalized = item.artist.toLowerCase().trim();
+                    if (!seenArtists.has(artistNormalized)) {
                         uniqueArtistsSongs.push(item);
-                        seenArtists.add(item.artist);
+                        seenArtists.add(artistNormalized);
                     }
                     if (uniqueArtistsSongs.length === 5) break;
                 }
@@ -45,23 +51,41 @@ const Recommended = () => {
                 }));
             } catch (err) {
                 console.error("Failed to fetch recommendations", err);
+            } finally {
+                setIsLoading(false);
             }
         };
-        setRecommended([]); // Instant feedback
         fetchRecommended();
     }, [currentMood]);
 
-    if (recommended.length === 0) return null;
+
 
     return (
         <div className="space-y-4">
             <h2 className="text-xl font-bold px-1 flex items-center gap-2">
                 <Sparkles size={20} className="text-yellow-500" /> Recommended for You
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-                {recommended.map((item) => (
-                    <div
-                        key={item.video_id}
+            
+            {isLoading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="bg-surface-variant/10 rounded-3xl p-4 border border-white/5 animate-pulse">
+                            <div className="w-full aspect-square rounded-2xl bg-surface-variant/30 mb-4" />
+                            <div className="h-4 bg-surface-variant/30 rounded-full w-3/4 mb-2" />
+                            <div className="h-3 bg-surface-variant/30 rounded-full w-1/2" />
+                        </div>
+                    ))}
+                </div>
+            ) : recommended.length === 0 ? (
+                <div className="h-32 rounded-[2rem] border border-dashed border-primary/20 bg-primary/5 flex flex-col items-center justify-center text-primary/50">
+                    <Sparkles size={24} className="mb-2 opacity-50" />
+                    <p className="font-bold text-sm">No recommendations available</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                    {recommended.map((item) => (
+                        <div
+                            key={item.video_id}
                         className="bg-surface-variant/20 rounded-3xl p-4 hover:bg-surface-variant/40 transition-all duration-300 group cursor-pointer border border-white/5"
                         onClick={() => play({
                             id: item.video_id,
@@ -92,6 +116,7 @@ const Recommended = () => {
                     </div>
                 ))}
             </div>
+            )}
         </div>
     );
 };

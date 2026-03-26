@@ -76,6 +76,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
                     updatedQueue.unshift(state.currentTrack);
                 }
 
+                // Add to persistent DB history
+                if (window.ipcRenderer) {
+                    window.ipcRenderer.invoke('library:markPlayed', track).catch(console.error);
+                }
+
                 set((state) => ({
                     currentTrack: track,
                     isPlaying: true,
