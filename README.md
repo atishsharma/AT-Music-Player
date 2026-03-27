@@ -67,6 +67,73 @@ This release focuses on **Layout Independence**, **Native Stability**, and **Lin
 
 ---
 
+### Prerequisites
+* Node.js 18+
+* FFmpeg: Required for audio processing
+* yt-dlp: Required for YouTube streaming
+
+### ⚙️ Installing Prerequisites
+To ensure audio processing and YouTube streaming function correctly, you must install **FFmpeg** and **yt-dlp** on your system and ensure they are available in your system's PATH.
+
+Choose your operating system below for installation instructions:
+
+#### 🪟 Windows
+
+**Using [Winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/) (Recommended)**
+Open Command Prompt or PowerShell and run:
+```cmd
+winget install ffmpeg
+winget install yt-dlp
+```
+
+**Using [Chocolatey](https://chocolatey.org/)**
+Run as Administrator in PowerShell:
+```cmd
+choco install ffmpeg yt-dlp
+```
+*(Note: You may need to restart your terminal after installation so the newly installed tools are recognized.)*
+
+#### 🐧 Linux
+
+**Ubuntu / Debian-based distros**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+
+# It is highly recommended to fetch the latest yt-dlp directly from their repository:
+sudo wget [https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp](https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp) -O /usr/local/bin/yt-dlp
+sudo chmod a+rx /usr/local/bin/yt-dlp
+```
+
+**Arch Linux**
+```bash
+sudo pacman -S ffmpeg yt-dlp
+```
+
+**Fedora**
+```bash
+sudo dnf install ffmpeg yt-dlp
+```
+
+#### 🍎 macOS
+
+**Using [Homebrew](https://brew.sh/)**
+Open your terminal and run:
+```bash
+brew install ffmpeg yt-dlp
+```
+
+---
+**Verification:**
+To verify the installations were successful, open a new terminal window and run:
+```bash
+ffmpeg -version
+yt-dlp --version
+```
+If both commands return version information, you are ready to start using AT Music Player!
+
+___
+
 ## 🛠 Tech Stack
 
 | Layer | Technology | Purpose |
