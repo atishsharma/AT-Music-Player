@@ -62,3 +62,24 @@ Thumbs.db
 # ========================
 *.db
 audio_cache/
+
+
+claude.md
+CLAUDE.md
+.claude/
+.vscode/
+graphify-out/
+# Added by code-review-graph
+.code-review-graph/
+.cursorrules
+.mcp.json
+.opencode.json
+.windsurfrules
+AGENTS.md
+GEMINI.md
+QODER.md
+.gemini/
+.github/
+.kiro/
+.qoder/
+.tokengone/
