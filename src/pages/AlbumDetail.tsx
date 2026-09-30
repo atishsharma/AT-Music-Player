@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import SongList from '../components/library/SongList';
 import { usePlayerStore } from '../store/playerStore';
 import { toAtmusicUrl } from '../utils/path';
+import type { Track } from '../types/library';
 
 interface AlbumData {
     id: string;
@@ -28,22 +29,23 @@ interface AlbumData {
 const AlbumDetail = () => {
     const { id } = useParams(); // Using album title for local lookups
     const navigate = useNavigate();
-    const play = usePlayerStore(s => s.play);
-    const setQueue = usePlayerStore(s => s.setQueue);
 
     const [albumData, setAlbumData] = useState<AlbumData | null>(null);
-    const [localTracks, setLocalTracks] = useState<any[]>([]);
+    const [localTracks, setLocalTracks] = useState<Track[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isFetchingPhoto, setIsFetchingPhoto] = useState(false);
     const [message, setMessage] = useState('');
 
     useEffect(() => {
+        // A slower load for the previous album must not overwrite this one
+        let cancelled = false;
         const loadData = async () => {
             if (!id) return;
 
             // 1. Instant Loading: Get Local Tracks by Album Title
             try {
-                const tracks = await window.ipcRenderer.invoke('library:getAlbumTracks', id);
+                const tracks: Track[] = await window.ipcRenderer.invoke('library:getAlbumTracks', id);
+                if (cancelled) return;
                 setLocalTracks(tracks);
 
                 // If we have tracks, we can already show the page
@@ -53,7 +55,7 @@ const AlbumDetail = () => {
 
                 // 2. Try Cache for Metadata to make it even faster
                 const cached = await window.ipcRenderer.invoke('cache:get', `album_v2_${id}`);
-                if (cached) {
+                if (cached && !cancelled) {
                     setAlbumData(cached);
                     setIsLoading(false);
                     // Even if cached, we continue background fetch to update if needed
@@ -62,19 +64,22 @@ const AlbumDetail = () => {
                 // 3. Background Fetch: Metadata
                 const artistName = tracks[0]?.artist;
 
-                // MusicBrainz enrichment
-                const query = artistName ? `release:${id} AND artist:${artistName}` : `release:${id}`;
-                const mbSearchResponse = await fetch(`https://musicbrainz.org/ws/2/release?query=${encodeURIComponent(query)}&fmt=json`, {
-                    headers: { 'User-Agent': 'ATMusicPro/1.2.1' }
-                });
-                const mbSearchData = await mbSearchResponse.json();
+                let enrichedData: AlbumData = cached || { id, title: id };
 
-                let enrichedData: any = cached || { title: id };
-
-                if (mbSearchData.releases && mbSearchData.releases.length > 0) {
-                    const mbid = mbSearchData.releases[0].id;
-                    const details = await window.ipcRenderer.invoke('metadata:getAlbum', mbid);
-                    enrichedData = { ...enrichedData, ...details };
+                // MusicBrainz enrichment. Terms are quoted: unquoted, "release:Abbey Road" only
+                // matched "Abbey" as the title. Offline/rate-limited is fine: Last.fm below still runs.
+                try {
+                    const lucene = (v: string) => `"${v.replace(/(["\\])/g, '\\$1')}"`;
+                    const query = artistName ? `release:${lucene(id)} AND artist:${lucene(artistName)}` : `release:${lucene(id)}`;
+                    const mbSearchResponse = await fetch(`https://musicbrainz.org/ws/2/release?query=${encodeURIComponent(query)}&fmt=json`);
+                    const mbSearchData = await mbSearchResponse.json();
+                    if (mbSearchData.releases && mbSearchData.releases.length > 0) {
+                        const mbid = mbSearchData.releases[0].id;
+                        const details = await window.ipcRenderer.invoke('metadata:getAlbum', mbid);
+                        enrichedData = { ...enrichedData, ...details };
+                    }
+                } catch (err) {
+                    console.warn('MusicBrainz lookup failed:', err);
                 }
 
                 // LastFM Sync
@@ -85,6 +90,7 @@ const AlbumDetail = () => {
                     }
                 }
 
+                if (cancelled) return;
                 setAlbumData(enrichedData);
 
                 // Cache the enriched data
@@ -96,17 +102,17 @@ const AlbumDetail = () => {
             } catch (err) {
                 console.error("Failed to load album data:", err);
             } finally {
-                setIsLoading(false);
+                if (!cancelled) setIsLoading(false);
             }
         };
 
         loadData();
+        return () => { cancelled = true; };
     }, [id]);
 
     const handlePlayAll = () => {
         if (localTracks.length > 0) {
-            setQueue(localTracks);
-            play(localTracks[0]);
+            usePlayerStore.getState().playList(localTracks);
         }
     };
 
@@ -116,9 +122,9 @@ const AlbumDetail = () => {
         setMessage('Searching Last.fm...');
         const artistName = localTracks[0]?.artist;
         try {
-            const syncData = await window.ipcRenderer.invoke('metadata:syncAlbum', { artist: artistName, album: id });
+            const syncData = await window.ipcRenderer.invoke('metadata:syncAlbum', { artist: artistName, album: id, force: true });
             if (syncData?.cover) {
-                setAlbumData(prev => prev ? { ...prev, local_cover: syncData.cover } : { title: id, local_cover: syncData.cover } as any);
+                setAlbumData(prev => prev ? { ...prev, local_cover: syncData.cover } : { id, title: id, local_cover: syncData.cover });
                 setMessage('Cover art updated!');
             } else {
                 setMessage('Cover not found or key missing.');
@@ -136,7 +142,7 @@ const AlbumDetail = () => {
         const artistName = localTracks[0]?.artist || 'Unknown Artist';
         if (imagePath && id) {
             await window.ipcRenderer.invoke('album:updateImage', { albumName: id, artistName, imagePath });
-            setAlbumData(prev => prev ? { ...prev, local_cover: imagePath } : { title: id, local_cover: imagePath } as any);
+            setAlbumData(prev => prev ? { ...prev, local_cover: imagePath } : { id, title: id, local_cover: imagePath });
         }
     };
 
@@ -151,7 +157,7 @@ const AlbumDetail = () => {
         <div className="h-full flex flex-col overflow-y-auto bg-background">
             {/* Header */}
             <div className="relative pb-8">
-                <div className="absolute inset-0 bg-gradient-to-b from-primary-900/30 to-background h-80 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-b from-primary/30 to-background h-80 pointer-events-none" />
 
                 <div className="relative p-8 pt-12 flex flex-col md:flex-row gap-8 items-end">
                     {/* Album Art */}
@@ -238,10 +244,7 @@ const AlbumDetail = () => {
                 {localTracks.length > 0 ? (
                     <SongList
                         tracks={localTracks}
-                        onPlay={(track) => {
-                            setQueue(localTracks);
-                            play(track);
-                        }}
+                        onPlay={(track) => usePlayerStore.getState().playList(localTracks, localTracks.indexOf(track))}
                     />
                 ) : (
                     <div className="p-20 text-center text-on-surface-variant bg-surface-variant/20 rounded-3xl border border-white/5">

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { Gamepad2, MousePointerClick, Zap, Palette, Wind, Quote, Droplet, Hash, Grip, Maximize, Orbit, X, Hand, Keyboard, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Gamepad2, MousePointerClick, Zap, Palette, Wind, Quote, Droplet, Hash, Grid3x3, Copy, Dices, Orbit, X, Hand, Keyboard, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Activity 1: Bubble Wrap
 const BubbleWrap = () => {
@@ -151,10 +151,10 @@ const DoodleBoard = () => {
 
 // Activity 4: Tic-Tac-Toe
 const TicTacToe = () => {
-    const [board, setBoard] = useState(Array(9).fill(null));
+    const [board, setBoard] = useState<(string | null)[]>(Array(9).fill(null));
     const [xIsNext, setXIsNext] = useState(true);
 
-    const calculateWinner = (squares: any[]) => {
+    const calculateWinner = (squares: (string | null)[]) => {
         const lines = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
         for (let i = 0; i < lines.length; i++) {
             const [a, b, c] = lines[i];
@@ -233,11 +233,12 @@ const ReactionTime = () => {
     const [state, setState] = useState<'idle' | 'waiting' | 'ready' | 'done'>('idle');
     const [startTime, setStartTime] = useState(0);
     const [time, setTime] = useState(0);
-    const timeoutRef = useRef<any>(null);
+    const timeoutRef = useRef<number>();
+    useEffect(() => () => window.clearTimeout(timeoutRef.current), []);
 
     const start = () => {
         setState('waiting');
-        timeoutRef.current = setTimeout(() => {
+        timeoutRef.current = window.setTimeout(() => {
             setState('ready');
             setStartTime(Date.now());
         }, Math.random() * 3000 + 1000);
@@ -245,7 +246,7 @@ const ReactionTime = () => {
 
     const click = () => {
         if (state === 'waiting') {
-            clearTimeout(timeoutRef.current);
+            window.clearTimeout(timeoutRef.current);
             setState('idle');
             alert("Too early!");
         } else if (state === 'ready') {
@@ -420,7 +421,7 @@ const IdleClicker = () => {
 // Activity 11: Mini Synth
 const MiniSynth = () => {
     const playNote = (frequency: number) => {
-        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (!AudioContext) return;
         const ctx = new AudioContext();
         const osc = ctx.createOscillator();
@@ -644,16 +645,17 @@ const SnakeGame = () => {
 const ReflexDuel = () => {
     const [state, setState] = useState<'idle' | 'waiting' | 'ready' | 'done'>('idle');
     const [winner, setWinner] = useState<number | null>(null);
-    const timeout = useRef<any>(null);
+    const timeout = useRef<number>();
+    useEffect(() => () => window.clearTimeout(timeout.current), []);
 
     const start = () => {
         setState('waiting'); setWinner(null);
-        timeout.current = setTimeout(() => setState('ready'), Math.random() * 4000 + 2000);
+        timeout.current = window.setTimeout(() => setState('ready'), Math.random() * 4000 + 2000);
     };
 
     const press = (p: number) => {
         if (state === 'waiting') {
-            clearTimeout(timeout.current); setState('idle'); alert(`Player ${p} was too early!`);
+            window.clearTimeout(timeout.current); setState('idle'); alert(`Player ${p} was too early!`);
         } else if (state === 'ready') {
             setWinner(p); setState('done');
         }
@@ -784,7 +786,7 @@ const DiceDuel = () => {
                 </div>
             </div>
             <button onClick={roll} disabled={rolling} className="p-8 bg-surface-variant/30 hover:bg-primary/20 rounded-full transition-all border border-white/10 active:scale-95">
-                <Drip size={48} className={clsx("text-primary", rolling && 'animate-spin')} />
+                <Droplet size={48} className={clsx("text-primary", rolling && 'animate-spin')} />
             </button>
             {!rolling && d1 !== d2 && <p className="text-2xl font-black text-white italic">{d1 > d2 ? 'P1 WINS!' : 'P2 WINS!'}</p>}
         </div>
@@ -867,7 +869,7 @@ const ColorDuel = () => {
 };
 
 const ACTIVITIES = [
-    { id: 'bubble', title: 'Bubble Wrap', icon: Grid3X3, component: BubbleWrap, desc: "Pop them all!" },
+    { id: 'bubble', title: 'Bubble Wrap', icon: Grid3x3, component: BubbleWrap, desc: "Pop them all!" },
     { id: 'zen', title: 'Zen Breathing', icon: Wind, component: ZenBreathing, desc: "Breathe in, breathe out" },
     { id: 'doodle', title: 'Doodle Pad', icon: Palette, component: DoodleBoard, desc: "Draw your vibe" },
     { id: 'tictac', title: 'Tic-Tac-Toe', icon: Hash, component: TicTacToe, desc: "A quick classic" },
@@ -880,19 +882,16 @@ const ACTIVITIES = [
     { id: 'synth', title: 'Mini Synth', icon: Keyboard, component: MiniSynth, desc: "Play a quick tune" },
     { id: 'rps', title: 'R-P-S', icon: Hand, component: RockPaperScissors, desc: "Battle the bot" },
     { id: 'duel', title: 'Fast Clicker', icon: Zap, component: ClickerBattle, desc: "2P Battle!" },
-    { id: 'snake', title: 'Snake', icon: Grid3X3, component: SnakeGame, desc: "Eat & Grow" },
+    { id: 'snake', title: 'Snake', icon: Grid3x3, component: SnakeGame, desc: "Eat & Grow" },
     { id: 'reflex', title: 'Reflex Duel', icon: Zap, component: ReflexDuel, desc: "2P Reflex War" },
     { id: 'tempo', title: 'Tap Tempo', icon: Zap, component: TapTempo, desc: "Catch the BPM" },
     { id: 'simon', title: 'Simon Says', icon: Hash, component: SimonSays, desc: "Watch & Repeat" },
-    { id: 'dice', title: 'Dice Duel', icon: Grip, component: DiceDuel, desc: "2P Roll War" },
+    { id: 'dice', title: 'Dice Duel', icon: Dices, component: DiceDuel, desc: "2P Roll War" },
     { id: 'flow', title: 'Particle', icon: Wind, component: ParticleFlow, desc: "Move & Flow" },
     { id: 'cduel', title: 'Color Duel', icon: Palette, component: ColorDuel, desc: "2P Color Race" },
 ];
 
-// Fallback icons for missing ones
-function Grid3X3(props: any) { return <Grip {...props} />; }
-function Copy(props: any) { return <Maximize {...props} />; }
-function Drip(props: any) { return <Wind {...props} />; }
+
 
 export default function FunPage() {
     const [selectedId, setSelectedId] = useState<string | null>(null);

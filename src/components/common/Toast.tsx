@@ -14,9 +14,9 @@ const Toast = () => {
     }, []);
 
     useEffect(() => {
-        (window as any).showToast = showToast;
+        window.showToast = showToast;
         return () => {
-            delete (window as any).showToast;
+            delete window.showToast;
         };
     }, [showToast]);
 

@@ -4,7 +4,7 @@ const QuickAccess = () => {
     return (
         <div className="space-y-4">
             <h2 className="text-xl font-bold flex items-center gap-2">
-                <ListMusic size={20} className="text-secondary-500" />
+                <ListMusic size={20} className="text-primary/80" />
                 Your Playlists
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

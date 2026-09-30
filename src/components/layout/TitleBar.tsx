@@ -19,7 +19,7 @@ const TitleBar = () => {
             setIsMiniMode(state.isMiniPlayer);
             setIsFullScreen(state.isFullScreen);
         };
-        (window as any).windowControls?.getState?.().then(apply).catch(() => { /* ignore */ });
+        window.windowControls?.getState?.().then(apply).catch(() => { /* ignore */ });
         const unsubscribe = window.ipcRenderer?.on?.('window:state', (_event, state) => apply(state));
         return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
     }, []);
@@ -29,7 +29,7 @@ const TitleBar = () => {
         if (!isFullScreen) return;
         const handleKeyDown = async (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
-                const fs = await (window as any).windowControls.toggleFullScreen();
+                const fs = await window.windowControls.toggleFullScreen();
                 setIsFullScreen(fs);
                 setIsHovering(false);
             }
@@ -40,10 +40,14 @@ const TitleBar = () => {
 
     const handleFullScreen = async () => {
         try {
-            const fs = await (window as any).windowControls.toggleFullScreen();
+            const fs = await window.windowControls.toggleFullScreen();
             setIsFullScreen(fs);
         } catch { /* ignore */ }
     };
+
+    // Mini player has its own header (drag handle, expand, minimize); the app title bar
+    // on top of it blocked clicks on that header.
+    if (isMiniMode) return null;
 
     return (
         <div
@@ -75,7 +79,7 @@ const TitleBar = () => {
             <div className="flex-1 flex shrink-0 items-center justify-end h-full no-drag">
                 <div className="flex h-full">
                 <button
-                    onClick={() => (window as any).windowControls.minimize()}
+                    onClick={() => window.windowControls.minimize()}
                     className="h-full px-4 hover:bg-surface-variant/30 text-on-surface-variant transition-colors flex items-center justify-center"
                     title="Minimize"
                 >
@@ -84,7 +88,7 @@ const TitleBar = () => {
                 {!isMiniMode && (
                     <>
                         <button
-                            onClick={() => (window as any).windowControls.maximize()}
+                            onClick={() => window.windowControls.maximize()}
                             className="h-full px-4 hover:bg-surface-variant/30 text-on-surface-variant transition-colors flex items-center justify-center"
                             title={isMaximized ? "Restore" : "Maximize"}
                         >
@@ -100,7 +104,7 @@ const TitleBar = () => {
                     </>
                 )}
                 <button
-                    onClick={() => (window as any).windowControls.close()}
+                    onClick={() => window.windowControls.close()}
                     className="h-full px-4 hover:bg-red-500 hover:text-white text-on-surface-variant transition-colors flex items-center justify-center"
                     title="Close"
                 >

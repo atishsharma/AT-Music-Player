@@ -1,421 +1,750 @@
-import { useEffect, useState } from 'react';
-import { useSettingsStore } from '../store/settingsStore';
-import { useThemeStore } from '../store/themeStore';
-import { Globe, Sparkles, ShieldCheck, Sun, Moon, Zap, FolderPlus, Monitor, ExternalLink, Eye, EyeOff, LayoutTemplate, Droplets } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
-import SettingSpinner from '../components/settings/SettingSpinner';
-import WidgetSettings from '../components/settings/WidgetSettings';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+    Palette, MonitorPlay, AppWindow, Library, Link2, Cpu, Info, Search, Smartphone, AudioLines,
+} from 'lucide-react';
+import QRCode from 'qrcode';
+import { useSettingsStore } from '../store/settingsStore';
+import { useThemeStore, type Appearance, type Mood } from '../store/themeStore';
+import { useAudioStore } from '../store/audioStore';
+import { useAmbientStore, AMBIENT_SCENES, type AmbientScene } from '../store/ambientStore';
 
-const SettingsPage = () => {
-    const {
-        lastfmKey,
-        youtubeApiKey,
-        downloadPath,
-        fetchSettings,
-        setLastfmKey,
-        setYoutubeApiKey,
-        setDownloadPath
-    } = useSettingsStore();
+/* ──────────────────────────── shared bits ──────────────────────────── */
 
-    const { currentMood, appearance, setAppearance, generateLuckyTheme, setMood, zoomLevel, setZoomLevel, luckyTheme, liquidGlass, setLiquidGlass } = useThemeStore();
+const QueryContext = createContext('');
+const matches = (q: string, text: string) => !q || text.toLowerCase().includes(q);
 
-    const [tempKey, setTempKey] = useState('');
-    const [ytKey, setYtKey] = useState('');
-    const [showYtKey, setShowYtKey] = useState(false);
-    const [showLfmKey, setShowLfmKey] = useState(false);
-    const [message, setMessage] = useState('');
+const useGlass = () => useThemeStore(s => s.liquidGlass);
 
-    useEffect(() => {
-        fetchSettings();
-    }, []);
-
-    useEffect(() => {
-        setTempKey(lastfmKey);
-        setYtKey(youtubeApiKey);
-    }, [lastfmKey, youtubeApiKey]);
-
-    // Auto-save effect with debounce
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (
-                tempKey !== lastfmKey ||
-                ytKey !== youtubeApiKey
-            ) {
-                setLastfmKey(tempKey);
-                setYoutubeApiKey(ytKey);
-            }
-        }, 1000); // 1 second debounce
-
-        return () => clearTimeout(timer);
-    }, [tempKey, ytKey]);
-
-
+const Group = ({ children }: { children: React.ReactNode }) => {
+    const glass = useGlass();
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-8 max-w-full mx-auto space-y-12 pb-32"
-        >
-            <div className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                    <div className="flex items-center gap-6">
-                        <div className="hidden lg:flex items-center justify-center w-28 h-28 bg-surface-variant/40 backdrop-blur-xl rounded-[2.5rem] outline outline-1 outline-primary shadow-lg hover:bg-surface-variant/50 transition-all group shrink-0 relative overflow-hidden">
-                            <img src="./app_icon.png" alt="Logo" className="w-[80%] h-[80%] object-cover rounded-full group-hover:rotate-12 transition-transform" />
-                        </div>
-                        <div>
-                            <h1 className="text-6xl font-black tracking-tighter text-primary leading-none mb-2">
-                                Preferences
-                            </h1>
-                            <p className="text-xl text-on-surface-variant font-medium tracking-tight">Customize your Experience & API Integrations.</p>
-                        </div>
-                    </div>
+        <div className={clsx(
+            "rounded-[18px] overflow-hidden divide-y divide-on-background/[0.07]",
+            glass ? "lg-panel" : "bg-on-background/[0.035] border border-on-background/[0.07]"
+        )}>
+            {children}
+        </div>
+    );
+};
 
-                    <div className="flex items-center gap-6">
-                        <div className={clsx(
-                            "px-8 py-4 bg-surface-variant/30 rounded-full border border-white/10 flex items-center gap-4 backdrop-blur-md shadow-xl mb-2",
-                            appearance === 'light' && "outline outline-1 outline-primary"
-                        )}>
-                            <p className="text-xs uppercase font-black tracking-[0.2em] text-on-surface-variant">Theme</p>
-                            <div className={clsx(
-                                "w-px h-6",
-                                appearance === 'light' ? "bg-primary" : "bg-white/10"
-                            )} />
-                            <p className="text-xl font-black text-primary capitalize tracking-tight">{currentMood}</p>
-                        </div>
-                        <SettingSpinner />
-                    </div>
-                </div>
+interface RowProps {
+    label: string;
+    hint?: React.ReactNode;
+    k?: string;
+    stack?: boolean;
+    children?: React.ReactNode;
+}
+/** One setting: label on the left, control on the right (or below when `stack`). Hidden when it doesn't match the search. */
+const Row = ({ label, hint, k = '', stack, children }: RowProps) => {
+    const q = useContext(QueryContext);
+    if (!matches(q, `${label} ${k}`)) return null;
+    return (
+        <div className={clsx("flex gap-5 px-[18px] py-3.5 min-h-[58px]", stack ? "flex-col" : "items-center justify-between flex-wrap sm:flex-nowrap")}>
+            <div className="min-w-0 flex flex-col gap-0.5">
+                <span className="text-[14px] font-medium text-on-background">{label}</span>
+                {hint && <span className="text-[12.5px] text-on-background/50">{hint}</span>}
             </div>
+            {children}
+        </div>
+    );
+};
 
-            {/* Layout Scaler */}
-            <div className="lg:col-span-2 flex flex-col md:flex-row items-center gap-6 py-4 px-2 mb-6 border-b border-white/5 pb-8 -mt-[20px]">
-                <div className="flex items-center gap-3 whitespace-nowrap min-w-[150px]">
-                    <Monitor className="text-primary" size={24} />
-                    <h2 className="text-xl font-black text-on-surface tracking-tight">Layout Scaler</h2>
-                </div>
-                <div className="flex-1 w-full relative h-[3.5rem] flex items-center group cursor-pointer px-4">
-                    <div className="absolute inset-x-4 flex items-center">
-                        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden relative shadow-inner">
-                            <div
-                                className="absolute left-0 h-full bg-primary transition-all duration-300 ease-out"
-                            style={{ width: `${([0.7, 0.8, 1, 1.1, 1.25, 1.5].indexOf(zoomLevel || 0.8) / 5) * 100}%` }}
-                            />
-                        </div>
-                    </div>
-                    <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 flex items-center justify-between pointer-events-none z-10">
-                        {[0.7, 0.8, 1, 1.1, 1.25, 1.5].map((val, idx) => {
-                            const names = ["X-Tiny", "Tiny", "Normal", "Large", "Huge", "Max"];
-                            const isSelected = zoomLevel === val;
-                            return (
-                                <div key={val} className="flex flex-col items-center relative w-0">
-                                    <div className={clsx(
-                                        "w-2.5 h-2.5 rounded-full transition-all duration-300 z-10",
-                                        isSelected ? "bg-primary shadow-lg scale-[3]" : "bg-white/30"
-                                    )} />
-                                    <div className="absolute top-5 flex flex-col items-center">
-                                        <span className={clsx(
-                                            "text-[10px] uppercase tracking-widest font-black transition-colors whitespace-nowrap",
-                                            isSelected ? "text-primary" : "text-on-surface-variant/50"
-                                        )}>{names[idx]}</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    <input
-                        type="range"
-                        min="0"
-                        max="5"
-                        step="1"
-                        value={[0.7, 0.8, 1, 1.1, 1.25, 1.5].indexOf(zoomLevel || 0.8)}
-                        onChange={(e) => setZoomLevel([0.7, 0.8, 1, 1.1, 1.25, 1.5][Number(e.target.value)])}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                    />
-                </div>
-                <div className="whitespace-nowrap px-4 w-24 flex justify-end">
-                    <span className="text-2xl font-black tracking-widest text-primary">{Math.round((zoomLevel || 1) * 100)}%</span>
-                </div>
-            </div>
+const Switch = ({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) => (
+    <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={label}
+        onClick={() => onChange(!on)}
+        className={clsx("relative w-[42px] h-6 rounded-full shrink-0 transition-colors duration-200", on ? "bg-primary" : "bg-on-background/15")}
+    >
+        <span className={clsx(
+            "absolute top-[2px] left-[2px] w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ease-[cubic-bezier(.34,1.56,.64,1)]",
+            on && "translate-x-[18px]"
+        )} />
+    </button>
+);
 
-            {/* Settings Sections Grouped (Download Location & Mini Player) */}
-            <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-8 mt-4">
-                {/* Download Location */}
-                <div className="bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-10 border border-white/5 flex flex-col justify-between">
-                    <div className="flex items-center gap-4 mb-6">
-                        <div className="p-4 bg-primary/10 rounded-[1.5rem]">
-                            <FolderPlus className="text-primary" size={24} />
-                        </div>
-                        <h2 className="text-2xl font-black text-on-surface">Download Location</h2>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="w-full bg-surface-variant/5 border border-outline/10 rounded-[1.5rem] px-6 py-4 text-sm text-on-surface font-mono overflow-hidden whitespace-nowrap flex items-center h-[56px]">
-                            <span className="truncate w-full block">
-                                {downloadPath || 'Default: App Data Folder'}
-                            </span>
-                        </div>
-                        <button
-                            onClick={async () => {
-                                const path = await window.ipcRenderer.invoke('dialog:openDirectory');
-                                if (path) {
-                                    setDownloadPath(path);
-                                    setMessage('Folder updated!');
-                                    setTimeout(() => setMessage(''), 3000);
-                                }
-                            }}
-                            className="w-full px-8 bg-primary text-on-primary rounded-[1.5rem] font-black uppercase tracking-widest text-xs transition-all hover:scale-[1.02] h-[56px] shadow-lg shadow-primary/20"
-                        >
-                            Change Folder
-                        </button>
-                    </div>
-                </div>
-
-                {/* Mini Player Resizable Settings */}
-                <div className="bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-10 border border-white/5 flex flex-col justify-between">
-                    <div className="flex flex-col gap-4 mb-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-4 bg-primary/10 rounded-[1.5rem]">
-                                <Monitor className="text-primary" size={24} />
-                            </div>
-                            <h2 className="text-2xl font-black text-on-surface">Mini Player Controls</h2>
-                        </div>
-                        <p className="text-xs text-on-surface-variant/60 font-bold uppercase tracking-widest pl-2">Enable resizing & fixed aspect ratio</p>
-                    </div>
-                    <div className="flex items-center">
-                        <button
-                            onClick={() => {
-                                const current = useSettingsStore.getState().isMiniPlayerResizable;
-                                useSettingsStore.getState().setMiniPlayerResizable(!current);
-                            }}
-                            className={clsx(
-                                "w-full px-8 py-5 rounded-[1.5rem] font-black uppercase tracking-widest text-xs transition-all flex items-center justify-between group",
-                                useSettingsStore(s => s.isMiniPlayerResizable)
-                                    ? "bg-primary text-on-primary shadow-lg shadow-primary/40"
-                                    : "bg-surface-variant/5 text-on-surface-variant border border-white/10 hover:bg-surface-variant/30"
-                            )}
-                        >
-                            <span>{useSettingsStore(s => s.isMiniPlayerResizable) ? 'Resizable Enabled' : 'Fixed Mode'}</span>
-                            <div className={clsx(
-                                "w-3 h-3 rounded-full border-2",
-                                useSettingsStore(s => s.isMiniPlayerResizable) ? "bg-on-primary border-white animate-pulse" : "bg-transparent border-on-surface-variant/20"
-                            )} />
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <WidgetSettings />
-
-            {/* Theme & Appearance */}
-            <div className="lg:col-span-2 bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-10 border border-outline/10 space-y-8 hover:bg-surface-variant/30 transition-all mt-8">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex items-center gap-4">
-                        <div className="p-4 bg-primary/10 rounded-[1.5rem]">
-                            <Sparkles className="text-primary" size={24} />
-                        </div>
-                        <h2 className="text-2xl font-black text-on-surface">Theme & Appearance</h2>
-                    </div>
-                    <div className="flex items-center gap-3 bg-surface-variant/30 p-2 rounded-full border border-white/5 outline outline-1 outline-primary">
-                        {(['light', 'dark', 'oled', 'glass'] as const).map((a) => (
-                            <button
-                                key={a}
-                                onClick={() => setAppearance(a)}
-                                title={a.charAt(0).toUpperCase() + a.slice(1)}
-                                className={clsx(
-                                    "flex items-center justify-center w-[56px] h-[56px] rounded-full transition-all border-2",
-                                    appearance === a ? "bg-primary text-on-primary border-transparent shadow-lg scale-105" : "text-on-surface-variant border-transparent hover:bg-surface-variant/50"
-                                )}
-                            >
-                                {a === 'light' && <Sun size={20} />}
-                                {a === 'dark' && <Moon size={20} />}
-                                {a === 'oled' && <Zap size={20} />}
-                                {a === 'glass' && <LayoutTemplate size={20} />}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-                {/* Liquid Glass material: layered on top of whichever appearance is chosen */}
+function Seg<T extends string | number>({ value, options, onChange }: { value: T; options: { v: T; label: string }[]; onChange: (v: T) => void }) {
+    const glass = useGlass();
+    return (
+        <div className="inline-grid grid-flow-col gap-0.5 p-[3px] rounded-[11px] bg-on-background/[0.06] shrink-0">
+            {options.map(o => (
                 <button
-                    onClick={() => setLiquidGlass(!liquidGlass)}
+                    key={String(o.v)}
+                    type="button"
+                    aria-pressed={o.v === value}
+                    onClick={() => onChange(o.v)}
                     className={clsx(
-                        "w-full flex items-center justify-between gap-6 px-6 py-5 rounded-[1.75rem] transition-all duration-300 text-left",
-                        liquidGlass ? "lg-panel lg-strong lg-sheen" : "bg-surface-variant/10 border border-white/10 hover:bg-surface-variant/30"
+                        "px-3 py-1.5 rounded-lg text-[12.5px] font-medium whitespace-nowrap transition-all",
+                        o.v === value
+                            ? clsx("text-on-background", glass ? "lg-active" : "bg-background shadow-sm")
+                            : "text-on-background/60 hover:text-on-background"
                     )}
                 >
-                    <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/80 to-primary/20 flex items-center justify-center shadow-lg shadow-primary/20 shrink-0">
-                            <Droplets className="text-on-primary" size={22} />
-                        </div>
-                        <div className="min-w-0">
-                            <p className="font-black text-on-surface">Liquid Glass</p>
-                            <p className="text-xs text-on-surface-variant/80">Translucent floating panels over a backdrop tinted by the current artwork. Works with Light, Dark and OLED.</p>
-                        </div>
-                    </div>
-                    <span className={clsx("relative w-12 h-7 rounded-full transition-colors shrink-0", liquidGlass ? "bg-primary" : "bg-on-surface-variant/25")}>
-                        <span className={clsx("absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ease-[cubic-bezier(.34,1.56,.64,1)]", liquidGlass && "translate-x-5")} />
-                    </span>
+                    {o.label}
                 </button>
-                <div className="flex flex-wrap gap-4">
-                    {([
-                        { type: 'calm', color: '#007AFF', label: 'Blue' },
-                        { type: 'energetic', color: '#FF9500', label: 'Orange' },
-                        { type: 'focus', color: '#00C7BE', label: 'Teal' },
-                        { type: 'sad', color: '#5856D6', label: 'Indigo' },
-                        { type: 'party', color: '#FF2D55', label: 'Pink' },
-                        { type: 'lucky', color: 'linear-gradient(45deg, #ff00cc, #3333ff)', label: 'Feeling Lucky 🎲' }
-                    ] as const).map((m) => (
-                        <button
-                            key={m.type}
-                            onClick={() => {
-                                if (m.type === 'lucky') generateLuckyTheme();
-                                else setMood(m.type as any);
-                            }}
-                            className={clsx(
-                                "flex items-center justify-center gap-3 px-6 h-[56px] rounded-[1.5rem] transition-all font-bold border border-transparent shadow-sm hover:shadow-md",
-                                currentMood === m.type ? "bg-primary text-on-primary scale-105" : "bg-surface-variant/50 text-on-surface-variant hover:bg-surface-variant"
-                            )}
-                        >
-                            <div className="w-5 h-5 rounded-full border border-white/10" style={{ background: m.color }} />
-                            {m.type === 'lucky' && currentMood === 'lucky' && luckyTheme ? luckyTheme.name : m.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
+            ))}
+        </div>
+    );
+}
 
-            {/* API Engines */}
-            <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-                <div className="bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-10 border border-white/5 space-y-8">
-                    <div className="flex items-center gap-4">
-                        <div className="p-4 bg-primary/10 rounded-[1.5rem]">
-                            <Globe className="text-primary" size={24} />
-                        </div>
-                        <h2 className="text-2xl font-black text-on-surface">YouTube Engine</h2>
-                    </div>
-                    <div className="relative">
-                        <input
-                            type={showYtKey ? "text" : "password"}
-                            value={ytKey}
-                            onChange={(e) => setYtKey(e.target.value)}
-                            placeholder="YouTube API Key"
-                            className="w-full bg-surface-variant/5 border border-outline/10 rounded-[1.5rem] px-6 py-4 pr-16 text-on-surface font-mono"
-                        />
-                        <button
-                            onClick={() => setShowYtKey(!showYtKey)}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl text-on-surface-variant hover:text-primary transition-all"
-                        >
-                            {showYtKey ? <EyeOff size={20} /> : <Eye size={20} />}
-                        </button>
-                    </div>
-                </div>
-                <div className="bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-10 border border-white/5 space-y-8">
-                    <div className="flex items-center gap-4">
-                        <div className="p-4 bg-primary/10 rounded-[1.5rem]">
-                            <img src="./last-fm.png" alt="Last.fm" className="h-6" />
-                        </div>
-                        <h2 className="text-2xl font-black text-on-surface">Last.fm Engine</h2>
-                    </div>
-                    <div className="relative">
-                        <input
-                            type={showLfmKey ? "text" : "password"}
-                            value={tempKey}
-                            onChange={(e) => setTempKey(e.target.value)}
-                            placeholder="Last.fm API Key"
-                            className="w-full bg-surface-variant/5 border border-outline/10 rounded-[1.5rem] px-6 py-4 pr-16 text-on-surface font-mono"
-                        />
-                        <button
-                            onClick={() => setShowLfmKey(!showLfmKey)}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl text-on-surface-variant hover:text-primary transition-all"
-                        >
-                            {showLfmKey ? <EyeOff size={20} /> : <Eye size={20} />}
-                        </button>
-                    </div>
-                </div>
-            </div>
+const Btn = ({ children, primary, onClick, disabled }: { children: React.ReactNode; primary?: boolean; onClick?: () => void; disabled?: boolean }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={clsx(
+            "inline-flex items-center gap-2 px-3.5 py-2 rounded-[10px] text-[13px] font-medium whitespace-nowrap shrink-0 transition-all active:scale-[0.97] disabled:opacity-50",
+            primary ? "bg-primary text-on-primary hover:brightness-110" : "bg-on-background/[0.07] text-on-background hover:bg-on-background/[0.11]"
+        )}
+    >
+        {children}
+    </button>
+);
 
-            {/* Footer & Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-                <div className="bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-10 border border-white/5 flex flex-col justify-center items-start gap-4 hover:bg-surface-variant/30 transition-all group overflow-hidden relative">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16" />
-                    <h3 className="text-sm font-black uppercase tracking-[0.3em] text-on-surface-variant/60">Designed By</h3>
-                    <div className="w-full flex items-center justify-between">
-                        <a
-                            href="https://atishaksharma.com"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-500 hover:opacity-80 transition-opacity"
-                        >
-                            Atish Ak Sharma
-                        </a>
-                        <a
-                            href="https://atishaksharma.com"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-black uppercase tracking-widest transition-all hover:scale-105 border border-primary/20"
-                        >
-                            <ExternalLink size={12} />
-                            Portfolio
-                        </a>
-                    </div>
-                </div>
+const Status = ({ tone, children }: { tone: 'good' | 'warn' | 'off'; children: React.ReactNode }) => (
+    <span className="inline-flex items-center gap-1.5">
+        <span className={clsx("w-[7px] h-[7px] rounded-full", tone === 'good' ? "bg-green-500" : tone === 'warn' ? "bg-amber-500" : "bg-on-background/30")} />
+        {children}
+    </span>
+);
 
-                <div className="bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-10 border border-white/5 flex flex-col justify-center gap-6">
-                    <div className="flex items-center gap-4">
-                        <div className="p-4 bg-green-500/10 rounded-[1.5rem]">
-                            <ShieldCheck className="text-green-500" size={24} />
-                        </div>
-                        <p className="text-xl font-black text-on-surface">MIT License</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <div className="p-4 bg-primary/10 rounded-[1.5rem]">
-                            <Zap className="text-primary" size={24} />
-                        </div>
-                        <p className="text-xl font-black text-primary">v1.2.1</p>
-                        <a
-                            href="https://github.com/atishsharma/AT-Music-Player/releases"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105"
-                        >
-                            <ExternalLink size={11} />
-                            Check Update
-                        </a>
-                    </div>
-                </div>
+/** Picture tile used for themes, scenes and widget styles. */
+const Tile = ({ active, label, onClick, preview, wide }: { active: boolean; label: string; onClick: () => void; preview: React.ReactNode; wide?: boolean }) => (
+    <button type="button" onClick={onClick} aria-pressed={active} className={clsx("group flex flex-col gap-2 text-[12.5px] font-medium text-left", active ? "text-on-background" : "text-on-background/60")}>
+        <span className={clsx(
+            "relative w-full overflow-hidden rounded-xl transition-all duration-200 group-hover:-translate-y-0.5",
+            wide ? "aspect-[16/7]" : "aspect-[16/10]",
+            active ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "ring-1 ring-on-background/10"
+        )}>
+            {preview}
+        </span>
+        {label}
+    </button>
+);
 
-                {/* Final App Branding */}
-                <div className="md:col-span-2 flex flex-col items-center gap-8 pt-12">
-                    <a
-                        href="https://atishaksharma.com/atmusic"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block hover:scale-105 transition-all active:scale-95"
-                    >
-                        <div className="outline outline-1 outline-primary p-8 rounded-[3rem] shadow-2xl bg-surface/30 backdrop-blur-xl group flex flex-col items-center gap-4">
-                            <div className="flex items-center gap-5">
-                                <div className="w-16 h-16 rounded-full bg-primary/10 flex shadow-lg items-center justify-center overflow-hidden border border-primary/20 group-hover:rotate-12 transition-transform">
-                                    <img src="./app_icon.png" alt="Logo" className="w-full h-full object-cover" />
-                                </div>
-                                <h2 className="text-4xl font-black text-primary tracking-tighter">AT Music Pro</h2>
+const SECTIONS = [
+    { id: 'appearance', label: 'Appearance', icon: Palette, k: 'theme light dark oled glass liquid mood colour color interface size zoom scale' },
+    { id: 'playback', label: 'Playback', icon: AudioLines, k: 'crossfade gapless volume normalize loudness even level fade' },
+    { id: 'ambient', label: 'Ambient mode', icon: MonitorPlay, k: 'ambient scene aurora vinyl horizon clock idle screensaver full screen keep screen on' },
+    { id: 'widget', label: 'Widget & mini player', icon: AppWindow, k: 'desktop widget style pill card orb always on top mini player resizable' },
+    { id: 'remote', label: 'Phone remote', icon: Smartphone, k: 'phone remote control qr code lan wifi mobile' },
+    { id: 'library', label: 'Library', icon: Library, k: 'download folder location audio cache clear' },
+    { id: 'connections', label: 'Connections', icon: Link2, k: 'youtube api key last.fm lastfm scrobble discord rich presence status' },
+    { id: 'system', label: 'System', icon: Cpu, k: 'hardware acceleration gpu yt-dlp ffmpeg' },
+    { id: 'about', label: 'About', icon: Info, k: 'about version license' },
+] as const;
+
+interface RemoteInfo { enabled: boolean; running: boolean; url: string; port: number }
+
+/** Phone remote: enable the LAN server, show its QR code/link, rotate the secret link. */
+const PhoneRemote = ({ say }: { say: (m: string) => void }) => {
+    const [info, setInfo] = useState<RemoteInfo | null>(null);
+    const [qr, setQr] = useState('');
+    const [busy, setBusy] = useState(false);
+
+    useEffect(() => { window.ipcRenderer.invoke('remote:status').then(setInfo); }, []);
+    useEffect(() => {
+        if (!info?.url) { setQr(''); return; }
+        QRCode.toDataURL(info.url, { margin: 1, width: 360, color: { dark: '#000000', light: '#ffffff' } }).then(setQr).catch(() => setQr(''));
+    }, [info?.url]);
+
+    const run = async (fn: () => Promise<RemoteInfo>, msg: string) => {
+        setBusy(true);
+        try { setInfo(await fn()); say(msg); } finally { setBusy(false); }
+    };
+
+    return (
+        <Group>
+            <Row label="Control from your phone" hint="Scan the code on a phone on the same Wi-Fi. No app needed." k="enable">
+                <Switch
+                    on={!!info?.enabled}
+                    onChange={v => run(() => window.ipcRenderer.invoke('remote:setEnabled', v), v ? 'Phone remote on' : 'Phone remote off')}
+                    label="Phone remote"
+                />
+            </Row>
+            {info?.enabled && (
+                <Row label="Scan to connect" k="qr link url" stack>
+                    {info.running && info.url ? (
+                        <div className="flex flex-wrap items-center gap-5">
+                            <div className="w-40 h-40 rounded-2xl bg-white p-2 grid place-items-center shrink-0">
+                                {qr && <img src={qr} alt="QR code for the phone remote" className="w-full h-full [image-rendering:pixelated]" />}
                             </div>
-                            <span className="text-xs font-black uppercase tracking-[0.3em] text-on-surface-variant/60">Premium Edition</span>
+                            <div className="min-w-0 flex-1 flex flex-col gap-2.5">
+                                <span className="font-mono text-[12px] text-on-background/70 break-all select-text">{info.url}</span>
+                                <span className="text-[12.5px] text-on-background/50">Anyone with this link on your network can control playback. Reset it to lock out old devices.</span>
+                                <div className="flex gap-2">
+                                    <Btn onClick={() => { navigator.clipboard.writeText(info.url); say('Link copied'); }}>Copy link</Btn>
+                                    <Btn disabled={busy} onClick={() => run(() => window.ipcRenderer.invoke('remote:resetLink'), 'New link created')}>Reset link</Btn>
+                                </div>
+                            </div>
                         </div>
-                    </a>
-                </div>
-            </div>
+                    ) : (
+                        <Status tone="warn">Couldn't start the remote server. Check your firewall.</Status>
+                    )}
+                </Row>
+            )}
+        </Group>
+    );
+};
 
+interface DiscordInfo { enabled: boolean; clientId: string; connected: boolean }
+interface LastfmInfo { hasKeys: boolean; connected: boolean; user: string; enabled: boolean; queued: number }
+
+const fieldBox = "flex items-center gap-2 w-full sm:w-[340px] pl-3 pr-1.5 py-1.5 rounded-[11px] bg-on-background/[0.06]";
+const fieldInput = "flex-1 min-w-0 bg-transparent outline-none font-mono text-[12.5px] text-on-background placeholder:text-on-background/35 py-1";
+
+/** Discord Rich Presence + Last.fm scrobbling */
+const SocialRows = ({ say, lfmKey }: { say: (m: string) => void; lfmKey: string }) => {
+    const [dc, setDc] = useState<DiscordInfo | null>(null);
+    const [dcId, setDcId] = useState('');
+    const [lfm, setLfm] = useState<LastfmInfo | null>(null);
+    const [secret, setSecret] = useState('');
+    const [waiting, setWaiting] = useState(false);
+    const [err, setErr] = useState('');
+
+    useEffect(() => {
+        window.ipcRenderer.invoke('discord:status').then((d: DiscordInfo) => { setDc(d); setDcId(d.clientId); });
+        window.ipcRenderer.invoke('lastfm:status').then(setLfm);
+    }, [lfmKey]);
+
+    // Poll the Discord connection while enabled (it connects in the background)
+    useEffect(() => {
+        if (!dc?.enabled || dc.connected) return;
+        const t = window.setInterval(() => window.ipcRenderer.invoke('discord:status').then(setDc), 3000);
+        return () => window.clearInterval(t);
+    }, [dc?.enabled, dc?.connected]);
+
+    const configure = async (enabled: boolean, clientId = dcId) => {
+        setDc(await window.ipcRenderer.invoke('discord:configure', { enabled, clientId }));
+    };
+    const validId = /^\d{15,22}$/.test(dcId.trim());
+
+    const connectLastfm = async () => {
+        setErr('');
+        try {
+            if (secret.trim()) setLfm(await window.ipcRenderer.invoke('lastfm:setSecret', secret));
+            await window.ipcRenderer.invoke('lastfm:beginAuth');
+            setWaiting(true);
+        } catch (e) { setErr((e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')); }
+    };
+    const finishLastfm = async () => {
+        setErr('');
+        try {
+            const s: LastfmInfo = await window.ipcRenderer.invoke('lastfm:finishAuth');
+            setLfm(s); setWaiting(false); setSecret('');
+            say(`Connected as ${s.user}`);
+        } catch (e) { setErr((e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')); }
+    };
+
+    return (
+        <Group>
+            <Row label="Discord status" k="discord rich presence activity listening"
+                hint={!dc?.enabled ? 'Show what you\'re listening to on your Discord profile'
+                    : <Status tone={dc.connected ? 'good' : 'warn'}>{dc.connected ? 'Connected to Discord' : 'Waiting for the Discord app…'}</Status>}>
+                <Switch on={!!dc?.enabled} onChange={v => { if (v && !validId) { say('Add your Discord application ID first'); return; } configure(v); }} label="Discord status" />
+            </Row>
+            <Row label="Discord application ID" k="discord client id" hint={<>Create an app at discord.com/developers, name it how the status should read, and paste its Application ID.</>}>
+                <div className={fieldBox}>
+                    <input value={dcId} onChange={e => setDcId(e.target.value.replace(/\D/g, ''))} placeholder="e.g. 1234567890123456789" spellCheck={false} aria-label="Discord application ID" className={fieldInput} />
+                    <Btn disabled={!validId || dcId === dc?.clientId} onClick={() => { configure(!!dc?.enabled, dcId); say('Saved'); }}>Save</Btn>
+                </div>
+            </Row>
+            <Row label="Last.fm scrobbling" k="lastfm last.fm scrobble scrobbler connect account"
+                hint={lfm?.connected
+                    ? <Status tone="good">Connected as {lfm.user}{lfm.queued ? ` · ${lfm.queued} waiting to send` : ''}</Status>
+                    : !lfmKey ? 'Add your Last.fm API key above first' : 'Scrobble every song you play to your Last.fm profile'}>
+                {lfm?.connected ? (
+                    <div className="flex items-center gap-2">
+                        <Switch on={lfm.enabled} onChange={async v => setLfm(await window.ipcRenderer.invoke('lastfm:setScrobbling', v))} label="Scrobbling" />
+                        <Btn onClick={async () => { setLfm(await window.ipcRenderer.invoke('lastfm:logout')); say('Disconnected'); }}>Disconnect</Btn>
+                    </div>
+                ) : waiting ? (
+                    <div className="flex items-center gap-2">
+                        <Btn primary onClick={finishLastfm}>I've approved it</Btn>
+                        <Btn onClick={() => setWaiting(false)}>Cancel</Btn>
+                    </div>
+                ) : null}
+            </Row>
+            {!lfm?.connected && !waiting && (
+                <Row label="Last.fm API secret" k="lastfm secret shared" hint={<>From the same page as your API key (last.fm/api/accounts). {err && <span className="text-red-500">{err}</span>}</>}>
+                    <div className={fieldBox}>
+                        <input type="password" value={secret} onChange={e => setSecret(e.target.value)} placeholder={lfm?.hasKeys ? 'Saved · paste to replace' : 'Paste shared secret'} spellCheck={false} aria-label="Last.fm API secret" className={fieldInput} />
+                        <Btn primary disabled={!lfmKey || (!secret.trim() && !lfm?.hasKeys)} onClick={connectLastfm}>Connect</Btn>
+                    </div>
+                </Row>
+            )}
+            {waiting && err && <Row label="" hint={<span className="text-red-500">{err}</span>} />}
+        </Group>
+    );
+};
+
+const Section = ({ id, title, action, children }: { id: string; title: string; action?: React.ReactNode; children: React.ReactNode }) => {
+    const q = useContext(QueryContext);
+    const meta = SECTIONS.find(s => s.id === id);
+    if (q && !matches(q, `${title} ${meta?.k ?? ''}`)) return null;
+    return (
+        <section id={`settings-${id}`} data-section={id} className="flex flex-col gap-2.5 scroll-mt-6">
+            <header className="flex items-center justify-between gap-3 px-1 min-h-[36px]">
+                <h2 className="text-[13px] font-semibold tracking-[0.06em] uppercase text-on-background/60">{title}</h2>
+                {action}
+            </header>
+            {children}
+        </section>
+    );
+};
+
+/* ──────────────────────────── data ──────────────────────────── */
+
+const THEME_TILES: { id: Appearance; label: string; bg: string; panel: string; line: string }[] = [
+    { id: 'light', label: 'Light', bg: '#f4f5f7', panel: '#ffffff', line: '#d9dde2' },
+    { id: 'dark', label: 'Dark', bg: '#1a1d21', panel: '#2a2e34', line: '#3a3f46' },
+    { id: 'oled', label: 'OLED', bg: '#000000', panel: '#15171a', line: '#26292e' },
+    { id: 'glass', label: 'Glass', bg: 'linear-gradient(135deg,#7fe3d6,#b9a8ff 55%,#ffb6a3)', panel: 'rgba(255,255,255,.5)', line: 'rgba(255,255,255,.7)' },
+];
+
+const MOODS: { id: Mood; label: string; color: string }[] = [
+    { id: 'calm', label: 'Calm', color: '#007AFF' },
+    { id: 'energetic', label: 'Energetic', color: '#FF9500' },
+    { id: 'focus', label: 'Focus', color: '#00C7BE' },
+    { id: 'sad', label: 'Sad', color: '#5856D6' },
+    { id: 'party', label: 'Party', color: '#FF2D55' },
+    { id: 'lucky', label: 'Feeling lucky', color: 'conic-gradient(#ff4d8d,#ffb13d,#4fd8d8,#7a5cff,#ff4d8d)' },
+];
+
+const ZOOMS = [0.7, 0.8, 1, 1.1, 1.25, 1.5];
+
+const SCENE_PREVIEW: Record<AmbientScene, string> = {
+    aurora: 'radial-gradient(60% 80% at 20% 20%,#ff6a3d,transparent 70%),radial-gradient(60% 80% at 85% 40%,#c2338f,transparent 70%),radial-gradient(60% 80% at 50% 110%,#5b3dff,transparent 70%),#0b0b10',
+    vinyl: 'radial-gradient(circle at 26% 50%,#ff6a3d 0 11%,#111 11.5% 13%,#0d0d10 13% 38%,transparent 38.5%),#121216',
+    horizon: 'radial-gradient(circle at 50% 62%,#ff9a6b 0 13%,transparent 14%),linear-gradient(180deg,#0b0b10 55%,#3a1f4a 56%,#5b2b5c 70%,#7a2f55 100%)',
+    clock: '#000',
+};
+
+type WidgetStyle = 'pill' | 'card' | 'orb';
+
+/* ──────────────────────────── page ──────────────────────────── */
+
+const SettingsPage = () => {
+    const [query, setQuery] = useState('');
+    const [active, setActive] = useState<string>('appearance');
+    const [toast, setToast] = useState('');
+    const toastTimer = useRef<number>();
+    const rootRef = useRef<HTMLDivElement>(null);
+    const searchRef = useRef<HTMLInputElement>(null);
+
+    const say = useCallback((msg: string) => {
+        setToast(msg);
+        window.clearTimeout(toastTimer.current);
+        toastTimer.current = window.setTimeout(() => setToast(''), 1600);
+    }, []);
+
+    // Stores
+    const theme = useThemeStore();
+    const ambient = useAmbientStore();
+    const audio = useAudioStore();
+    const settings = useSettingsStore();
+
+    // Main-process state
+    const [widget, setWidget] = useState<{ enabled: boolean; alwaysOnTop: boolean; style: WidgetStyle }>({ enabled: true, alwaysOnTop: true, style: 'pill' });
+    const [gpu, setGpu] = useState<{ current: boolean; next: boolean } | null>(null);
+    const [cache, setCache] = useState<{ size: string; count: number } | null>(null);
+    const [sys, setSys] = useState<{ ytdlp: { version: string | null; bundled: boolean }; ffmpeg: { version: string | null } } | null>(null);
+    const [ytKey, setYtKey] = useState('');
+    const [lfmKey, setLfmKey] = useState('');
+    const [showYt, setShowYt] = useState(false);
+    const [showLfm, setShowLfm] = useState(false);
+
+    useEffect(() => {
+        const ipc = window.ipcRenderer;
+        useSettingsStore.getState().fetchSettings();
+        ipc.invoke('widget:getConfig').then(c => c && setWidget(c));
+        ipc.invoke('app:getHardwareAcceleration').then((on: boolean) => setGpu({ current: on, next: on }));
+        ipc.invoke('cache:getStats').then(c => c && setCache({ size: c.size, count: c.count }));
+        ipc.invoke('system:info').then(setSys).catch(() => { /* older main process */ });
+    }, []);
+
+    // API keys: local edit, saved 800 ms after typing stops
+    useEffect(() => { setYtKey(settings.youtubeApiKey); }, [settings.youtubeApiKey]);
+    useEffect(() => { setLfmKey(settings.lastfmKey); }, [settings.lastfmKey]);
+    useEffect(() => {
+        if (ytKey === useSettingsStore.getState().youtubeApiKey) return;
+        const t = window.setTimeout(() => { useSettingsStore.getState().setYoutubeApiKey(ytKey); say('YouTube key saved'); }, 800);
+        return () => window.clearTimeout(t);
+    }, [ytKey, say]);
+    useEffect(() => {
+        if (lfmKey === useSettingsStore.getState().lastfmKey) return;
+        const t = window.setTimeout(() => { useSettingsStore.getState().setLastfmKey(lfmKey); say('Last.fm key saved'); }, 800);
+        return () => window.clearTimeout(t);
+    }, [lfmKey, say]);
+
+    // Ctrl/Cmd+F focuses search
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); searchRef.current?.focus(); }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, []);
+
+    // Highlight the section in view
+    useEffect(() => {
+        const scroller = rootRef.current?.closest('.overflow-y-auto') ?? null;
+        const io = new IntersectionObserver(entries => {
+            entries.forEach(en => { if (en.isIntersecting) setActive((en.target as HTMLElement).dataset.section || 'appearance'); });
+        }, { root: scroller, rootMargin: '-15% 0px -70% 0px' });
+        rootRef.current?.querySelectorAll('[data-section]').forEach(el => io.observe(el));
+        return () => io.disconnect();
+    }, [query]);
+
+    const setWidgetValue = async (patch: Partial<typeof widget>) => {
+        const ipc = window.ipcRenderer;
+        if (patch.enabled !== undefined) await ipc.invoke('widget:setEnabled', patch.enabled);
+        if (patch.alwaysOnTop !== undefined) await ipc.invoke('widget:setAlwaysOnTop', patch.alwaysOnTop);
+        if (patch.style !== undefined) await ipc.invoke('widget:setStyle', patch.style);
+        setWidget(w => ({ ...w, ...patch }));
+        say('Saved');
+    };
+
+    const q = query.trim().toLowerCase();
+    const anyMatch = !q || SECTIONS.some(s => matches(q, `${s.label} ${s.k}`));
+    const zoomIndex = Math.max(0, ZOOMS.indexOf(theme.zoomLevel || 1));
+    const glass = theme.liquidGlass;
+
+    return (
+        <QueryContext.Provider value={q}>
+            <motion.div
+                ref={rootRef}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="max-w-[1040px] mx-auto grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)] gap-6 lg:gap-14 pt-4 pb-32 text-on-background"
+            >
+                {/* Index */}
+                <nav className="lg:sticky lg:top-0 self-start flex lg:flex-col gap-0.5 overflow-x-auto no-scrollbar" aria-label="Settings sections">
+                    <h1 className="hidden lg:block text-[22px] font-semibold tracking-tight mb-4 ml-2.5">Settings</h1>
+                    {SECTIONS.map(s => {
+                        const Icon = s.icon;
+                        const on = active === s.id;
+                        return (
+                            <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => rootRef.current?.querySelector(`#settings-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                                className={clsx(
+                                    "flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-[13.5px] font-medium whitespace-nowrap text-left transition-colors",
+                                    on ? clsx("text-on-background", glass ? "lg-active" : "bg-on-background/[0.06]") : "text-on-background/60 hover:text-on-background hover:bg-on-background/[0.04]"
+                                )}
+                            >
+                                <Icon size={17} className={clsx("shrink-0 hidden lg:block", on && "text-primary")} />
+                                {s.label}
+                            </button>
+                        );
+                    })}
+                    <span className="hidden lg:block mt-4 ml-2.5 text-xs font-mono text-on-background/40">v{__APP_VERSION__}</span>
+                </nav>
+
+                <div className="min-w-0 flex flex-col gap-10">
+                    {/* Search */}
+                    <label className={clsx(
+                        "relative flex items-center rounded-[14px] transition-shadow focus-within:ring-4 focus-within:ring-primary/15",
+                        glass ? "lg-panel" : "bg-on-background/[0.035] border border-on-background/[0.08]"
+                    )}>
+                        <Search size={17} className="absolute left-3.5 text-on-background/45" />
+                        <input
+                            ref={searchRef}
+                            type="search"
+                            value={query}
+                            onChange={e => setQuery(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Escape') setQuery(''); }}
+                            placeholder="Search settings"
+                            className="w-full bg-transparent outline-none pl-11 pr-20 py-3 text-[14px] text-on-background placeholder:text-on-background/40"
+                        />
+                        <kbd className="absolute right-3 text-[11px] font-mono text-on-background/40 border border-on-background/15 rounded-md px-1.5">Ctrl F</kbd>
+                    </label>
+                    {!anyMatch && <p className="text-center text-[13px] text-on-background/50 py-10">No settings match “{query}”.</p>}
+
+                    {/* ─── Appearance ─── */}
+                    <Section id="appearance" title="Appearance">
+                        <Group>
+                            <Row label="Theme" k="light dark oled glass appearance" stack>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    {THEME_TILES.map(t => (
+                                        <Tile
+                                            key={t.id}
+                                            label={t.label}
+                                            active={theme.appearance === t.id}
+                                            onClick={() => { theme.setAppearance(t.id); say(`${t.label} theme`); }}
+                                            preview={
+                                                <span className="absolute inset-0" style={{ background: t.bg }}>
+                                                    <i className="absolute left-[8%] top-[12%] bottom-[12%] w-[22%] rounded" style={{ background: t.panel }} />
+                                                    <i className="absolute left-[36%] top-[16%] w-[40%] h-[9%] rounded" style={{ background: t.line }} />
+                                                    <i className="absolute left-[36%] top-[32%] w-[54%] h-[22%] rounded-md" style={{ background: t.panel }} />
+                                                    <i className="absolute left-[36%] right-[8%] bottom-[12%] h-[12%] rounded-full bg-primary" />
+                                                </span>
+                                            }
+                                        />
+                                    ))}
+                                </div>
+                            </Row>
+                            <Row label="Liquid Glass" hint="Translucent panels over the album art" k="translucent blur">
+                                <Switch on={theme.liquidGlass} onChange={v => { theme.setLiquidGlass(v); say(v ? 'Liquid Glass on' : 'Liquid Glass off'); }} label="Liquid Glass" />
+                            </Row>
+                            <Row label="Mood colour" hint={theme.currentMood === 'lucky' && theme.luckyTheme ? theme.luckyTheme.name : MOODS.find(m => m.id === theme.currentMood)?.label} k="accent color">
+                                <div className="flex flex-wrap gap-2.5">
+                                    {MOODS.map(m => (
+                                        <button
+                                            key={m.id}
+                                            type="button"
+                                            title={m.id === 'lucky' ? 'Feeling lucky: random colour' : m.label}
+                                            aria-label={m.label}
+                                            aria-pressed={theme.currentMood === m.id}
+                                            onClick={() => { if (m.id === 'lucky') theme.generateLuckyTheme(); else theme.setMood(m.id); say(m.label); }}
+                                            className={clsx(
+                                                "w-[26px] h-[26px] rounded-full transition-transform hover:scale-110",
+                                                theme.currentMood === m.id && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                                            )}
+                                            style={{ background: m.color }}
+                                        />
+                                    ))}
+                                </div>
+                            </Row>
+                            <Row label="Interface size" hint="Scales the whole window" k="zoom scale layout">
+                                <div className="flex items-center gap-3.5 w-full sm:w-auto">
+                                    <div className="flex flex-col gap-1 w-full sm:w-[300px]">
+                                        <input
+                                            type="range" min={0} max={ZOOMS.length - 1} step={1} value={zoomIndex}
+                                            onChange={e => theme.setZoomLevel(ZOOMS[Number(e.target.value)])}
+                                            aria-label="Interface size"
+                                            className="w-full accent-[rgb(var(--md-sys-color-primary))]"
+                                        />
+                                        <div className="flex justify-between text-[11px] text-on-background/45"><span>Compact</span><span>Default</span><span>Large</span></div>
+                                    </div>
+                                    <span className="font-mono text-[12.5px] text-on-background/60 tabular-nums w-11 text-right">{Math.round(ZOOMS[zoomIndex] * 100)}%</span>
+                                </div>
+                            </Row>
+                        </Group>
+                    </Section>
+
+                    {/* ─── Playback ─── */}
+                    <Section id="playback" title="Playback">
+                        <Group>
+                            <Row label="Crossfade" hint="Blend the end of a song into the next one" k="fade mix transition">
+                                <div className="flex items-center gap-3.5 w-full sm:w-auto">
+                                    <input
+                                        type="range" min={0} max={12} step={1} value={audio.crossfade}
+                                        onChange={e => audio.set({ crossfade: Number(e.target.value) })}
+                                        aria-label="Crossfade length"
+                                        className="w-full sm:w-[260px] accent-[rgb(var(--md-sys-color-primary))]"
+                                    />
+                                    <span className="font-mono text-[12.5px] text-on-background/60 tabular-nums w-11 text-right">{audio.crossfade ? `${audio.crossfade} s` : 'Off'}</span>
+                                </div>
+                            </Row>
+                            <Row label="Gapless playback" hint="Start the next song the instant one ends" k="gap seamless album">
+                                <Switch on={audio.gapless} onChange={v => audio.set({ gapless: v })} label="Gapless playback" />
+                            </Row>
+                            <Row label="Even volume" hint="Levels loud and quiet songs to a similar loudness" k="normalize normalise loudness replaygain level">
+                                <Switch on={audio.normalize} onChange={v => audio.set({ normalize: v })} label="Even volume" />
+                            </Row>
+                        </Group>
+                    </Section>
+
+                    {/* ─── Ambient ─── */}
+                    <Section id="ambient" title="Ambient mode" action={<Btn primary onClick={() => ambient.open()}><MonitorPlay size={15} /> Open now</Btn>}>
+                        <Group>
+                            <Row label="Scene" hint="Full-screen lyrics and a slow background" k="aurora vinyl horizon clock" stack>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                                    {AMBIENT_SCENES.map(s => (
+                                        <Tile
+                                            key={s}
+                                            label={s[0].toUpperCase() + s.slice(1)}
+                                            active={ambient.scene === s}
+                                            onClick={() => { ambient.set({ scene: s }); say('Saved'); }}
+                                            preview={
+                                                <span className="absolute inset-0 grid place-items-center font-mono text-[15px] text-white/90" style={{ background: SCENE_PREVIEW[s] }}>
+                                                    {s === 'clock' ? '21:48' : null}
+                                                </span>
+                                            }
+                                        />
+                                    ))}
+                                </div>
+                            </Row>
+                            <Row label="Start when idle" hint="Only while music is playing" k="screensaver automatically">
+                                <Seg value={ambient.idleMinutes} onChange={v => { ambient.set({ idleMinutes: v }); say('Saved'); }}
+                                    options={[{ v: 0, label: 'Never' }, { v: 2, label: '2 m' }, { v: 5, label: '5 m' }, { v: 10, label: '10 m' }, { v: 20, label: '20 m' }]} />
+                            </Row>
+                            <Row label="Open in full screen" k="fullscreen">
+                                <Switch on={ambient.fullScreen} onChange={v => ambient.set({ fullScreen: v })} label="Open in full screen" />
+                            </Row>
+                            <Row label="Keep screen on" hint="While ambient mode shows playing music" k="awake sleep display">
+                                <Switch on={ambient.keepAwake} onChange={v => ambient.set({ keepAwake: v })} label="Keep screen on" />
+                            </Row>
+                        </Group>
+                    </Section>
+
+                    {/* ─── Widget & mini player ─── */}
+                    <Section id="widget" title="Widget & mini player" action={<Btn onClick={() => window.ipcRenderer.invoke('widget:preview')}>Show widget</Btn>}>
+                        <Group>
+                            <Row label="Desktop widget" hint="Appears when the app is minimized" k="minimize taskbar">
+                                <Switch on={widget.enabled} onChange={v => setWidgetValue({ enabled: v })} label="Desktop widget" />
+                            </Row>
+                            <Row label="Widget style" k="pill card orb" stack>
+                                <div className="grid grid-cols-3 gap-2.5">
+                                    {(['pill', 'card', 'orb'] as WidgetStyle[]).map(st => (
+                                        <Tile
+                                            key={st}
+                                            wide
+                                            label={st[0].toUpperCase() + st.slice(1)}
+                                            active={widget.style === st}
+                                            onClick={() => setWidgetValue({ style: st })}
+                                            preview={
+                                                <span className="absolute inset-0 grid place-items-center bg-gradient-to-br from-primary/30 to-on-background/5">
+                                                    <i className={clsx(
+                                                        "bg-background shadow-lg",
+                                                        st === 'pill' && "w-[56%] h-[30%] rounded-full",
+                                                        st === 'card' && "w-[20%] h-[78%] rounded-lg",
+                                                        st === 'orb' && "w-[22%] aspect-square rounded-full ring-[3px] ring-primary"
+                                                    )} />
+                                                </span>
+                                            }
+                                        />
+                                    ))}
+                                </div>
+                            </Row>
+                            <Row label="Always on top" hint="Keeps the widget above other windows" k="pin">
+                                <Switch on={widget.alwaysOnTop} onChange={v => setWidgetValue({ alwaysOnTop: v })} label="Always on top" />
+                            </Row>
+                            <Row label="Resizable mini player" hint="Keeps its 380 × 712 proportions" k="aspect ratio">
+                                <Switch on={settings.isMiniPlayerResizable} onChange={v => { settings.setMiniPlayerResizable(v); say('Saved'); }} label="Resizable mini player" />
+                            </Row>
+                        </Group>
+                    </Section>
+
+                    {/* ─── Phone remote ─── */}
+                    <Section id="remote" title="Phone remote">
+                        <PhoneRemote say={say} />
+                    </Section>
+
+                    {/* ─── Library ─── */}
+                    <Section id="library" title="Library">
+                        <Group>
+                            <Row label="Download folder" hint={<span className="font-mono truncate block max-w-[360px]" title={settings.downloadPath}>{settings.downloadPath || 'App data folder (default)'}</span>} k="location path">
+                                <Btn onClick={async () => {
+                                    const path = await window.ipcRenderer.invoke('dialog:openDirectory');
+                                    if (path) { await settings.setDownloadPath(path); say('Download folder changed'); }
+                                }}>Change…</Btn>
+                            </Row>
+                            <Row label="Audio cache" hint={cache ? `${cache.size} MB · ${cache.count} songs streamed recently` : 'Checking…'} k="storage clear">
+                                <Btn disabled={!cache || cache.count === 0} onClick={async () => {
+                                    await window.ipcRenderer.invoke('cache:clear');
+                                    setCache({ size: '0.00', count: 0 });
+                                    say('Cache cleared');
+                                }}>Clear</Btn>
+                            </Row>
+                        </Group>
+                    </Section>
+
+                    {/* ─── Connections ─── */}
+                    <Section id="connections" title="Connections" action={<span className="text-[12.5px] text-on-background/45">Keys stay on this computer</span>}>
+                        <Group>
+                            {([
+                                { label: 'YouTube Data API', k: 'youtube key', value: ytKey, set: setYtKey, show: showYt, setShow: setShowYt, hint: 'Faster search and trending. Optional.' },
+                                { label: 'Last.fm', k: 'lastfm last.fm key scrobble', value: lfmKey, set: setLfmKey, show: showLfm, setShow: setShowLfm, hint: 'Charts, artist info and scrobbling.' },
+                            ]).map(f => (
+                                <Row key={f.label} label={f.label} k={f.k} hint={<Status tone={f.value ? 'good' : 'off'}>{f.value ? 'Key set' : `Not set · ${f.hint}`}</Status>}>
+                                    <div className="flex items-center gap-2 w-full sm:w-[340px] pl-3 pr-1.5 py-1.5 rounded-[11px] bg-on-background/[0.06]">
+                                        <input
+                                            type={f.show ? 'text' : 'password'}
+                                            value={f.value}
+                                            onChange={e => f.set(e.target.value)}
+                                            placeholder="Paste API key"
+                                            spellCheck={false}
+                                            aria-label={`${f.label} key`}
+                                            className="flex-1 min-w-0 bg-transparent outline-none font-mono text-[12.5px] text-on-background placeholder:text-on-background/35"
+                                        />
+                                        <button type="button" onClick={() => f.setShow(!f.show)} className="px-2 py-1 rounded-md text-xs text-on-background/60 hover:text-on-background hover:bg-on-background/[0.08]">
+                                            {f.show ? 'Hide' : 'Show'}
+                                        </button>
+                                    </div>
+                                </Row>
+                            ))}
+                        </Group>
+                        <div className="h-3" />
+                        <SocialRows say={say} lfmKey={settings.lastfmKey} />
+                    </Section>
+
+                    {/* ─── System ─── */}
+                    <Section id="system" title="System">
+                        <AnimatePresence>
+                            {gpu && gpu.next !== gpu.current && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                                    className="flex items-center gap-3 px-4 py-3 rounded-[14px] text-[13px] bg-amber-500/15 text-on-background"
+                                    role="status"
+                                >
+                                    Restart AT Music Pro to apply the graphics change.
+                                    <span className="ml-auto"><Btn onClick={() => window.ipcRenderer.invoke('app:relaunch')}>Restart now</Btn></span>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                        <Group>
+                            <Row label="Hardware acceleration" hint="Smoother animations. Turn off if the window stays blank." k="gpu graphics">
+                                {gpu && <Switch on={gpu.next} onChange={async v => { await window.ipcRenderer.invoke('app:setHardwareAcceleration', v); setGpu(g => g && { ...g, next: v }); }} label="Hardware acceleration" />}
+                            </Row>
+                            <Row label="yt-dlp" k="youtube engine" hint={
+                                !sys ? 'Checking…'
+                                    : sys.ytdlp.version ? <Status tone="good">{sys.ytdlp.version}{sys.ytdlp.bundled ? ' · bundled' : ' · system'}</Status>
+                                        : <Status tone="warn">Not found · YouTube search and streaming won't work</Status>
+                            } />
+                            <Row label="ffmpeg" k="video" hint={
+                                !sys ? 'Checking…'
+                                    : sys.ffmpeg.version ? <Status tone="good">{sys.ffmpeg.version}</Status>
+                                        : <Status tone="warn">Not found · video mode uses pre-merged streams only</Status>
+                            } />
+                        </Group>
+                    </Section>
+
+                    {/* ─── About ─── */}
+                    <Section id="about" title="About">
+                        <Group>
+                            <div className="flex flex-wrap items-center gap-4 px-[18px] py-5">
+                                <img src="./app_icon.png" alt="" className="w-16 h-16 object-contain drop-shadow-md" />
+                                <div className="min-w-0">
+                                    <h3 className="text-[17px] font-semibold">AT Music Pro</h3>
+                                    <p className="text-[12.5px] text-on-background/50">
+                                        Version {__APP_VERSION__} · MIT License · Designed by{' '}
+                                        <a href="https://atishaksharma.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">Atish Ak Sharma</a>
+                                    </p>
+                                </div>
+                                <div className="flex gap-1 sm:ml-auto">
+                                    <a href="https://github.com/atishsharma/AT-Music-Player/releases" target="_blank" rel="noreferrer" className="px-2.5 py-1.5 rounded-lg text-[13px] font-medium text-primary hover:bg-on-background/[0.06]">Release notes</a>
+                                    <a href="https://github.com/atishsharma/AT-Music-Player" target="_blank" rel="noreferrer" className="px-2.5 py-1.5 rounded-lg text-[13px] font-medium text-primary hover:bg-on-background/[0.06]">GitHub</a>
+                                </div>
+                            </div>
+                        </Group>
+                    </Section>
+                </div>
+            </motion.div>
+
+            {/* Toast */}
             <AnimatePresence>
-                {message && (
+                {toast && (
                     <motion.div
-                        initial={{ opacity: 0, y: 100 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 100 }}
-                        className="fixed bottom-12 right-12 bg-primary text-on-primary px-8 py-4 rounded-full shadow-2xl font-black z-[200]"
+                        initial={{ opacity: 0, y: 12, x: '-50%' }}
+                        animate={{ opacity: 1, y: 0, x: '-50%' }}
+                        exit={{ opacity: 0, y: 12, x: '-50%' }}
+                        transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+                        className="fixed left-1/2 bottom-32 z-[300] px-4 py-2 rounded-full bg-on-background text-background text-[13px] font-medium shadow-xl pointer-events-none"
+                        role="status"
                     >
-                        {message}
+                        {toast}
                     </motion.div>
                 )}
             </AnimatePresence>
-        </motion.div>
+        </QueryContext.Provider>
     );
 };
 

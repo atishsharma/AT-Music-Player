@@ -1,42 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePlayerStore } from '../../store/playerStore';
 import { toAtmusicUrl } from '../../utils/path';
-
-/**
- * Average colour of an image, sampled on a tiny canvas. Returns an "R G B" triplet
- * or null when the image can't be read (e.g. a remote thumbnail without CORS).
- */
-function sampleColor(src: string): Promise<string | null> {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.decoding = 'async';
-        img.onload = () => {
-            try {
-                const canvas = document.createElement('canvas');
-                canvas.width = canvas.height = 12;
-                const ctx = canvas.getContext('2d', { willReadFrequently: true });
-                if (!ctx) return resolve(null);
-                ctx.drawImage(img, 0, 0, 12, 12);
-                const { data } = ctx.getImageData(0, 0, 12, 12);
-                let r = 0, g = 0, b = 0, n = 0;
-                for (let i = 0; i < data.length; i += 4) {
-                    // Skip near-black / near-white pixels so borders don't wash the colour out
-                    const max = Math.max(data[i], data[i + 1], data[i + 2]);
-                    const min = Math.min(data[i], data[i + 1], data[i + 2]);
-                    if (max < 24 || min > 235) continue;
-                    r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
-                }
-                if (!n) return resolve(null);
-                resolve(`${Math.round(r / n)} ${Math.round(g / n)} ${Math.round(b / n)}`);
-            } catch {
-                resolve(null); // tainted canvas
-            }
-        };
-        img.onerror = () => resolve(null);
-        img.src = src;
-    });
-}
+import { sampleColor } from '../../utils/artPalette';
 
 /**
  * Liquid Glass ambient backdrop: the current artwork, heavily blurred, plus two slow

@@ -20,7 +20,7 @@ const FidgetSpinner = () => {
         if (!soundEnabled) return;
 
         try {
-            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (!AudioContext) return;
 
             const ctx = new AudioContext();

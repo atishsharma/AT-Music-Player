@@ -11,12 +11,11 @@ const moodEmojis: Record<string, string[]> = {
 
 const BackgroundWatermarks = () => {
     const { currentMood, appearance, luckyTheme } = useThemeStore();
-    const emojis = currentMood === 'lucky' && luckyTheme ? luckyTheme.emojis : moodEmojis[currentMood] || ['🎵'];
-
     const watermarks = useMemo(() => {
+        const emojis = currentMood === 'lucky' && luckyTheme ? luckyTheme.emojis : moodEmojis[currentMood] || ['🎵'];
         const rows = 3;
         const cols = 4;
-        const result: any[] = [];
+        const result: { top: string; left: string; size: string; rotate: string; emoji: string }[] = [];
         let emojiIdx = 0;
 
         for (let r = 0; r < rows; r++) {
@@ -52,7 +51,7 @@ const BackgroundWatermarks = () => {
 
         // Shuffle the result so the order of rendering is random
         return result.sort(() => Math.random() - 0.5);
-    }, [currentMood, emojis, luckyTheme]);
+    }, [currentMood, luckyTheme]);
 
     let opacity = appearance === 'light' ? '0.07' : appearance === 'dark' ? '0.06' : '0.04';
     if (currentMood === 'lucky') {

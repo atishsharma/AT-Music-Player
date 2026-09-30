@@ -14,9 +14,8 @@ interface EqualizerProps {
 
 const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: EqualizerProps) => {
     const { enabled, gains, activePreset, toggleEnabled, setGain, applyPreset } = useEqualizerStore();
-    const { appearance } = useThemeStore();
+    const liquidGlass = useThemeStore(s => s.liquidGlass);
     const popupRef = useRef<HTMLDivElement>(null);
-    const isLight = appearance === 'light';
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -59,16 +58,18 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                         align === 'mini' ? "fixed left-5 right-5 bottom-[90px] w-auto max-w-[calc(100vw-40px)]" : "absolute w-[380px] max-w-[calc(100vw-32px)]",
                         align !== 'mini' && (anchor === 'bottom' ? "bottom-full mb-4" : "top-full mt-4"),
                         align === 'right' ? "right-0" : align === 'left' ? "left-0" : align === 'center' ? "left-1/2" : "",
-                        isLight
-                            ? "bg-white/95 border-primary/20 shadow-primary/20"
-                            : "bg-surface/95 border-white/10 shadow-black/50"
+                        // Neutral background/ink tokens: `surface` is the primary colour in the Glass
+                        // and some mood themes, which made bars and labels invisible.
+                        liquidGlass
+                            ? "lg-panel lg-strong lg-blur text-on-background"
+                            : "bg-background/95 border-on-background/10 text-on-background shadow-black/30"
                     )}
-                    style={{ WebkitAppRegion: 'no-drag' } as any}
+                    style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                 >
                     {/* Header */}
                     <div className={clsx(
                         "flex items-center justify-between px-5 py-3 border-b",
-                        isLight ? "border-primary/10" : "border-white/5"
+                        "border-on-background/10"
                     )}>
                         <div className="flex items-center gap-3">
                             <button
@@ -76,8 +77,8 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                                 className={clsx(
                                     "p-1.5 rounded-full transition-all",
                                     enabled
-                                        ? (isLight ? "text-primary bg-primary/10" : "text-primary bg-primary/20")
-                                        : (isLight ? "text-gray-400" : "text-white/30")
+                                        ? "text-on-primary bg-primary shadow-md shadow-primary/30"
+                                        : "text-on-background/50 bg-on-background/5 hover:text-on-background"
                                 )}
                                 title={enabled ? "Disable EQ" : "Enable EQ"}
                             >
@@ -85,13 +86,13 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                             </button>
                             <h3 className={clsx(
                                 "text-xs font-black uppercase tracking-[0.2em]",
-                                isLight ? "text-primary" : "text-primary"
+                                "text-on-background"
                             )}>
                                 Equalizer
                             </h3>
                             <span className={clsx(
                                 "text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full",
-                                isLight ? "bg-primary/10 text-primary" : "bg-primary/20 text-primary"
+                                "bg-primary/15 text-on-background"
                             )}>
                                 {activePreset}
                             </span>
@@ -100,7 +101,7 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                             onClick={onClose}
                             className={clsx(
                                 "p-1.5 rounded-full transition-all hover:scale-110",
-                                isLight ? "text-primary/60 hover:text-primary hover:bg-primary/10" : "text-white/40 hover:text-white hover:bg-white/10"
+                                "text-on-background/50 hover:text-on-background hover:bg-on-background/10"
                             )}
                         >
                             <X size={18} />
@@ -108,7 +109,7 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                     </div>
 
                     {/* Presets */}
-                    <div className={clsx("px-5 py-3 border-b", isLight ? "border-primary/10" : "border-white/5")}>
+                    <div className={clsx("px-5 py-3 border-b", "border-on-background/10")}>
                         <div className="flex flex-wrap gap-1.5">
                             {EQ_PRESETS.map((preset) => (
                                 <button
@@ -117,12 +118,8 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                                     className={clsx(
                                         "px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all hover:scale-105",
                                         activePreset === preset.name
-                                            ? (isLight
-                                                ? "bg-primary text-on-primary shadow-md shadow-primary/30"
-                                                : "bg-primary text-on-primary shadow-md shadow-primary/30")
-                                            : (isLight
-                                                ? "bg-primary/10 text-primary hover:bg-primary/20"
-                                                : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white")
+                                            ? "bg-primary text-on-primary shadow-md shadow-primary/30"
+                                            : "bg-on-background/[0.07] text-on-background/75 hover:bg-on-background/[0.12] hover:text-on-background"
                                     )}
                                 >
                                     {preset.name}
@@ -134,13 +131,13 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                     {/* Sliders */}
                     <div className={clsx(
                         "px-4 py-4 transition-opacity duration-300",
-                        enabled ? "opacity-100" : "opacity-30 pointer-events-none"
+                        enabled ? "opacity-100" : "opacity-50 pointer-events-none"
                     )}>
                         {/* dB labels */}
                         <div className="flex items-center justify-between mb-1">
-                            <span className={clsx("text-[8px] font-bold", isLight ? "text-primary/40" : "text-white/20")}>+12dB</span>
-                            <span className={clsx("text-[8px] font-bold", isLight ? "text-primary/40" : "text-white/20")}>0dB</span>
-                            <span className={clsx("text-[8px] font-bold", isLight ? "text-primary/40" : "text-white/20")}>-12dB</span>
+                            <span className={clsx("text-[8px] font-bold", "text-on-background/50")}>+12dB</span>
+                            <span className={clsx("text-[8px] font-bold", "text-on-background/50")}>0dB</span>
+                            <span className={clsx("text-[8px] font-bold", "text-on-background/50")}>-12dB</span>
                         </div>
 
                         {/* Band Sliders */}
@@ -151,8 +148,8 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                                     <div key={db} className={clsx(
                                         "w-full border-t",
                                         db === 0
-                                            ? (isLight ? "border-primary/30" : "border-white/20")
-                                            : (isLight ? "border-primary/10" : "border-white/5")
+                                            ? "border-on-background/25"
+                                            : "border-on-background/10"
                                     )} />
                                 ))}
                             </div>
@@ -174,7 +171,7 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                                                 onChange={(e) => setGain(index, parseFloat(e.target.value))}
                                                 className="eq-slider-vertical"
                                                 style={{
-                                                    writingMode: 'vertical-lr' as any,
+                                                    writingMode: 'vertical-lr',
                                                     direction: 'rtl',
                                                     width: '140px',
                                                     height: '30px',
@@ -191,8 +188,8 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                                             />
                                             {/* Visual bar */}
                                             <div className={clsx(
-                                                "w-1.5 h-full rounded-full overflow-hidden relative",
-                                                isLight ? "bg-primary/10" : "bg-white/5"
+                                                "w-2 h-full rounded-full overflow-hidden relative",
+                                                "bg-on-background/[0.12]"
                                             )}>
                                                 {/* Fill from center */}
                                                 {gain >= 0 ? (
@@ -206,7 +203,7 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                                                 ) : (
                                                     <div
                                                         className={clsx("absolute left-0 right-0 rounded-full transition-all duration-150 ease-out",
-                                                            isLight ? "bg-red-400" : "bg-red-500/80"
+                                                            "bg-red-500"
                                                         )}
                                                         style={{
                                                             top: '50%',
@@ -219,7 +216,7 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                                             <div
                                                 className={clsx(
                                                     "absolute w-4 h-2.5 rounded-sm shadow-md transition-all duration-150 ease-out pointer-events-none",
-                                                    isLight ? "bg-primary shadow-primary/30" : "bg-primary shadow-primary/30"
+                                                    "bg-on-background ring-2 ring-primary"
                                                 )}
                                                 style={{
                                                     bottom: `calc(${normalizedPosition}% - 5px)`,
@@ -230,15 +227,15 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                                         </div>
                                         {/* Frequency Label */}
                                         <span className={clsx(
-                                            "text-[8px] font-black tabular-nums",
-                                            isLight ? "text-primary/60" : "text-white/40"
+                                            "text-[10px] font-black tabular-nums",
+                                            "text-on-background/70"
                                         )}>
                                             {band.label}
                                         </span>
                                         {/* Gain value */}
                                         <span className={clsx(
-                                            "text-[7px] font-bold tabular-nums",
-                                            gain > 0 ? "text-primary" : gain < 0 ? (isLight ? "text-red-400" : "text-red-500/80") : (isLight ? "text-primary/30" : "text-white/20")
+                                            "text-[9px] font-bold tabular-nums",
+                                            gain > 0 ? "text-on-background" : gain < 0 ? "text-red-500" : "text-on-background/40"
                                         )}>
                                             {gain > 0 ? `+${gain}` : gain}
                                         </span>

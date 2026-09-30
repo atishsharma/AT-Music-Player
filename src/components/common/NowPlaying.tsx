@@ -5,14 +5,18 @@ import { useActiveLyricIndex } from '../../hooks/useActiveLyricIndex';
 import { useThemeStore } from '../../store/themeStore';
 import { useFavoritesStore } from '../../store/favoritesStore';
 import { usePlaylistStore } from '../../store/playlistStore';
-import { ChevronDown, ChevronUp, ListMusic, Mic2, Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Music2, X, Activity, RefreshCw, Maximize2, Minimize2, Volume2, VolumeX, Box, Dna, Hexagon, Sun, ArrowUpLeft, Heart, Plus, PictureInPicture2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, ListMusic, Mic2, Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Music2, X, Activity, RefreshCw, Maximize2, Minimize2, Volume2, VolumeX, Box, Dna, Hexagon, Sun, ArrowUpLeft, Heart, Plus, PictureInPicture2, PictureInPicture, Captions, CaptionsOff, RectangleHorizontal } from 'lucide-react';
+import { useVideoStore, type VideoQuality } from '../../store/videoStore';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import BackgroundWatermarks from './BackgroundWatermarks';
 import LiquidBackdrop from './LiquidBackdrop';
 import { toAtmusicUrl } from '../../utils/path';
+import type { Track, LyricLine, PlaylistSummary } from '../../types/library';
+import type { QueueStepProps, QueueItemProps } from './queueTypes';
 
-const QueueStepControls = ({ index, queue, reorderQueue, appearance }: any) => {
+
+const QueueStepControls = ({ index, queue, reorderQueue, appearance }: QueueStepProps) => {
     const move = (e: React.MouseEvent, direction: 'up' | 'down') => {
         e.stopPropagation();
         const newQueue = [...queue];
@@ -53,9 +57,9 @@ const QueueStepControls = ({ index, queue, reorderQueue, appearance }: any) => {
 };
 
 // Extracted Item for main Zen Queue
-const ZenQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, removeFavorite, appearance, queue, reorderQueue }: any) => {
+const ZenQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, removeFavorite, appearance, queue, reorderQueue }: QueueItemProps) => {
     const [showPlaylistPopup, setShowPlaylistPopup] = useState(false);
-    const [playlists, setPlaylists] = useState<any[]>([]);
+    const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
     const playlistPopupRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -97,7 +101,7 @@ const ZenQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, rem
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        const id = track.id?.toString() || track.id;
+                        const id = String(track.id);
                         isFav ? removeFavorite(id) : addFavorite({ ...track, id, type: 'song' });
                     }}
                     className={clsx("p-2 rounded-full transition-colors", isFav ? "text-primary bg-primary/10" : "text-primary hover:bg-primary/20")}
@@ -130,8 +134,8 @@ const ZenQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, rem
                                         onClick={async (e) => {
                                             e.stopPropagation();
                                             if (track?.id) {
-                                                await window.ipcRenderer.invoke('playlist:addTrack', { playlistId: pl.id, trackId: track.id });
-                                                (window as any).showToast?.(`Added to ${pl.name}`);
+                                                const ok = await usePlaylistStore.getState().addTrackToPlaylist(pl.id, track);
+                                                window.showToast?.(ok ? `Added to ${pl.name}` : `Couldn't add to ${pl.name} (already there?)`);
                                             }
                                             setShowPlaylistPopup(false);
                                         }}
@@ -168,7 +172,7 @@ const NowPlaying = () => {
         setVolume: s.setVolume, volume: s.volume, isMuted: s.isMuted, toggleMute: s.toggleMute, queue: s.queue,
         lyrics: s.lyrics, setLyrics: s.setLyrics, loadingLyrics: s.loadingLyrics, setLoadingLyrics: s.setLoadingLyrics,
         reorderQueue: s.reorderQueue, removeFromQueue: s.removeFromQueue, clearQueue: s.clearQueue,
-    }))) as any;
+    })));
     // This component stays mounted while closed; only track playback time while it's visible
     // (it previously re-rendered all ~1700 lines on every timeupdate even when hidden).
     const currentTime = usePlayerStore(s => (s.isPlayerOpen ? s.currentTime : 0));
@@ -178,20 +182,20 @@ const NowPlaying = () => {
     const [vizMode, setVizMode] = useState<'wave' | 'piano' | 'isometric' | 'dna' | 'geometry' | 'solar'>('isometric');
     const [playbackMode, setPlaybackMode] = useState<'audio' | 'video'>('audio');
     const playbackModeRef = useRef(playbackMode);
-    useEffect(() => {
-        playbackModeRef.current = playbackMode;
-    }, [playbackMode]);
+    // Updates the ref immediately (not after render): handlers switch mode and resume audio
+    // in the same tick, and the video-mode audio guard below reads the ref.
+    const setMode = (mode: 'audio' | 'video') => { playbackModeRef.current = mode; setPlaybackMode(mode); };
     const [visualizerActive, setVisualizerActive] = useState(false);
     const [isFullScreenViz, setIsFullScreenViz] = useState(false);
 
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
     const { addTrackToPlaylist } = usePlaylistStore();
-    const isFav = currentTrack ? isFavorite(currentTrack.id?.toString() || currentTrack.id) : false;
+    const isFav = currentTrack ? isFavorite(String(currentTrack.id)) : false;
 
     const handleFavToggle = () => {
         if (!currentTrack) return;
-        if (isFav) removeFavorite(currentTrack.id?.toString() || currentTrack.id);
-        else addFavorite({ ...currentTrack, id: currentTrack.id?.toString() || currentTrack.id, type: 'song' });
+        if (isFav) removeFavorite(String(currentTrack.id));
+        else addFavorite({ ...currentTrack, id: String(currentTrack.id), type: 'song' });
     };
 
     const [fetchedVideoId, setFetchedVideoId] = useState<string | null>(null);
@@ -199,11 +203,21 @@ const NowPlaying = () => {
     const [isVideoLoading, setIsVideoLoading] = useState(false);
     const [isSearchingVideo, setIsSearchingVideo] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [videoQuality, setVideoQuality] = useState<'360p' | '480p' | '720p' | '1080p'>('360p');
+    // Quality, subtitle language and theater mode are remembered between sessions
+    const videoQuality = useVideoStore(s => s.quality);
+    const setVideoQuality = (q: VideoQuality) => useVideoStore.getState().set({ quality: q });
+    const subtitleLang = useVideoStore(s => s.subtitleLang);
+    const theater = useVideoStore(s => s.theater);
+    const [subtitleTracks, setSubtitleTracks] = useState<{ lang: string; name: string; auto: boolean }[]>([]);
+    const [subtitleVtt, setSubtitleVtt] = useState<{ lang: string; vtt: string } | null>(null);
+    const [subtitleUrl, setSubtitleUrl] = useState<string | null>(null);
+    const [showSubMenu, setShowSubMenu] = useState(false);
+    // Popping out hands the stream to the floating window; don't stop the ffmpeg proxy then
+    const poppingOut = useRef(false);
 
     // Priority: fetchedVideoId (from YouTube search for local tracks) > video_id (stored on track) > id (for searched YouTube tracks where id IS the video ID)
     const isYouTubeIdInTrackId = typeof currentTrack?.id === 'string' && currentTrack.id.length >= 10;
-    const videoId = fetchedVideoId || currentTrack?.video_id || (isYouTubeIdInTrackId ? currentTrack.id : null);
+    const videoId = fetchedVideoId || currentTrack?.video_id || (isYouTubeIdInTrackId ? String(currentTrack.id) : null);
 
     // Lyrics Search State
     const [searchForm, setSearchForm] = useState({ title: '', artist: '', album: '' });
@@ -218,10 +232,18 @@ const NowPlaying = () => {
             // Only trigger if not typing in an input/textarea
             if (
                 e.code === 'Space' &&
-                document.activeElement?.tagName !== 'INPUT' &&
-                document.activeElement?.tagName !== 'TEXTAREA'
+                !e.repeat &&
+                // Not while typing or using a dropdown / editable field
+                !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '') &&
+                !(document.activeElement as HTMLElement | null)?.isContentEditable
             ) {
                 e.preventDefault();
+                // Video mode: Space controls the video (the audio deck stays paused)
+                const v = videoRef.current;
+                if (playbackModeRef.current === 'video' && usePlayerStore.getState().isPlayerOpen && v) {
+                    if (v.paused) v.play().catch(() => { /* ignore */ }); else v.pause();
+                    return;
+                }
                 if (isPlayingRef.current) pause();
                 else play();
             }
@@ -231,13 +253,31 @@ const NowPlaying = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [play, pause]);
 
+    // Video mode plays sound from the <video>. Anything that starts the audio deck meanwhile
+    // (next/prev, media keys, tray, phone remote) used to play both at once: route it to the
+    // video instead. Runs inside the store update, so the audio deck never starts.
+    useEffect(() => usePlayerStore.subscribe((s, prev) => {
+        if (!s.isPlaying || prev.isPlaying || playbackModeRef.current !== 'video' || !s.isPlayerOpen) return;
+        usePlayerStore.setState({ isPlaying: false });
+        videoRef.current?.play().catch(() => { /* the new video autoplays when ready */ });
+    }), []);
+
+    // Player closed some other way while in video mode: hand playback back to the audio deck
+    useEffect(() => {
+        if (isPlayerOpen || playbackModeRef.current !== 'video') return;
+        const s = usePlayerStore.getState();
+        setMode('audio');
+        s.seek(s.currentTime);
+        s.play();
+    }, [isPlayerOpen]);
+
     // Save Playlist State
     const [isDraggingSlider, setIsDraggingSlider] = useState(false);
     const [sliderValue, setSliderValue] = useState(0);
 
     const [showQueuePopup, setShowQueuePopup] = useState(false);
     const [showPlaylistPopup, setShowPlaylistPopup] = useState(false);
-    const [playlists, setPlaylists] = useState<any[]>([]);
+    const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
 
     const truncateTitle = (text: string, limit: number = 40) => {
         if (!text || text.length <= limit) return text;
@@ -259,11 +299,11 @@ const NowPlaying = () => {
             if (e.key === 'Escape' && isPlayerOpen) {
                 if (playbackModeRef.current === 'video') {
                     const state = usePlayerStore.getState();
+                    setMode('audio');
                     state.seek(state.currentTime);
                     if (!state.isPlaying) state.play();
-                    setPlaybackMode('audio');
                 }
-                togglePlayer(false);
+                togglePlayer();
                 setShowQueuePopup(false);
                 setShowPlaylistPopup(false);
             }
@@ -322,8 +362,9 @@ const NowPlaying = () => {
         if (!needsVideoLookup || !currentTrack) return;
         let cancelled = false;
 
-        if ((currentTrack as any).youtubeId) {
-            setFetchedVideoId((currentTrack as any).youtubeId);
+        const youtubeId = (currentTrack as Track & { youtubeId?: string }).youtubeId;
+        if (youtubeId) {
+            setFetchedVideoId(youtubeId);
             return;
         }
         if (!currentTrack.title || !currentTrack.artist) return;
@@ -334,7 +375,7 @@ const NowPlaying = () => {
             .then((vidId) => {
                 if (cancelled) return;
                 if (!vidId) {
-                    setPlaybackMode('audio');
+                    setMode('audio');
                     return;
                 }
                 setFetchedVideoId(vidId);
@@ -344,7 +385,7 @@ const NowPlaying = () => {
             })
             .catch((err) => {
                 console.error("Failed to fetch video ID", err);
-                if (!cancelled) setPlaybackMode('audio');
+                if (!cancelled) setMode('audio');
             })
             .finally(() => { if (!cancelled) setIsSearchingVideo(false); });
 
@@ -356,7 +397,7 @@ const NowPlaying = () => {
             if (playbackMode === 'video' && videoId) {
                 try {
                     setIsVideoLoading(true);
-                    const url = await (window as any).yt.getVideoStreamWithQuality(videoId, videoQuality);
+                    const url = await window.yt.getVideoStreamWithQuality(videoId, videoQuality);
                     setVideoStreamUrl(url);
                 } catch (err) {
                     console.error("Failed to fetch video stream", err);
@@ -365,18 +406,73 @@ const NowPlaying = () => {
                 }
             } else {
                 setVideoStreamUrl(null);
-                // Stop ffmpeg proxy when leaving video mode
-                try { (window as any).yt.stopVideoStream(); } catch { /* ignore */ }
+                // Stop ffmpeg proxy when leaving video mode (unless the floating window took it over)
+                if (!poppingOut.current) {
+                    try { window.yt.stopVideoStream(); } catch { /* ignore */ }
+                }
+                poppingOut.current = false;
             }
         };
         fetchVideoStream();
     }, [playbackMode, videoId, videoQuality]);
 
+    // Subtitles: list what the video has, then load the remembered language (or none)
+    useEffect(() => {
+        let cancelled = false;
+        setSubtitleTracks([]);
+        setSubtitleVtt(null);
+        if (playbackMode !== 'video' || !videoId) return;
+        window.ipcRenderer.invoke('yt:listSubtitles', videoId).then((tracks) => {
+            if (!cancelled) setSubtitleTracks(tracks || []);
+        });
+        return () => { cancelled = true; };
+    }, [playbackMode, videoId]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const base = subtitleLang.split('-')[0];
+        const track = subtitleLang ? subtitleTracks.find(t => t.lang === subtitleLang) ?? subtitleTracks.find(t => t.lang.split('-')[0] === base) : undefined;
+        if (!track || !videoId) { setSubtitleVtt(null); return; }
+        window.ipcRenderer.invoke('yt:getSubtitle', { videoId, lang: track.lang, auto: track.auto }).then((vtt: string | null) => {
+            if (!cancelled) setSubtitleVtt(vtt ? { lang: track.lang, vtt } : null);
+        });
+        return () => { cancelled = true; };
+    }, [subtitleLang, subtitleTracks, videoId]);
+
+    useEffect(() => {
+        if (!subtitleVtt) { setSubtitleUrl(null); return; }
+        const url = URL.createObjectURL(new Blob([subtitleVtt.vtt], { type: 'text/vtt' }));
+        setSubtitleUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [subtitleVtt]);
+
+    useEffect(() => {
+        const track = videoRef.current?.textTracks?.[0];
+        if (track) track.mode = 'showing';
+    }, [subtitleUrl, videoStreamUrl]);
+
+    const popOutVideo = async () => {
+        const v = videoRef.current;
+        if (!videoStreamUrl || !currentTrack) return;
+        poppingOut.current = true;
+        await window.ipcRenderer.invoke('video:popout', {
+            url: videoStreamUrl,
+            time: v?.currentTime ?? 0,
+            title: currentTrack.title,
+            artist: currentTrack.artist,
+            subtitle: subtitleVtt,
+        });
+        useVideoStore.getState().set({ floating: true });
+        v?.pause();
+        setMode('audio');
+        togglePlayer(); // close the full-screen player: the video now floats above other apps
+    };
+
     const handleVideoError = async () => {
         if (!videoId) return;
         console.log("Video stream expired, refreshing...");
         try {
-            const url = await (window as any).yt.getVideoStreamWithQuality(videoId, videoQuality);
+            const url = await window.yt.getVideoStreamWithQuality(videoId, videoQuality);
             setVideoStreamUrl(url);
         } catch (err) {
             console.error("Failed to refresh video stream", err);
@@ -398,7 +494,7 @@ const NowPlaying = () => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const analyser = (window as any)._audioAnalyser;
+        const analyser = window._audioAnalyser;
         if (!analyser) return;
 
         const bufferLength = analyser.frequencyBinCount;
@@ -783,9 +879,9 @@ const NowPlaying = () => {
                     <button onClick={() => {
                         if (playbackMode === 'video') {
                             const state = usePlayerStore.getState();
+                            setMode('audio');
                             state.seek(state.currentTime);
                             if (!state.isPlaying) state.play();
-                            setPlaybackMode('audio');
                         }
                         togglePlayer();
                     }} className="p-3 bg-surface-variant/10 text-primary hover:bg-primary hover:text-white outline outline-1 outline-primary rounded-full transition-all hover:-rotate-90 shadow-sm hover:shadow-[0_0_15px_rgba(var(--md-sys-color-primary),0.5)]">
@@ -898,7 +994,7 @@ const NowPlaying = () => {
                         <div className="bg-surface-variant/20 backdrop-blur-md p-1.5 rounded-full border border-white/10 flex items-center shadow-xl">
                             <button
                                 onClick={() => {
-                                    setPlaybackMode('audio');
+                                    setMode('audio');
                                     seek(currentTime); // Force audio player to sync to the exact time on switch
                                     if (!isPlaying) play(); // Resume audio
                                 }}
@@ -913,7 +1009,7 @@ const NowPlaying = () => {
                                 disabled={isSearchingVideo}
                                 onClick={() => {
                                     // Switching to video triggers the (lazy) YouTube lookup if needed
-                                    setPlaybackMode('video');
+                                    setMode('video');
                                     // Pause audio playback when switching to video
                                     if (isPlaying) pause();
                                 }}
@@ -935,7 +1031,7 @@ const NowPlaying = () => {
                         <button
                             onClick={async () => {
                                 try {
-                                    await (window as any).windowControls.miniPlayer();
+                                    await window.windowControls.miniPlayer();
                                 } catch (err) { /* ignore */ }
                             }}
                             className="p-3 bg-surface-variant/20 hover:bg-primary text-on-surface-variant hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md shadow-xl"
@@ -970,6 +1066,10 @@ const NowPlaying = () => {
                                     autoPlay
                                     className="w-full h-full absolute inset-0 md:rounded-3xl"
                                     onError={handleVideoError}
+                                    onEnded={(e) => {
+                                        if (usePlayerStore.getState().loop === 'one') { e.currentTarget.currentTime = 0; e.currentTarget.play().catch(() => { /* ignore */ }); }
+                                        else usePlayerStore.getState().next(true);
+                                    }}
                                     onCanPlay={(e) => (e.target as HTMLVideoElement).play()}
                                     onTimeUpdate={(e) => {
                                         // Drive the synced lyrics and global player time with the video's time!
@@ -980,8 +1080,52 @@ const NowPlaying = () => {
                                         (e.target as HTMLVideoElement).currentTime = currentTime;
                                         usePlayerStore.getState().setDuration((e.target as HTMLVideoElement).duration);
                                     }}
-                                />
+                                >
+                                    {subtitleUrl && <track key={subtitleUrl} kind="subtitles" src={subtitleUrl} srcLang={subtitleVtt?.lang} label={subtitleVtt?.lang} default />}
+                                </video>
                             )}
+
+                            {/* Subtitles / theater / pop-out */}
+                            <div className="absolute top-4 right-4 z-40 flex items-center gap-1 bg-black/60 backdrop-blur-md rounded-full p-1 border border-white/10 pointer-events-auto">
+                                <div className="relative">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setShowSubMenu(o => !o); }}
+                                        className={clsx("p-2 rounded-full transition-colors", subtitleLang ? "bg-primary text-on-primary" : "text-white/70 hover:text-white hover:bg-white/10")}
+                                        title="Subtitles"
+                                    >
+                                        {subtitleLang ? <Captions size={16} /> : <CaptionsOff size={16} />}
+                                    </button>
+                                    {showSubMenu && (
+                                        <div className="absolute right-0 top-full mt-2 w-56 max-h-64 overflow-y-auto no-scrollbar rounded-2xl bg-black/85 backdrop-blur-xl border border-white/10 p-1.5 shadow-2xl">
+                                            {[{ lang: '', name: 'Off', auto: false }, ...subtitleTracks].map(t => (
+                                                <button
+                                                    key={t.lang || 'off'}
+                                                    onClick={(e) => { e.stopPropagation(); useVideoStore.getState().set({ subtitleLang: t.lang }); setShowSubMenu(false); }}
+                                                    className={clsx("w-full text-left px-3 py-2 rounded-xl text-xs font-semibold truncate", subtitleLang === t.lang ? "bg-primary text-on-primary" : "text-white/80 hover:bg-white/10")}
+                                                >
+                                                    {t.name}
+                                                </button>
+                                            ))}
+                                            {subtitleTracks.length === 0 && <p className="px-3 py-2 text-[11px] text-white/50">No subtitles for this video</p>}
+                                        </div>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); useVideoStore.getState().set({ theater: !theater }); }}
+                                    className={clsx("p-2 rounded-full transition-colors", theater ? "bg-primary text-on-primary" : "text-white/70 hover:text-white hover:bg-white/10")}
+                                    title={theater ? 'Exit theater mode' : 'Theater mode'}
+                                >
+                                    <RectangleHorizontal size={16} />
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); popOutVideo(); }}
+                                    disabled={!videoStreamUrl}
+                                    className="p-2 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40"
+                                    title="Floating video (stays on top of other apps)"
+                                >
+                                    <PictureInPicture size={16} />
+                                </button>
+                            </div>
 
                             {/* Video Quality Selector Overlay */}
                             <div className="absolute top-4 left-4 z-40 bg-black/60 backdrop-blur-md rounded-full p-1 border border-white/10 shadow-inner flex pointer-events-auto">
@@ -1048,7 +1192,7 @@ const NowPlaying = () => {
                                             className="w-full h-full object-cover"
                                         />
                                     ) : (
-                                        <div className="w-full h-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                                        <div className="w-full h-full bg-gradient-to-br from-primary to-primary flex items-center justify-center">
                                             <Mic2 size={visualizerActive ? 32 : 80} className="text-white/20" />
                                         </div>
                                     )}
@@ -1167,8 +1311,8 @@ const NowPlaying = () => {
                                                             key={pl.id}
                                                             onClick={async () => {
                                                                 if (currentTrack?.id) {
-                                                                    await addTrackToPlaylist(pl.id, currentTrack.id);
-                                                                    (window as any).showToast?.(`${currentTrack.title} added to playlist!`);
+                                                                    const ok = await addTrackToPlaylist(pl.id, currentTrack);
+                                                                    window.showToast?.(ok ? `${currentTrack.title} added to playlist!` : `Couldn't add ${currentTrack.title} (already in the playlist?)`);
                                                                 }
                                                                 setShowPlaylistPopup(false);
                                                             }}
@@ -1189,8 +1333,8 @@ const NowPlaying = () => {
                     )}
                 </div>
 
-                {/* Right: Tabs & Content (50% Width) */}
-                <div className="flex-1 relative flex flex-col pt-6">
+                {/* Right: Tabs & Content (50% Width) — hidden in theater mode */}
+                <div className={clsx("flex-1 relative flex flex-col pt-6", playbackMode === 'video' && theater && "hidden")}>
                     {/* Tabs Header */}
                     <div className="flex items-center justify-center gap-12 p-4 outline outline-1 outline-primary/20 rounded-full mx-10 shrink-0 bg-primary/5">
                         <button
@@ -1215,7 +1359,7 @@ const NowPlaying = () => {
                                 {lyrics ? (
                                     lyrics.isSynced ? (
                                         <div className="space-y-10 py-[40vh]" ref={lyricsContainerRef}>
-                                            {Array.isArray(lyrics?.syncedLyrics) && lyrics.syncedLyrics.map((line: any, i: number) => {
+                                            {Array.isArray(lyrics?.syncedLyrics) && lyrics.syncedLyrics.map((line: LyricLine, i: number) => {
                                                 const isActive = i === activeLineIndex;
                                                 return (
                                                     <p
@@ -1322,8 +1466,8 @@ const NowPlaying = () => {
                                     </div>
                                     <div className="space-y-2 pb-20">
                                         {queue && queue.length > 0 ? (
-                                            queue.map((track: any, i: number) => {
-                                                const id = track.id?.toString() || track.id;
+                                            queue.map((track: Track, i: number) => {
+                                                const id = String(track.id);
                                                 const isFavOfItem = isFavorite(id);
                                                 return (
                                                     <ZenQueueItem
@@ -1486,8 +1630,8 @@ const NowPlaying = () => {
                                                                 key={pl.id}
                                                                 onClick={async () => {
                                                                     if (currentTrack?.id) {
-                                                                        await addTrackToPlaylist(pl.id, currentTrack.id);
-                                                                        (window as any).showToast?.(`${currentTrack.title} added to playlist!`);
+                                                                        const ok = await addTrackToPlaylist(pl.id, currentTrack);
+                                                                        window.showToast?.(ok ? `${currentTrack.title} added to playlist!` : `Couldn't add ${currentTrack.title} (already in the playlist?)`);
                                                                     }
                                                                     setShowPlaylistPopup(false);
                                                                 }}
@@ -1571,8 +1715,8 @@ const NowPlaying = () => {
                                                             </div>
                                                             <div className="space-y-2 pb-20">
                                                                 {queue && queue.length > 0 ? (
-                                                                    queue.map((track: any, i: number) => {
-                                                                        const id = track.id?.toString() || track.id;
+                                                                    queue.map((track: Track, i: number) => {
+                                                                        const id = String(track.id);
                                                                         const isFavOfItem = isFavorite(id);
                                                                         return (
                                                                             <ZenQueueItem
@@ -1608,7 +1752,7 @@ const NowPlaying = () => {
                                 <button
                                     onClick={async () => {
                                         try {
-                                            await (window as any).windowControls.miniPlayer();
+                                            await window.windowControls.miniPlayer();
                                         } catch (err) { /* ignore */ }
                                     }}
                                     className="p-3 bg-surface-variant/10 hover:bg-primary text-on-surface-variant hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md shadow-xl"

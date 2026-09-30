@@ -1,13 +1,14 @@
 import { create } from 'zustand';
+import type { Track } from '../types/library';
 
 export type SearchProvider = 'all' | 'library' | 'youtube' | 'ytmusic';
 
 interface SearchState {
     query: string;
     lastResults: {
-        library: any[];
-        youtube: any[];
-        ytmusic: any[];
+        library: Track[];
+        youtube: Track[];
+        ytmusic: Track[];
     };
     activeProvider: SearchProvider;
     isLoading: boolean;
@@ -19,6 +20,8 @@ interface SearchState {
     loadMore: () => Promise<void>;
     clearSearch: () => void;
 }
+
+let searchToken = 0;
 
 export const useSearchStore = create<SearchState>((set, get) => ({
     query: '',
@@ -56,6 +59,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     performSearch: async (query: string) => {
         if (!query.trim()) return;
+        // A slower, older search must not overwrite the results of a newer one
+        const token = ++searchToken;
         set({
             isLoading: true,
             query,
@@ -70,6 +75,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                 activeProvider === 'youtube' ? window.ipcRenderer.invoke('search:youtube', query, { limit: 7 }) : Promise.resolve([])
             ]);
 
+            if (token !== searchToken) return;
             set({
                 lastResults: {
                     library: results[0] || [],
@@ -80,7 +86,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         } catch (err) {
             console.error('Search failed:', err);
         } finally {
-            set({ isLoading: false });
+            if (token === searchToken) set({ isLoading: false });
         }
     },
 
@@ -94,16 +100,18 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             const providersToLoad: string[] = [];
             if (activeProvider === 'all' || activeProvider === 'youtube') providersToLoad.push('youtube');
 
-            const newResultsData: Record<string, any[]> = {};
+            const newResultsData: Record<string, Track[]> = {};
+            const token = searchToken;
 
             await Promise.all(providersToLoad.map(async (p) => {
-                const currentOffset = (offsets as any)[p] || 0;
+                const currentOffset = offsets[p] || 0;
                 const newLimit = currentOffset + 10;
 
                 const res = await window.ipcRenderer.invoke(`search:${p}`, query, { limit: newLimit });
                 newResultsData[p] = res || [];
             }));
 
+            if (token !== searchToken) { set({ isLoading: false }); return; }
             set((state) => {
                 const nextResults = { ...state.lastResults };
                 const nextOffsets = { ...state.offsets };

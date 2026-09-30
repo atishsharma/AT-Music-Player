@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { useThemeStore, Mood } from '../store/themeStore';
 import { MUSIC_QUOTES } from '../constants/quotes';
-import { Smile, Zap, Target, Frown, Music, Dices, Sparkles, RefreshCw, Quote } from 'lucide-react';
+import { Smile, Zap, Target, Frown, Music, Dices, Sparkles, RefreshCw, Quote, type LucideIcon } from 'lucide-react';
 import clsx from 'clsx';
 import FidgetSpinner from '../components/home/FidgetSpinner';
 import { useSettingsStore } from '../store/settingsStore';
@@ -76,7 +76,7 @@ const Home = () => {
         else setGreeting('Good Evening');
     }, []);
 
-    const moods: { type: Mood; icon: any; color: string; label: string }[] = [
+    const moods: { type: Mood; icon: LucideIcon; color: string; label: string }[] = [
         { type: 'calm', icon: Smile, color: 'bg-blue-500', label: 'Calm' },
         { type: 'energetic', icon: Zap, color: 'bg-amber-500', label: 'Energetic' },
         { type: 'focus', icon: Target, color: 'bg-green-500', label: 'Focus' },

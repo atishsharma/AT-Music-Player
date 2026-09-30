@@ -48,9 +48,12 @@ exports.default = async function afterPack(context) {
     }
 
     // 3. Create a wrapper shell script in its place
+    // readlink -f: launching through a symlink (/usr/bin/at-music-pro from the deb, or a
+    // user's ~/.local/bin link) must still find the real binary next to this script.
     const wrapperScript = `#!/bin/bash
 # Wrapper to launch Electron without the SUID sandbox on Linux
-DIR="$(cd "$(dirname "$0")" && pwd)"
+SELF="$(readlink -f "$0")"
+DIR="$(dirname "$SELF")"
 exec "$DIR/${execName}.bin" --no-sandbox "$@"
 `;
 

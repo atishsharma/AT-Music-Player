@@ -11,7 +11,7 @@ export const YtDlpFooter = () => {
     const checkStatus = async () => {
         setHasYtDlp(null);
         try {
-            const status = await (window as any).ytdlp.check();
+            const status = await window.ytdlp.check();
             setHasYtDlp(status);
         } catch (err) {
             console.error(err);

@@ -2,10 +2,11 @@ import { execYtDlp, execYtDlpJson } from '../utils/ytdlp-bin';
 import { app, WebContents } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import type { ChildProcess } from 'child_process';
+import type { YtDlpInfo, YtDlpFormat, YtDlpSubtitle } from '../types';
 
 // Track the active cache download so we can cancel it
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let activeCacheProcess: any = null;
+let activeCacheProcess: ChildProcess | null = null;
 let activeCacheVideoId: string | null = null;
 
 // Ensure cache directory exists
@@ -29,8 +30,8 @@ export async function searchYouTube(query: string, limit: number = 7) {
 
         if (output && output.entries) {
             return output.entries
-                .filter((entry: any) => entry.id)
-                .map((entry: any) => ({
+                .filter((entry: YtDlpInfo) => entry.id)
+                .map((entry: YtDlpInfo) => ({
                     id: entry.id,
                     title: entry.title,
                     artist: entry.uploader || 'Unknown Artist',
@@ -55,7 +56,7 @@ export async function searchYTMusic(query: string, limit: number = 20) {
         ]);
 
         if (output && output.entries) {
-            return output.entries.slice(0, limit).map((entry: any) => ({
+            return output.entries.slice(0, limit).map((entry: YtDlpInfo) => ({
                 id: entry.id,
                 title: entry.title,
                 artist: entry.uploader || entry.artist || entry.creator || 'Unknown Artist',
@@ -72,12 +73,13 @@ export async function searchYTMusic(query: string, limit: number = 20) {
         ]);
 
         if (fallback && fallback.entries) {
-            return fallback.entries.map((entry: any) => ({
+            return fallback.entries.map((entry: YtDlpInfo) => ({
                 id: entry.id,
                 title: entry.title,
                 artist: entry.uploader || 'Unknown Artist',
                 duration: entry.duration,
-                thumbnail: entry.thumbnail,
+                // Flat search entries usually have no `thumbnail` field
+                thumbnail: entry.thumbnail || entry.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${entry.id}/hqdefault.jpg`,
                 date: entry.upload_date ? `${entry.upload_date.slice(0, 4)}-${entry.upload_date.slice(4, 6)}-${entry.upload_date.slice(6, 8)}` : '',
                 source: 'ytmusic'
             }));
@@ -95,7 +97,8 @@ const pendingCacheDownloads = new Set<string>();
 
 // Resolved stream URLs, reused until shortly before googlevideo's `expire` timestamp.
 // Avoids a 2-4s yt-dlp extraction every time a track is replayed or skipped back to.
-const streamUrlCache = new Map<string, { data: any; expiresAt: number }>();
+export interface StreamData { url: string; title?: string; artist?: string; thumbnail?: string; duration?: number; format: 'stream' | 'local' }
+const streamUrlCache = new Map<string, { data: StreamData; expiresAt: number }>();
 
 function streamExpiry(url: string): number {
     try {
@@ -188,13 +191,14 @@ export async function getStreamUrl(videoId: string) {
             downloadToCache(videoId, path.join(cacheDir, `${videoId}.webm`));
         }
 
-        const data = {
+        if (!output.url) return null; // no direct audio URL (e.g. live/DRM): nothing playable
+        const data: StreamData = {
             url: output.url,
             title: output.title,
             artist: output.uploader,
             thumbnail: output.thumbnail,
             duration: output.duration,
-            format: 'stream'
+            format: 'stream',
         };
         if (streamUrlCache.size > 100) streamUrlCache.delete(streamUrlCache.keys().next().value as string);
         streamUrlCache.set(videoId, { data, expiresAt: streamExpiry(output.url) });
@@ -266,8 +270,8 @@ export async function getVideoInfo(url: string) {
         const output = await execYtDlpJson([url, '--flat-playlist']);
         if (output) {
             const audioFormats = (output.formats || [])
-                .filter((f: any) => f.vcodec === 'none' || f.acodec !== 'none')
-                .map((f: any) => ({
+                .filter((f: YtDlpFormat) => f.vcodec === 'none' || f.acodec !== 'none')
+                .map((f: YtDlpFormat) => ({
                     formatId: f.format_id,
                     extension: f.ext,
                     codec: f.acodec,
@@ -275,7 +279,7 @@ export async function getVideoInfo(url: string) {
                     filesize: f.filesize || f.filesize_approx,
                     label: `${f.ext.toUpperCase()} - ${f.acodec || 'Unknown'} (${f.abr ? Math.round(f.abr) + 'kbps' : 'Unknown Quality'})`
                 }))
-                .sort((a: any, b: any) => (b.abr || 0) - (a.abr || 0));
+                .sort((a, b) => (b.abr || 0) - (a.abr || 0));
 
             return {
                 id: output.id,
@@ -357,8 +361,11 @@ export async function cacheAudio(videoId: string, sender?: WebContents) {
             return { url: `atmusic://${filePath}`, format: 'local' };
         }
         return null;
-    } catch (err: any) {
+    } catch {
         activeCacheProcess = null;
+        // Cancelled because another song was picked: don't hand back a stream for this one
+        // (the caller would start playing it over the newly chosen song)
+        if (activeCacheVideoId !== videoId) return null;
         activeCacheVideoId = null;
         return getStreamUrl(videoId);
     }
@@ -372,3 +379,86 @@ export function cancelCacheAudio() {
     activeCacheVideoId = null;
 }
 
+
+/**
+ * Smart Radio: YouTube's auto-generated "mix" (radio) playlist for a video, i.e.
+ * `watch?v=ID&list=RDID`. Returns playable entries in the app's search-result shape.
+ */
+export async function getRadioMix(videoId: string, limit = 25) {
+    try {
+        const output = await execYtDlpJson([
+            `https://www.youtube.com/watch?v=${videoId}&list=RD${videoId}`,
+            '--flat-playlist',
+            '--playlist-end', String(limit + 1),
+        ]);
+        const entries: YtDlpInfo[] = output?.entries ?? [];
+        return entries
+            .filter(e => e?.id && e.id !== videoId && (!e.duration || e.duration < 20 * 60))
+            .map(e => ({
+                id: e.id,
+                title: e.title,
+                artist: e.uploader || e.channel || e.artist || 'Unknown Artist',
+                duration: e.duration,
+                thumbnail: e.thumbnails?.[e.thumbnails.length - 1]?.url || `https://i.ytimg.com/vi/${e.id}/hqdefault.jpg`,
+                source: 'youtube',
+            }));
+    } catch (error) {
+        console.error('Radio mix error:', error);
+        return [];
+    }
+}
+
+// ─── Subtitles ────────────────────────────────────────────────────────────
+// Video info (incl. subtitle URLs) is cached for an hour: listing and fetching a
+// subtitle then costs one yt-dlp run instead of two.
+const infoCache = new Map<string, { info: YtDlpInfo; at: number }>();
+async function getInfoCached(videoId: string) {
+    const hit = infoCache.get(videoId);
+    if (hit && Date.now() - hit.at < 60 * 60 * 1000) return hit.info;
+    const info = await execYtDlpJson([`https://www.youtube.com/watch?v=${videoId}`, '--skip-download']);
+    if (infoCache.size > 30) infoCache.delete(infoCache.keys().next().value as string);
+    infoCache.set(videoId, { info, at: Date.now() });
+    return info;
+}
+
+export interface SubtitleTrack { lang: string; name: string; auto: boolean }
+
+/** Uploaded subtitles first, then auto-generated captions for the video's own language and English. */
+export async function getSubtitleTracks(videoId: string): Promise<SubtitleTrack[]> {
+    try {
+        const info = await getInfoCached(videoId);
+        const manual: Record<string, YtDlpSubtitle[]> = info?.subtitles ?? {};
+        const auto: Record<string, YtDlpSubtitle[]> = info?.automatic_captions ?? {};
+        const out: SubtitleTrack[] = [];
+        for (const [lang, formats] of Object.entries(manual)) {
+            if (lang === 'live_chat') continue;
+            out.push({ lang, name: formats?.[0]?.name || lang, auto: false });
+        }
+        const original = String(info?.language || '').split('-')[0];
+        for (const lang of new Set([original, 'en'].filter(Boolean))) {
+            const key = Object.keys(auto).find(k => k === lang || k === `${lang}-orig`);
+            if (key && !out.some(t => t.lang === lang)) out.push({ lang: key, name: `${auto[key]?.[0]?.name || lang} (auto)`, auto: true });
+        }
+        return out;
+    } catch (err) {
+        console.error('Subtitle list failed:', err);
+        return [];
+    }
+}
+
+/** WebVTT text for one subtitle track (fetched by the main process: no CORS in the renderer). */
+export async function getSubtitleVtt(videoId: string, lang: string, auto: boolean): Promise<string | null> {
+    try {
+        const info = await getInfoCached(videoId);
+        const formats: YtDlpSubtitle[] = (auto ? info?.automatic_captions : info?.subtitles)?.[lang] ?? [];
+        // Only WebVTT works in a <track>; other formats (json3, srv…) used to be passed through and fail
+        const vtt = formats.find(f => f.ext === 'vtt');
+        if (!vtt?.url) return null;
+        const { default: axios } = await import('axios');
+        const res = await axios.get(vtt.url, { responseType: 'text', timeout: 15000 });
+        return typeof res.data === 'string' ? res.data : null;
+    } catch (err) {
+        console.error('Subtitle fetch failed:', err);
+        return null;
+    }
+}

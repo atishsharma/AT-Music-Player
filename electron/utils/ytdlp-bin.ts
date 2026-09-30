@@ -1,3 +1,4 @@
+import type { YtDlpInfo } from '../types';
 import { execSync, spawn, ChildProcess } from 'child_process';
 import fs from 'fs';
 import { app } from 'electron';
@@ -91,7 +92,7 @@ export function execYtDlp(args: string[]): ChildProcess {
 /**
  * Execute yt-dlp and return JSON output
  */
-export async function execYtDlpJson(args: string[]): Promise<any> {
+export async function execYtDlpJson(args: string[]): Promise<YtDlpInfo> {
     return new Promise((resolve, reject) => {
         const subprocess = spawn(ytDlpBinaryPath, [...args, '--dump-json', '--no-warnings']);
         let stdout = '';
@@ -112,7 +113,7 @@ export async function execYtDlpJson(args: string[]): Promise<any> {
                     try {
                         const lines = stdout.trim().split('\n');
                         if (lines.length > 1) {
-                            resolve({ entries: lines.map(l => JSON.parse(l)) });
+                            resolve({ id: '', entries: lines.map(l => JSON.parse(l)) });
                         } else {
                             reject(new Error('Failed to parse yt-dlp output'));
                         }

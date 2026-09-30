@@ -40,9 +40,10 @@ const Library = () => {
         if (!searchQuery.trim()) return null;
         const q = searchQuery.toLowerCase();
         return {
-            songs: tracks.filter(t => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q) || t.album.toLowerCase().includes(q)),
-            albums: tracks.filter(t => t.album.toLowerCase().includes(q)),
-            artists: tracks.filter(t => t.artist.toLowerCase().includes(q))
+            // `?? ''`: online songs saved from playlists/queues can have no album/artist
+            songs: tracks.filter(t => (t.title ?? '').toLowerCase().includes(q) || (t.artist ?? '').toLowerCase().includes(q) || (t.album ?? '').toLowerCase().includes(q)),
+            albums: tracks.filter(t => (t.album ?? '').toLowerCase().includes(q)),
+            artists: tracks.filter(t => (t.artist ?? '').toLowerCase().includes(q))
         };
     }, [searchQuery, tracks]);
 
@@ -51,13 +52,13 @@ const Library = () => {
 
         if (window.ipcRenderer) {
             // Expose a way to refresh everything from outside
-            (window as any).refreshLibraryFromList = async () => {
+            window.refreshLibraryFromList = async () => {
                 await refreshLibrary();
                 loadFolders();
                 setRefreshKey(prev => prev + 1);
             };
             // Explicit store refresher
-            (window as any).refreshLibraryStore = refreshLibrary;
+            window.refreshLibraryStore = refreshLibrary;
         }
 
         if (!window.ipcRenderer) return;
@@ -75,7 +76,12 @@ const Library = () => {
         return () => {
             if (removeProgress) removeProgress();
             if (removeComplete) removeComplete();
+            // Don't leave callbacks into an unmounted page behind
+            delete window.refreshLibraryFromList;
+            delete window.refreshLibraryStore;
         };
+        // refreshLibrary / setScanProgress are stable store actions; loadFolders only sets state
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -148,9 +154,7 @@ const Library = () => {
                     <button
                         onClick={() => {
                             if (tracks.length > 0) {
-                                const state = usePlayerStore.getState() as any;
-                                state.setQueue(tracks);
-                                state.play(tracks[0]);
+                                usePlayerStore.getState().playList(tracks);
                             }
                         }}
                         className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-full transition-colors shadow-lg hover:shadow-primary/30 active:scale-95 transform duration-200"
@@ -161,11 +165,10 @@ const Library = () => {
                     <button
                         onClick={() => {
                             if (tracks.length > 0) {
-                                const shuffled = [...tracks].sort(() => Math.random() - 0.5);
-                                const state = usePlayerStore.getState() as any;
-                                state.setQueue(shuffled);
-                                state.play(shuffled[0]);
+                                const state = usePlayerStore.getState();
                                 if (!state.shuffle) state.toggleShuffle();
+                                // playList shuffles the rest; start from a random song too
+                                state.playList(tracks, Math.floor(Math.random() * tracks.length));
                             }
                         }}
                         className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-full transition-colors shadow-lg hover:shadow-primary/30 active:scale-95 transform duration-200"
@@ -336,7 +339,7 @@ const Library = () => {
                         {searchResults.albums.length > 0 && (
                             <div className="space-y-4">
                                 <div className="flex items-center gap-3 px-2">
-                                    <div className="p-2 bg-secondary/20 text-secondary rounded-xl"><Disc size={20} /></div>
+                                    <div className="p-2 bg-primary/20 text-primary rounded-xl"><Disc size={20} /></div>
                                     <h2 className="text-2xl font-black">Matching Albums</h2>
                                 </div>
                                 <AlbumGrid tracks={searchResults.albums} />

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { Track } from '../types/library';
 
 export interface Playlist {
     id: number;
@@ -6,7 +7,7 @@ export interface Playlist {
     description?: string;
     image_path?: string;
     created_at: string;
-    tracks?: any[];
+    tracks?: Track[];
 }
 
 interface PlaylistState {
@@ -18,7 +19,8 @@ interface PlaylistState {
     fetchPlaylist: (id: number | string) => Promise<void>;
     createPlaylist: (name: string, description?: string) => Promise<void>;
     deletePlaylist: (id: number | string) => Promise<void>;
-    addTrackToPlaylist: (playlistId: number | string, trackId: number | string) => Promise<boolean>;
+    /** Accepts a library id, or a track object (online songs are added to the library first) */
+    addTrackToPlaylist: (playlistId: number | string, track: number | string | { id: number | string; title: string }) => Promise<boolean>;
     removeTrackFromPlaylist: (playlistId: number | string, trackId: number | string) => Promise<void>;
 }
 
@@ -67,9 +69,11 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
         }
     },
 
-    addTrackToPlaylist: async (playlistId, trackId) => {
+    addTrackToPlaylist: async (playlistId, track) => {
         try {
-            const success = await window.ipcRenderer.invoke('playlist:addTrack', { playlistId, trackId });
+            const success = await window.ipcRenderer.invoke('playlist:addTrack', typeof track === 'object'
+                ? { playlistId, track }
+                : { playlistId, trackId: track });
             // If we are currently viewing this playlist, refresh it
             const current = get().currentPlaylist;
             if (current && current.id == playlistId) {

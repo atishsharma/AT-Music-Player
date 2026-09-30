@@ -1,14 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface FavoriteItem {
+import type { Track } from '../types/library';
+
+/** A favourited song (full track data), album or artist */
+export type FavoriteItem = Partial<Omit<Track, 'id'>> & {
     id: string;
     title?: string;
-    artist?: string;
-    image_path?: string;
     type: 'song' | 'artist' | 'album';
-    [key: string]: any;
-}
+};
 
 interface FavoritesState {
     favorites: FavoriteItem[];

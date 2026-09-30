@@ -142,7 +142,7 @@ export function initDB() {
   db.exec(schema);
 
   // Manual Migrations for existing databases
-  const columns = db.prepare("PRAGMA table_info(history)").all() as any[];
+  const columns = db.prepare("PRAGMA table_info(history)").all() as { name: string }[];
   const columnNames = columns.map(c => c.name);
 
   if (!columnNames.includes('album')) {
@@ -154,8 +154,11 @@ export function initDB() {
   if (!columnNames.includes('path')) {
     db.exec("ALTER TABLE history ADD COLUMN path TEXT");
   }
+  if (!columnNames.includes('listened')) {
+    db.exec("ALTER TABLE history ADD COLUMN listened REAL"); // seconds actually heard
+  }
 
-  const trackColumns = db.prepare("PRAGMA table_info(tracks)").all() as any[];
+  const trackColumns = db.prepare("PRAGMA table_info(tracks)").all() as { name: string }[];
   if (!trackColumns.some(c => c.name === 'mtime')) {
     db.exec("ALTER TABLE tracks ADD COLUMN mtime REAL");
   }
@@ -178,7 +181,7 @@ export function initDB() {
     CREATE INDEX IF NOT EXISTS idx_lyrics_title_artist ON lyrics_cache(title, artist);
   `);
 
-  const playlistColumns = db.prepare("PRAGMA table_info(playlists)").all() as any[];
+  const playlistColumns = db.prepare("PRAGMA table_info(playlists)").all() as { name: string }[];
   const playlistColumnNames = playlistColumns.map(c => c.name);
   if (!playlistColumnNames.includes('image_path')) {
     db.exec("ALTER TABLE playlists ADD COLUMN image_path TEXT");
@@ -187,11 +190,14 @@ export function initDB() {
     console.log('Database initialized successfully');
   } catch (err) {
     console.warn("Could not load better-sqlite3 native plugin. Database features are disabled for this session.", err);
+    // No-op stand-in so the app still opens (without a library); `transaction` is used by
+    // the scanner, stats and smart playlists and was missing, which crashed those paths.
     db = {
-      pragma: () => {},
-      exec: () => {},
-      prepare: () => ({ all: () => [], run: () => ({ changes: 0 }), get: () => null })
-    } as any;
+      pragma: () => undefined,
+      exec: () => undefined,
+      prepare: () => ({ all: () => [], run: () => ({ changes: 0, lastInsertRowid: 0 }), get: () => undefined }),
+      transaction: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+    } as unknown as Database.Database;
   }
 
   return db;

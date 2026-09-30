@@ -1,6 +1,8 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Play, SkipBack, SkipForward, Repeat, Shuffle, Volume2, VolumeX, Pause, ChevronUp, Maximize2, ListMusic, Mic2, Heart, Plus, PictureInPicture2, SlidersHorizontal } from 'lucide-react';
+import { Play, SkipBack, SkipForward, Repeat, Shuffle, Volume2, VolumeX, Pause, ChevronUp, Maximize2, ListMusic, Mic2, Heart, Plus, PictureInPicture2, SlidersHorizontal, MonitorPlay, Radio } from 'lucide-react';
+import { useRadioStore } from '../../store/radioStore';
+import { useAmbientStore } from '../../store/ambientStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useThemeStore } from '../../store/themeStore';
@@ -8,7 +10,10 @@ import { useFavoritesStore } from '../../store/favoritesStore';
 import { useEqualizerStore } from '../../store/equalizerStore';
 import clsx from 'clsx';
 import { toAtmusicUrl } from '../../utils/path';
+import type { PlaylistSummary } from '../../types/library';
 import Equalizer from '../common/Equalizer';
+import { usePlaylistStore } from '../../store/playlistStore';
+import SingAlongButton from '../singalong/SingAlongButton';
 
 const formatTime = (seconds: number) => {
     if (!seconds || isNaN(seconds)) return '0:00';
@@ -76,6 +81,27 @@ const SeekBar = ({ isLight }: { isLight: boolean }) => {
     );
 };
 
+/** Smart Radio: start a station from the current song, or stop the running one */
+const RadioButton = ({ isLight }: { isLight: boolean }) => {
+    const active = useRadioStore(s => s.active);
+    const loading = useRadioStore(s => s.loading);
+    const seed = useRadioStore(s => s.seedTitle);
+    return (
+        <button
+            onClick={() => (active ? useRadioStore.getState().stop() : useRadioStore.getState().start())}
+            className={clsx(
+                "p-2 rounded-full transition-all relative",
+                active
+                    ? (isLight ? "bg-white text-primary" : "bg-primary text-on-primary")
+                    : (isLight ? "text-on-primary/70 hover:bg-black/5" : "text-on-surface-variant hover:bg-white/5")
+            )}
+            title={active ? `Radio from “${seed}” (click to stop)` : 'Start radio from this song'}
+        >
+            <Radio size={18} className={clsx(loading && "animate-pulse")} />
+        </button>
+    );
+};
+
 const PlayerBar = () => {
     const {
         currentTrack,
@@ -117,7 +143,7 @@ const PlayerBar = () => {
         toggleSidebarLyrics: s.toggleSidebarLyrics,
         isSidebarQueueOpen: s.isSidebarQueueOpen,
         isSidebarLyricsOpen: s.isSidebarLyricsOpen,
-    }))) as any;
+    })));
 
     const appearance = useThemeStore(s => s.appearance);
     const liquidGlass = useThemeStore(s => s.liquidGlass);
@@ -125,7 +151,7 @@ const PlayerBar = () => {
 
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
     const [showPlaylistPopup, setShowPlaylistPopup] = useState(false);
-    const [playlists, setPlaylists] = useState<any[]>([]);
+    const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
     const playlistPopupRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -138,12 +164,12 @@ const PlayerBar = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const isFav = currentTrack ? isFavorite(currentTrack.id?.toString() || currentTrack.id) : false;
+    const isFav = currentTrack ? isFavorite(String(currentTrack.id)) : false;
 
     const handleFavToggle = () => {
         if (!currentTrack) return;
-        if (isFav) removeFavorite(currentTrack.id?.toString() || currentTrack.id);
-        else addFavorite({ ...currentTrack, id: currentTrack.id?.toString() || currentTrack.id, type: 'song' });
+        if (isFav) removeFavorite(String(currentTrack.id));
+        else addFavorite({ ...currentTrack, id: String(currentTrack.id), type: 'song' });
     };
 
     const truncateTitle = (text: string, limit: number = 40) => {
@@ -198,7 +224,7 @@ const PlayerBar = () => {
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                         />
                     ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-primary to-secondary" />
+                        <div className="w-full h-full bg-gradient-to-br from-primary to-primary" />
                     )}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                         <ChevronUp size={20} className="text-white" />
@@ -300,7 +326,8 @@ const PlayerBar = () => {
                                             key={pl.id}
                                             onClick={async () => {
                                                 if (currentTrack?.id) {
-                                                    await window.ipcRenderer.invoke('playlist:addTrack', { playlistId: pl.id, trackId: currentTrack.id });
+                                                    const ok = await usePlaylistStore.getState().addTrackToPlaylist(pl.id, currentTrack);
+                                                    window.showToast?.(ok ? `${currentTrack.title} added to ${pl.name}` : `Couldn't add to ${pl.name} (already there?)`);
                                                 }
                                                 setShowPlaylistPopup(false);
                                             }}
@@ -322,6 +349,7 @@ const PlayerBar = () => {
 
             {/* Right Side Tools */}
             <div className="shrink-0 flex justify-end items-center gap-2 xl:gap-4">
+                <RadioButton isLight={isLight} />
                 <button
                     onClick={() => toggleSidebarLyrics()}
                     className={clsx(
@@ -348,6 +376,8 @@ const PlayerBar = () => {
                 </button>
 
                 <div className={clsx("h-4 w-px mx-1", isLight ? "bg-black/10" : "bg-white/10")} />
+
+                <SingAlongButton isLight={isLight} />
 
                 {/* EQ Button */}
                 <div className="relative">
@@ -389,7 +419,8 @@ const PlayerBar = () => {
                         />
                         <div className={clsx("w-full h-1.5 rounded-full overflow-hidden", isLight ? "bg-black/10" : "bg-white/10")}>
                             <div
-                                className="h-full transition-all duration-100 ease-out bg-primary"
+                                // Glass theme paints this bar in the primary colour, so the fill uses ink there
+                                className={clsx("h-full transition-all duration-100 ease-out", isLight ? "bg-white" : appearance === 'glass' && !liquidGlass ? "bg-on-background" : "bg-primary")}
                                 style={{ width: `${volume * 100}%` }}
                             />
                         </div>
@@ -401,9 +432,19 @@ const PlayerBar = () => {
                 </div>
 
                 <button
+                    onClick={() => useAmbientStore.getState().open()}
+                    className={clsx(
+                        "p-3 rounded-xl transition-all",
+                        isLight ? "bg-black/5 hover:bg-white text-on-primary hover:text-primary" : "bg-primary/10 hover:bg-primary text-primary hover:text-on-primary"
+                    )}
+                    title="Ambient Mode"
+                >
+                    <MonitorPlay size={20} />
+                </button>
+                <button
                     onClick={async () => {
                         try {
-                            await (window as any).windowControls.miniPlayer();
+                            await window.windowControls.miniPlayer();
                         } catch (err) {
                             console.error('Failed to switch to mini player:', err);
                         }

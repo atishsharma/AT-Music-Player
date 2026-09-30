@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Sparkles, Play } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
 import { useThemeStore } from '../../store/themeStore';
+import { type HomeSong, toHomeSong, homeSongTrack, readDailyCache, writeDailyCache } from './homeSong';
 
 const Recommended = () => {
-    const [recommended, setRecommended] = useState<any[]>([]);
+    const [recommended, setRecommended] = useState<HomeSong[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const play = usePlayerStore(s => s.play);
     const { currentMood } = useThemeStore();
@@ -14,16 +15,12 @@ const Recommended = () => {
             setIsLoading(true);
             try {
                 const cacheKey = `recommended-${currentMood}`;
-                const cached = localStorage.getItem(cacheKey);
-                const today = new Date().toDateString();
-
-                if (cached) {
-                    const parsed = JSON.parse(cached);
-                    if (parsed.date === today) {
-                        setRecommended(parsed.songs);
-                        setIsLoading(false);
-                        return;
-                    }
+                // Old caches stored raw search items without `video_id`: drop those
+                const cached = readDailyCache(cacheKey)?.filter(song => song.video_id);
+                if (cached?.length) {
+                    setRecommended(cached);
+                    setIsLoading(false);
+                    return;
                 }
 
                 // Enhanced recommendation logic: Top Song + Mixed Languages + Mood + Official Music
@@ -31,24 +28,21 @@ const Recommended = () => {
                 const data = await window.ipcRenderer.invoke('youtube:search', moodQuery);
 
                 // Filter for unique artists and take top 5 most viewed/relevant
-                const uniqueArtistsSongs: any[] = [];
+                const uniqueArtistsSongs: HomeSong[] = [];
                 const seenArtists = new Set<string>();
 
                 for (const item of data) {
                     if (!item.artist) continue;
                     const artistNormalized = item.artist.toLowerCase().trim();
                     if (!seenArtists.has(artistNormalized)) {
-                        uniqueArtistsSongs.push(item);
+                        uniqueArtistsSongs.push(toHomeSong(item));  // search items use `id`; cards used `video_id` (was undefined)
                         seenArtists.add(artistNormalized);
                     }
                     if (uniqueArtistsSongs.length === 5) break;
                 }
 
                 setRecommended(uniqueArtistsSongs);
-                localStorage.setItem(cacheKey, JSON.stringify({
-                    date: today,
-                    songs: uniqueArtistsSongs
-                }));
+                writeDailyCache(cacheKey, uniqueArtistsSongs);
             } catch (err) {
                 console.error("Failed to fetch recommendations", err);
             } finally {
@@ -87,17 +81,7 @@ const Recommended = () => {
                         <div
                             key={item.video_id}
                         className="bg-surface-variant/20 rounded-3xl p-4 hover:bg-surface-variant/40 transition-all duration-300 group cursor-pointer border border-white/5"
-                        onClick={() => play({
-                            id: item.video_id,
-                            title: item.title,
-                            artist: item.artist,
-                            image_path: item.thumbnail,
-                            source: 'youtube',
-                            album: 'YouTube',
-                            duration: 0,
-                            path: '',
-                            format: 'youtube'
-                        } as any)}
+                        onClick={() => play(homeSongTrack(item, 'YouTube'))}
                     >
                         <div className="w-full aspect-square rounded-2xl overflow-hidden mb-4 relative shadow-md">
                             <img

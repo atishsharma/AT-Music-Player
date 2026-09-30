@@ -18,13 +18,58 @@ import { useSettingsStore } from '../../store/settingsStore';
 import Toast from '../common/Toast';
 import LiquidBackdrop from '../common/LiquidBackdrop';
 import { useWidgetBridge } from '../../hooks/useWidgetBridge';
-import { useState, useEffect, Suspense } from 'react';
+import { useRadioTopUp } from '../../hooks/useRadio';
+import { useListening } from '../../hooks/useListening';
+import { useSocial } from '../../hooks/useSocial';
+import { useState, useEffect, Suspense, lazy } from 'react';
+import { useAmbientStore } from '../../store/ambientStore';
+import { useVideoStore } from '../../store/videoStore';
+
+// Loaded on first use: keeps ambient mode out of the startup bundle
+const AmbientMode = lazy(() => import('../ambient/AmbientMode'));
 
 const MainLayout = () => {
     const isPlayerOpen = usePlayerStore(state => state.isPlayerOpen);
     const location = useLocation();
     const liquidGlass = useThemeStore(state => state.liquidGlass);
+    const ambientOpen = useAmbientStore(state => state.isOpen);
+    const idleMinutes = useAmbientStore(state => state.idleMinutes);
+
+    // Ambient mode: tray item, and screensaver-style auto start on system inactivity
+    useEffect(() => {
+        window.ipcRenderer?.invoke?.('ambient:setIdleMinutes', idleMinutes);
+    }, [idleMinutes]);
+    useEffect(() => {
+        const offOpen = window.ipcRenderer?.on?.('ambient:open', () => useAmbientStore.getState().open());
+        const offIdle = window.ipcRenderer?.on?.('ambient:idle', () => {
+            const player = usePlayerStore.getState();
+            const ambient = useAmbientStore.getState();
+            // Only as a screensaver for music that is actually playing
+            if (player.isPlaying && player.currentTrack && !ambient.isOpen) ambient.open(true);
+        });
+        return () => { offOpen?.(); offIdle?.(); };
+    }, []);
     useWidgetBridge();
+    useRadioTopUp();
+    useListening();
+    useSocial();
+
+    // Floating video: resume audio where the video left off; close it when the track changes
+    useEffect(() => {
+        const off = window.ipcRenderer?.on?.('video:returned', (_e, st: { time: number; playing: boolean }) => {
+            useVideoStore.getState().set({ floating: false });
+            const p = usePlayerStore.getState();
+            p.seek(st?.time ?? p.currentTime);
+            if (st?.playing) p.play(); else p.pause();
+        });
+        const unsub = usePlayerStore.subscribe((s, prev) => {
+            if (s.currentTrack?.id !== prev.currentTrack?.id && useVideoStore.getState().floating) {
+                useVideoStore.getState().set({ floating: false });
+                window.ipcRenderer.invoke('video:close', null);
+            }
+        });
+        return () => { off?.(); unsub(); };
+    }, []);
     const [isMiniMode, setIsMiniMode] = useState(false);
 
     // Listen for tray controls
@@ -39,7 +84,7 @@ const MainLayout = () => {
         const unsubPrev = window.ipcRenderer?.on?.('tray:prev', () => store().prev());
 
         // Main process pushes window state changes (replaces a 500ms IPC polling loop)
-        (window as any).windowControls?.getState?.()
+        window.windowControls?.getState?.()
             .then((state: { isMiniPlayer: boolean }) => setIsMiniMode(!!state?.isMiniPlayer))
             .catch(() => { /* ignore */ });
         const unsubState = window.ipcRenderer?.on?.('window:state', (_event, state: { isMiniPlayer: boolean }) => {
@@ -56,7 +101,7 @@ const MainLayout = () => {
 
     // Layout Independence for Mini Player - Reset zoom to 1.0 when in mini mode
     useEffect(() => {
-        const isLinux = (window as any).windowControls.platform === 'linux';
+        const isLinux = window.windowControls.platform === 'linux';
 
         if (isMiniMode) {
             // Mini player to 80% on Linux by default, 100% otherwise
@@ -79,14 +124,21 @@ const MainLayout = () => {
     return (
         <div className={clsx(
             "flex h-screen overflow-hidden relative transition-colors duration-300",
+            // Mini window corners are cut round by the main process; match them here
+            isMiniMode && "rounded-[18px]",
             liquidGlass
                 ? (isMiniMode ? "" : "pl-3")
-                : clsx("bg-background", isMiniMode ? "border-x-4 border-b-4 border-primary/60" : "border-r-4 border-l-4 border-b-4 border-primary/60")
+                : clsx("bg-background", isMiniMode ? "border-2 border-primary/50" : "border-r-4 border-l-4 border-b-4 border-primary/60")
         )}>
             {liquidGlass && <LiquidBackdrop />}
             <Toast />
             <Player />
             
+            {ambientOpen && !isMiniMode && (
+                <Suspense fallback={null}>
+                    <AmbientMode />
+                </Suspense>
+            )}
             {isMiniMode ? (
                 <MiniPlayer />
             ) : (

@@ -6,6 +6,18 @@ import SongList from '../components/library/SongList';
 import { usePlayerStore } from '../store/playerStore';
 import clsx from 'clsx';
 import { toAtmusicUrl } from '../utils/path';
+import type { Track } from '../types/library';
+
+interface LastfmImage { size: string; '#text': string }
+interface LastfmArtistInfo {
+    name: string;
+    url?: string;
+    image?: LastfmImage[];
+    bio?: { summary?: string; content?: string };
+    stats?: { listeners?: string; playcount?: string };
+    tags?: { tag?: { name: string; url: string }[] };
+    similar?: { artist: { name: string; url: string; image?: LastfmImage[] }[] };
+}
 
 interface ArtistData {
     id: string;
@@ -18,7 +30,11 @@ interface ArtistData {
     };
     relations?: Array<{
         type: string;
-        url: { resource: string };
+        'target-type'?: string;
+        url?: { resource: string };
+        artist?: { id: string; name: string };
+        name?: string;
+        attributes?: string[];
     }>;
     bio?: string;
     local_image?: string;
@@ -27,36 +43,38 @@ interface ArtistData {
 const ArtistDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const play = usePlayerStore(s => s.play);
-    const setQueue = usePlayerStore(s => s.setQueue);
 
     const [artistData, setArtistData] = useState<ArtistData | null>(null);
-    const [localTracks, setLocalTracks] = useState<any[]>([]);
+    const [localTracks, setLocalTracks] = useState<Track[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isFetchingPhoto, setIsFetchingPhoto] = useState(false);
     const [message, setMessage] = useState('');
     const [bioExpanded, setBioExpanded] = useState(false);
 
     useEffect(() => {
+        // Switching artists quickly let a slower, older load overwrite the new page
+        let cancelled = false;
+        const setArtistDataIfCurrent = (d: ArtistData) => { if (!cancelled) setArtistData(d); };
         const loadData = async () => {
             if (!id) return;
 
             // 1. Instant Loading: Get Local Tracks
             try {
                 const tracks = await window.ipcRenderer.invoke('library:getArtistTracks', id);
+                if (cancelled) return;
                 setLocalTracks(tracks);
                 if (tracks.length > 0) setIsLoading(false);
 
                 // 2. Try Cache
                 const cached = await window.ipcRenderer.invoke('cache:get', `artist_v2_${id}`);
                 if (cached) {
-                    setArtistData(cached);
+                    setArtistDataIfCurrent(cached);
                     setIsLoading(false);
                 }
 
                 // 3. Background Fetch Metadata
                 const localArtist = await window.ipcRenderer.invoke('library:getArtist', id);
-                let enrichedData: any = cached || { name: id };
+                let enrichedData: ArtistData = cached || { id, name: id, type: '', country: '' };
 
                 if (localArtist) {
                     enrichedData = {
@@ -85,6 +103,7 @@ const ArtistDetail = () => {
                     };
                 }
 
+                if (cancelled) return;
                 setArtistData(enrichedData);
 
                 // Cache it
@@ -96,17 +115,17 @@ const ArtistDetail = () => {
             } catch (err) {
                 console.error("Failed to load artist data:", err);
             } finally {
-                setIsLoading(false);
+                if (!cancelled) setIsLoading(false);
             }
         };
 
         loadData();
+        return () => { cancelled = true; };
     }, [id]);
 
     const handlePlayAll = () => {
         if (localTracks.length > 0) {
-            setQueue(localTracks);
-            play(localTracks[0]);
+            usePlayerStore.getState().playList(localTracks);
         }
     };
 
@@ -115,9 +134,10 @@ const ArtistDetail = () => {
         setIsFetchingPhoto(true);
         setMessage('Fetching from Last.fm...');
         try {
-            const syncData = await window.ipcRenderer.invoke('metadata:syncArtist', id);
+            // Explicit refresh: replace the current photo with Last.fm's
+            const syncData = await window.ipcRenderer.invoke('metadata:syncArtist', id, { force: true });
             if (syncData?.image) {
-                setArtistData(prev => prev ? { ...prev, local_image: syncData.image } as any : null);
+                setArtistData(prev => prev ? { ...prev, local_image: syncData.image } : null);
                 setMessage('Photo updated successfully!');
             } else {
                 setMessage('No photo found or Last.fm key not set.');
@@ -134,12 +154,12 @@ const ArtistDetail = () => {
         const imagePath = await window.ipcRenderer.invoke('dialog:openImage');
         if (imagePath && (artistData?.name || id)) {
             await window.ipcRenderer.invoke('artist:updateImage', { artistName: artistData?.name || id, imagePath });
-            setArtistData(prev => prev ? { ...prev, local_image: imagePath } as any : null);
+            setArtistData(prev => prev ? { ...prev, local_image: imagePath } : null);
         }
     };
 
     const [showMoreInfo, setShowMoreInfo] = useState(false);
-    const [lastfmData, setLastfmData] = useState<any>(null);
+    const [lastfmData, setLastfmData] = useState<LastfmArtistInfo | null>(null);
     const [isFetchingInfo, setIsFetchingInfo] = useState(false);
 
     const handleMoreInfo = async () => {
@@ -177,7 +197,7 @@ const ArtistDetail = () => {
             {/* Header */}
             <div className="relative pb-8">
                 {/* Background visual - maybe a blurred version of cover art if we had one, or gradient */}
-                <div className="absolute inset-0 bg-gradient-to-b from-primary-900/30 to-background h-64 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-b from-primary/30 to-background h-64 pointer-events-none" />
 
                 <div className="relative p-8 pt-12 flex flex-col md:flex-row gap-8 items-start">
                     {/* Placeholder for Artist Image */}
@@ -239,16 +259,16 @@ const ArtistDetail = () => {
                                 )}
 
                                 {/* Group Members */}
-                                {artistData.relations?.some((r: any) => r.type === 'member of' || r.type === 'is member of' || r['target-type'] === 'artist' && r.type.includes('member')) && (
+                                {artistData.relations?.some(r => r.type === 'member of' || r.type === 'is member of' || r['target-type'] === 'artist' && r.type.includes('member')) && (
                                     <div className="mt-8 flex flex-col gap-3">
                                         <span className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Group Members</span>
                                         <div className="flex flex-wrap gap-2">
                                             {artistData.relations
-                                                .filter((r: any) => r['target-type'] === 'artist' && (r.type.includes('member') || r.type.includes('instrumental')))
-                                                .map((rel: any, idx) => (
+                                                .filter(r => r['target-type'] === 'artist' && (r.type.includes('member') || r.type.includes('instrumental')))
+                                                .map((rel, idx) => (
                                                     <button
                                                         key={idx}
-                                                        onClick={() => navigate(`/artist/${encodeURIComponent(rel.artist?.name || rel.name)}`)}
+                                                        onClick={() => navigate(`/artist/${encodeURIComponent(rel.artist?.name || rel.name || '')}`)}
                                                         className="group/member flex items-center gap-2 px-4 py-2 bg-surface-variant/10 hover:bg-primary rounded-xl transition-all border border-white/5"
                                                     >
                                                         <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-[10px] font-bold group-hover/member:bg-on-primary/20">
@@ -257,9 +277,9 @@ const ArtistDetail = () => {
                                                         <span className="text-sm font-bold group-hover/member:text-on-primary">
                                                             {rel.artist?.name || rel.name}
                                                         </span>
-                                                        {rel.attributes?.length > 0 && (
+                                                        {!!rel.attributes?.length && (
                                                             <span className="text-[10px] opacity-40 group-hover/member:opacity-60 text-on-surface-variant font-medium">
-                                                                ({rel.attributes.join(', ')})
+                                                                ({rel.attributes?.join(', ')})
                                                             </span>
                                                         )}
                                                     </button>
@@ -312,7 +332,7 @@ const ArtistDetail = () => {
                                 rel.type === 'official homepage' && (
                                     <a
                                         key={idx}
-                                        href={rel.url.resource}
+                                        href={rel.url?.resource}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="px-4 py-3 bg-surface-variant/10 hover:bg-surface-variant/20 rounded-full text-on-surface transition-colors flex items-center gap-2 border border-on-surface-variant/10"
@@ -329,7 +349,7 @@ const ArtistDetail = () => {
             {/* Content */}
             < div className="p-8" >
                 <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                    <Disc className="text-primary-500" />
+                    <Disc className="text-primary" />
                     Local Library
                 </h2>
 
@@ -337,10 +357,7 @@ const ArtistDetail = () => {
                     localTracks.length > 0 ? (
                         <SongList
                             tracks={localTracks}
-                            onPlay={(track) => {
-                                setQueue(localTracks);
-                                play(track);
-                            }}
+                            onPlay={(track) => usePlayerStore.getState().playList(localTracks, localTracks.indexOf(track))}
                         />
                     ) : (
                         <div className="p-8 text-center text-on-surface-variant bg-surface-variant/30 rounded-xl">
@@ -386,7 +403,7 @@ const ArtistDetail = () => {
                                     <div className="flex flex-col md:flex-row gap-10 items-center">
                                         <div className="w-64 h-64 rounded-[3rem] overflow-hidden shadow-2xl border-4 border-white/10 flex-shrink-0">
                                             <img
-                                                src={lastfmData.image?.find((i: any) => i.size === 'extralarge')?.['#text'] || artistData?.local_image}
+                                                src={lastfmData.image?.find(i => i.size === 'extralarge')?.['#text'] || artistData?.local_image}
                                                 className="w-full h-full object-cover"
                                                 alt={displayName}
                                             />
@@ -395,7 +412,7 @@ const ArtistDetail = () => {
                                             <div>
                                                 <h2 className="text-6xl font-black text-white tracking-tighter leading-none mb-2">{displayName}</h2>
                                                 <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                                                    {lastfmData.tags?.tag?.map((tag: any, i: number) => (
+                                                    {lastfmData.tags?.tag?.map((tag, i: number) => (
                                                         <span key={i} className="px-4 py-1.5 bg-primary/10 border border-primary/20 rounded-full text-[10px] font-black text-primary uppercase tracking-widest overflow-hidden relative">
                                                             <span className="relative z-10">{tag.name}</span>
                                                         </span>
@@ -438,16 +455,16 @@ const ArtistDetail = () => {
                                     </div>
 
                                     {/* Similar Artists */}
-                                    {lastfmData.similar?.artist?.length > 0 && (
+                                    {!!lastfmData.similar?.artist?.length && (
                                         <div className="space-y-6">
                                             <div className="flex items-center gap-4">
-                                                <div className="p-3 bg-secondary/10 rounded-2xl">
-                                                    <Users className="text-secondary" size={24} />
+                                                <div className="p-3 bg-primary/10 rounded-2xl">
+                                                    <Users className="text-primary" size={24} />
                                                 </div>
                                                 <h3 className="text-3xl font-black tracking-tighter">Similar Artists</h3>
                                             </div>
                                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                                                {lastfmData.similar.artist.map((artist: any, i: number) => (
+                                                {lastfmData.similar?.artist.map((artist, i: number) => (
                                                     <button
                                                         key={i}
                                                         onClick={() => {
@@ -458,13 +475,13 @@ const ArtistDetail = () => {
                                                     >
                                                         <div className="aspect-square rounded-[2rem] bg-white/5 border border-white/5 overflow-hidden relative shadow-lg group-hover:shadow-secondary/20 transition-all duration-500">
                                                             <img
-                                                                src={artist.image?.find((i: any) => i.size === 'large')?.['#text']}
+                                                                src={artist.image?.find(img => img.size === 'large')?.['#text']}
                                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                                                 alt={artist.name}
                                                             />
-                                                            <div className="absolute inset-0 bg-secondary/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                            <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                         </div>
-                                                        <p className="text-sm font-bold truncate px-2 text-on-surface-variant group-hover:text-secondary transition-colors">{artist.name}</p>
+                                                        <p className="text-sm font-bold truncate px-2 text-on-surface-variant group-hover:text-primary transition-colors">{artist.name}</p>
                                                     </button>
                                                 ))}
                                             </div>

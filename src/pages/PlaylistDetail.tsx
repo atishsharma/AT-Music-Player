@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePlaylistStore } from '../store/playlistStore';
 import { ArrowLeft, Play, ImagePlus, Music } from 'lucide-react';
@@ -10,19 +10,17 @@ const PlaylistDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { currentPlaylist, fetchPlaylist, removeTrackFromPlaylist, deletePlaylist } = usePlaylistStore();
-    const play = usePlayerStore(s => s.play);
-    const setQueue = usePlayerStore(s => s.setQueue);
+    const [loadedId, setLoadedId] = useState<string | null>(null);
 
     useEffect(() => {
         if (id) {
-            fetchPlaylist(id);
+            fetchPlaylist(id).then(() => setLoadedId(id));
         }
-    }, [id]);
+    }, [id, fetchPlaylist]);
 
     const handlePlayPlaylist = () => {
         if (currentPlaylist?.tracks && currentPlaylist.tracks.length > 0) {
-            setQueue(currentPlaylist.tracks);
-            play(currentPlaylist.tracks[0]);
+            usePlayerStore.getState().playList(currentPlaylist.tracks);
         }
     };
 
@@ -35,7 +33,16 @@ const PlaylistDetail = () => {
         }
     };
 
-    if (!currentPlaylist) return <div className="p-8">Loading...</div>;
+    // The store still holds the previously opened playlist until this one loads
+    if (loadedId === id && !currentPlaylist) {
+        return (
+            <div className="p-8 text-on-background/60">
+                <p className="mb-4">This playlist doesn't exist anymore.</p>
+                <button onClick={() => navigate('/playlists')} className="text-primary font-semibold">Back to playlists</button>
+            </div>
+        );
+    }
+    if (!currentPlaylist || String(currentPlaylist.id) !== id) return <div className="p-8">Loading...</div>;
 
     return (
         <div className="h-full flex flex-col">
@@ -100,8 +107,8 @@ const PlaylistDetail = () => {
                     <SongList
                         tracks={currentPlaylist.tracks}
                         onPlay={(track) => {
-                            setQueue(currentPlaylist.tracks || []);
-                            play(track);
+                            const list = currentPlaylist.tracks || [];
+                            usePlayerStore.getState().playList(list, list.indexOf(track));
                         }}
                         onRemove={async (track) => {
                             if (id && track.id) {

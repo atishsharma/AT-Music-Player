@@ -1,4 +1,4 @@
-import { app, BrowserWindow, protocol, shell, Tray, Menu, nativeImage, ipcMain, screen } from 'electron'
+import { app, BrowserWindow, protocol, shell, Tray, Menu, nativeImage, ipcMain, screen, powerMonitor, powerSaveBlocker } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -6,6 +6,9 @@ import { stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { initDB, getSetting, getDB } from './db'
 import { registerHandlers } from './ipc'
+import { stopSocial } from './ipc/social'
+import { startRemote, stopRemote, remoteStatus, newRemoteToken } from './services/remote'
+import { searchYouTube } from './services/ytdlp'
 
 // Initialize Database early (settings below are needed before `ready`)
 initDB();
@@ -13,6 +16,9 @@ initDB();
 // Required for Linux: Chromium sandbox needs SUID helper or --no-sandbox
 // Without this, packaged AppImage will core dump (SIGTRAP) on most distros
 if (process.platform === 'linux') {
+  // Ties the MPRIS media player (and window grouping) to our .desktop file, so desktop
+  // shells show the app name and icon instead of a generic "Chromium" entry.
+  process.env.CHROME_DESKTOP = 'at-music-pro.desktop';
   app.commandLine.appendSwitch('no-sandbox');
   app.commandLine.appendSwitch('disable-setuid-sandbox');
   app.commandLine.appendSwitch('disable-gpu-sandbox');
@@ -118,6 +124,25 @@ function isMiniPlayerMode() {
   return width <= 500;
 }
 
+// Rounded corners for the frameless mini player. The main window isn't transparent, so the
+// corners are cut with a window shape (Windows, Linux X11/XWayland; macOS rounds natively).
+const MINI_RADIUS = 18;
+function applyMiniShape() {
+  if (!win || process.platform === 'darwin' || typeof win.setShape !== 'function') return;
+  if (!isMiniPlayerMode()) { win.setShape([]); return; }
+  const [w, h] = win.getContentSize();
+  const r = Math.min(MINI_RADIUS, Math.floor(Math.min(w, h) / 2));
+  const rects: Electron.Rectangle[] = [];
+  for (let y = 0; y < r; y++) {
+    // Horizontal inset of the quarter circle at this row
+    const inset = Math.ceil(r - Math.sqrt(r * r - (r - y - 0.5) ** 2));
+    rects.push({ x: inset, y, width: w - inset * 2, height: 1 });
+    rects.push({ x: inset, y: h - 1 - y, width: w - inset * 2, height: 1 });
+  }
+  rects.push({ x: 0, y: r, width: w, height: h - r * 2 });
+  win.setShape(rects);
+}
+
 function sendWindowState() {
   if (!win || win.isDestroyed()) return;
   win.webContents.send('window:state', {
@@ -166,7 +191,9 @@ function widgetPosition(size: { width: number; height: number }) {
 }
 
 function applyAlwaysOnTop(target: BrowserWindow, onTop: boolean) {
-  // 'floating' keeps it above normal windows without covering full-screen apps/menus
+  // 'floating' keeps it above normal windows without covering full-screen apps/menus.
+  // Toggle off first: some Linux window managers skip a repeated "above" request.
+  if (process.platform === 'linux' && onTop) target.setAlwaysOnTop(false);
   target.setAlwaysOnTop(onTop, 'floating');
   if (process.platform === 'darwin') {
     target.setVisibleOnAllWorkspaces(onTop, { visibleOnFullScreen: true });
@@ -190,6 +217,7 @@ function createWidgetWindow() {
     fullscreenable: false,
     skipTaskbar: true,
     hasShadow: false,
+    alwaysOnTop: config.alwaysOnTop,
     backgroundColor: '#00000000',
     icon: getIconPath(),
     webPreferences: {
@@ -211,12 +239,21 @@ function createWidgetWindow() {
 }
 
 function showWidget() {
-  if (!widgetConfig().enabled) return;
+  const config = widgetConfig();
+  if (!config.enabled) return;
   if (!widgetWin) createWidgetWindow();
   const target = widgetWin!;
-  // Don't steal focus from whatever the user switched to
-  if (target.webContents.isLoading()) target.once('ready-to-show', () => target.showInactive());
-  else target.showInactive();
+  const reveal = () => {
+    // Don't steal focus from whatever the user switched to
+    target.showInactive();
+    // Linux (X11/XWayland) ignores the "above" state if it is set before the window is
+    // mapped, which is why pinning worked for the (already visible) mini player but not
+    // for the widget. Re-apply once the window is on screen.
+    applyAlwaysOnTop(target, config.alwaysOnTop);
+    setTimeout(() => { if (!target.isDestroyed() && target.isVisible()) applyAlwaysOnTop(target, widgetConfig().alwaysOnTop); }, 150);
+  };
+  if (target.webContents.isLoading()) target.once('ready-to-show', reveal);
+  else reveal();
 }
 
 function hideWidget() {
@@ -243,6 +280,13 @@ function createTray() {
       }
     },
     { label: 'Show Desktop Widget', click: () => showWidget() },
+    {
+      label: 'Ambient Mode',
+      click: () => {
+        showMainWindow();
+        win?.webContents.send('ambient:open');
+      }
+    },
     { type: 'separator' },
     { label: 'Play / Pause', click: () => win?.webContents.send('tray:playPause') },
     { label: 'Next Track', click: () => win?.webContents.send('tray:next') },
@@ -317,7 +361,7 @@ function createWindow() {
 
   win.on('maximize', sendWindowState);
   win.on('unmaximize', sendWindowState);
-  win.on('resize', sendWindowState);
+  win.on('resize', () => { sendWindowState(); if (isMiniPlayerMode()) applyMiniShape(); });
   win.on('enter-full-screen', sendWindowState);
   win.on('leave-full-screen', sendWindowState);
 
@@ -358,6 +402,46 @@ ipcMain.handle('window:toggleFullScreen', () => {
   }
   return false;
 });
+// Set full screen explicitly; returns the previous state so callers can restore it
+ipcMain.handle('window:setFullScreen', (_event, full: boolean) => {
+  if (!win) return false;
+  const wasFull = win.isFullScreen();
+  if (wasFull !== full) win.setFullScreen(full);
+  return wasFull;
+});
+
+// ─── Ambient mode ──────────────────────────────────────────────────────────
+// Keep the display awake while ambient mode shows playing music
+let awakeBlocker: number | null = null;
+ipcMain.handle('ambient:keepAwake', (_event, on: boolean) => {
+  if (on && awakeBlocker === null) {
+    awakeBlocker = powerSaveBlocker.start('prevent-display-sleep');
+  } else if (!on && awakeBlocker !== null) {
+    powerSaveBlocker.stop(awakeBlocker);
+    awakeBlocker = null;
+  }
+  return on;
+});
+
+// System-wide inactivity (keyboard/mouse anywhere), polled cheaply every 15 s.
+// Fires 'ambient:idle' once per idle period once the threshold is reached.
+let ambientIdleMinutes = 0;
+let ambientIdleFired = false;
+setInterval(() => {
+  if (!ambientIdleMinutes || !win || !win.isVisible() || win.isMinimized()) return;
+  const idleSeconds = powerMonitor.getSystemIdleTime();
+  if (idleSeconds < 30) ambientIdleFired = false;
+  if (!ambientIdleFired && idleSeconds >= ambientIdleMinutes * 60) {
+    ambientIdleFired = true;
+    win.webContents.send('ambient:idle');
+  }
+}, 15_000);
+ipcMain.handle('ambient:setIdleMinutes', (_event, minutes: number) => {
+  ambientIdleMinutes = Math.max(0, Number(minutes) || 0);
+  ambientIdleFired = false;
+  return ambientIdleMinutes;
+});
+
 ipcMain.handle('window:toggleAlwaysOnTop', (_event, alwaysOnTop: boolean) => {
   if (win) win.setAlwaysOnTop(alwaysOnTop);
 });
@@ -375,6 +459,7 @@ ipcMain.handle('window:miniPlayer', () => {
   // Position bottom-right of the display the window is on (not always the primary one)
   const { workArea } = screen.getDisplayMatching(win.getBounds());
   win.setPosition(workArea.x + workArea.width - 420, workArea.y + workArea.height - 752);
+  applyMiniShape();
   sendWindowState();
 });
 
@@ -397,11 +482,84 @@ ipcMain.handle('window:normalMode', () => {
   win.setAlwaysOnTop(false);
   win.setResizable(true);
   win.setMinimumSize(1200, 800);
+  if (process.platform !== 'darwin') win.setShape([]);
   win.maximize();
   sendWindowState();
 });
 
 ipcMain.handle('window:isMiniPlayer', () => isMiniPlayerMode());
+
+// ─── Floating video ───────────────────────────────────────────────────────
+// A small always-on-top window that plays the music video while you use other apps.
+interface FloatingVideoPayload { url: string; time: number; title: string; artist: string; subtitle?: { vtt: string; lang: string } | null }
+let videoWin: BrowserWindow | null = null;
+let videoPayload: FloatingVideoPayload | null = null;
+let videoReturnSent = false;
+
+function closeFloatingVideo(returnToApp: { time: number; playing: boolean } | null) {
+  if (returnToApp && !videoReturnSent) win?.webContents.send('video:returned', returnToApp);
+  videoReturnSent = true; // null = closed by the app (track changed): don't hand playback back
+  if (videoWin && !videoWin.isDestroyed()) videoWin.destroy();
+  videoWin = null;
+}
+
+ipcMain.handle('video:popout', (_event, payload: FloatingVideoPayload) => {
+  videoPayload = payload;
+  videoReturnSent = false;
+  if (videoWin && !videoWin.isDestroyed()) {
+    videoWin.webContents.send('video:payload', payload);
+    videoWin.showInactive();
+    return true;
+  }
+  const { workArea } = screen.getDisplayMatching(win?.getBounds() ?? screen.getPrimaryDisplay().bounds);
+  const width = 480, height = 270;
+  videoWin = new BrowserWindow({
+    width, height,
+    x: workArea.x + workArea.width - width - 24,
+    y: workArea.y + workArea.height - height - 24,
+    minWidth: 280, minHeight: 158,
+    frame: false,
+    show: false,
+    backgroundColor: '#000000',
+    alwaysOnTop: true,
+    skipTaskbar: false,
+    fullscreenable: true,
+    title: payload.title,
+    icon: getIconPath(),
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
+  });
+  videoWin.setAspectRatio(16 / 9);
+  videoWin.once('ready-to-show', () => {
+    videoWin?.show();
+    if (videoWin) applyAlwaysOnTop(videoWin, true); // re-apply after mapping (Linux)
+  });
+  videoWin.on('closed', () => {
+    // Closed from the OS (Alt+F4 etc.): hand playback back to the app at the last known time
+    if (!videoReturnSent) win?.webContents.send('video:returned', { time: lastVideoTime, playing: true });
+    videoReturnSent = true;
+    videoWin = null;
+    import('./services/videoProxy').then(m => m.stopStream()).catch(() => { /* ignore */ });
+  });
+  loadRoute(videoWin, '/video');
+  return true;
+});
+let lastVideoTime = 0;
+ipcMain.handle('video:getPayload', () => videoPayload);
+ipcMain.on('video:time', (_event, time: number) => { lastVideoTime = time; });
+ipcMain.handle('video:return', (_event, state: { time: number; playing: boolean }) => {
+  closeFloatingVideo(state);
+  showMainWindow();
+});
+ipcMain.handle('video:close', (_event, state: { time: number; playing: boolean } | null) => closeFloatingVideo(state));
+ipcMain.handle('video:setAlwaysOnTop', (_event, onTop: boolean) => {
+  if (videoWin) applyAlwaysOnTop(videoWin, onTop);
+  return onTop;
+});
+ipcMain.handle('video:toggleFullScreen', () => {
+  if (!videoWin) return false;
+  videoWin.setFullScreen(!videoWin.isFullScreen());
+  return videoWin.isFullScreen();
+});
 
 // Widget IPC
 ipcMain.on('widget:state', (_event, state) => {
@@ -449,10 +607,75 @@ ipcMain.handle('app:setHardwareAcceleration', (_event, enabled: boolean) => {
   return enabled;
 });
 ipcMain.handle('app:getHardwareAcceleration', () => useHardwareAcceleration);
+ipcMain.handle('app:relaunch', () => {
+  isQuitting = true;
+  app.relaunch();
+  app.exit(0);
+});
+
+// Tool status for Settings → System
+ipcMain.handle('system:info', async () => {
+  const { execFile } = await import('node:child_process');
+  const { ytDlpBinaryPath } = await import('./utils/ytdlp-bin');
+  const { ffmpegBinaryPath, isFFmpegInstalled } = await import('./utils/ffmpeg-bin');
+  const version = (bin: string, args: string[]) => new Promise<string | null>((resolve) => {
+    execFile(bin, args, { timeout: 8000 }, (err, stdout) => resolve(err ? null : stdout.split('\n')[0].trim()));
+  });
+  const ytVersion = await version(ytDlpBinaryPath, ['--version']);
+  const ffOk = isFFmpegInstalled();
+  const ffVersion = ffOk ? await version(ffmpegBinaryPath, ['-version']) : null;
+  return {
+    ytdlp: { version: ytVersion, bundled: ytDlpBinaryPath.startsWith(process.resourcesPath || '\0') },
+    ffmpeg: { version: ffVersion?.replace(/^ffmpeg version\s+/, '').split(' ')[0] ?? null },
+    platform: process.platform,
+  };
+});
+
+// Phone remote (LAN web page, token-protected)
+function remoteToken() {
+  let t = getSetting('remote_token');
+  if (!t) { t = newRemoteToken(); setSetting('remote_token', t); }
+  return t;
+}
+
+async function startPhoneRemote() {
+  return startRemote({
+    getState: () => lastPlayerState ?? { hasTrack: false },
+    command: (cmd) => win?.webContents.send('player:command', cmd),
+    artwork: () => {
+      const art = (lastPlayerState as { artwork?: string } | null)?.artwork || '';
+      return art.startsWith('atmusic://') ? resolveProtocolPath(art) : art;
+    },
+    search: async (q) => {
+      const term = `%${q}%`;
+      const local = getDB().prepare('SELECT * FROM tracks WHERE title LIKE ? OR artist LIKE ? OR album LIKE ? LIMIT 8').all(term, term, term);
+      let online: unknown[] = [];
+      try { online = (await searchYouTube(q)).slice(0, 12); } catch { /* offline */ }
+      return [...local, ...online];
+    },
+  }, remoteToken(), parseInt(getSetting('remote_port') || '7777', 10) || 7777);
+}
+
+ipcMain.handle('remote:status', () => ({ enabled: getSetting('remote_enabled') === 'true', ...remoteStatus() }));
+ipcMain.handle('remote:setEnabled', async (_event, enabled: boolean) => {
+  setSetting('remote_enabled', String(!!enabled));
+  if (enabled) {
+    try { await startPhoneRemote(); } catch (err) { console.error('Phone remote failed to start', err); }
+  } else stopRemote();
+  return { enabled: !!enabled, ...remoteStatus() };
+});
+ipcMain.handle('remote:resetLink', async () => {
+  setSetting('remote_token', newRemoteToken());
+  if (getSetting('remote_enabled') === 'true') await startPhoneRemote();
+  return { enabled: getSetting('remote_enabled') === 'true', ...remoteStatus() };
+});
 
 app.on('before-quit', () => {
   isQuitting = true;
+  stopRemote();
+  stopSocial();
   widgetWin?.destroy();
+  videoWin?.destroy();
 });
 
 app.on('window-all-closed', () => {
@@ -568,4 +791,5 @@ app.whenReady().then(() => {
   if (!gotSingleInstanceLock) return;
   createTray();
   createWindow();
+  if (getSetting('remote_enabled') === 'true') startPhoneRemote().catch(err => console.error('Phone remote failed to start', err));
 });

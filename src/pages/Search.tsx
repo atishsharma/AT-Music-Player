@@ -2,7 +2,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '../store/playerStore';
 import { useSearchStore, SearchProvider } from '../store/searchStore';
-import { Search as SearchIcon, Play, Plus, Youtube, Music, Clock, X, Video, Download, Layers, Trash2, CheckSquare, Square, Check, FolderDown } from 'lucide-react';
+import { Search as SearchIcon, Play, Plus, Youtube, Music, Clock, X, Video, Download, Layers, Trash2, CheckSquare, Square, Check, FolderDown, type LucideIcon } from 'lucide-react';
+import type { Track } from '../types/library';
+
+interface CachedFile { id: string; video_id: string; title: string; artist: string; thumbnail: string; duration: number; source: string; path: string }
 import SongList from '../components/library/SongList';
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -15,7 +18,6 @@ const SearchPage = () => {
 
     const {
         query,
-        setQuery,
         lastResults,
         activeProvider,
         setActiveProvider,
@@ -28,7 +30,7 @@ const SearchPage = () => {
     const play = usePlayerStore(s => s.play);
     const [localInput, setLocalInput] = useState(query || urlQuery);
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
-    const [cacheStats, setCacheStats] = useState<{ size: string, count: number, files?: any[] } | null>(null);
+    const [cacheStats, setCacheStats] = useState<{ size: string, count: number, files?: CachedFile[] } | null>(null);
     const [showCachePopup, setShowCachePopup] = useState(false);
     const [showAllCache, setShowAllCache] = useState(false);
     const [selectedCacheFiles, setSelectedCacheFiles] = useState<string[]>([]);
@@ -49,7 +51,7 @@ const SearchPage = () => {
 
     // Listen for cache progress + stats-changed events from backend
     useEffect(() => {
-        const handleProgress = (_e: any, data: { videoId: string; progress: number; status: string }) => {
+        const handleProgress = (_e: unknown, data: { videoId: string; progress: number; status: string }) => {
             if (data.status === 'complete' || data.status === 'cancelled' || data.status === 'error') {
                 // Keep showing 100% briefly then clear
                 if (data.status === 'complete') {
@@ -116,7 +118,7 @@ const SearchPage = () => {
 
     useEffect(() => {
         const history = localStorage.getItem('recent-searches');
-        if (history) setRecentSearches(JSON.parse(history));
+        try { if (history) setRecentSearches(JSON.parse(history)); } catch { localStorage.removeItem('recent-searches'); }
     }, []);
 
     const saveSearch = (term: string) => {
@@ -125,11 +127,13 @@ const SearchPage = () => {
         localStorage.setItem('recent-searches', JSON.stringify(newHistory));
     };
 
-    // Sync URL query with store on mount
+    // Run the search from the URL (?q=) when it changes; the store's current query is read
+    // live so typing doesn't re-trigger this
     useEffect(() => {
-        if (urlQuery && urlQuery !== query) {
-            setQuery(urlQuery);
-            performSearch(urlQuery);
+        const store = useSearchStore.getState();
+        if (urlQuery && urlQuery !== store.query) {
+            store.setQuery(urlQuery);
+            store.performSearch(urlQuery);
         }
     }, [urlQuery]);
 
@@ -142,10 +146,11 @@ const SearchPage = () => {
         }
     };
 
-    const handlePlay = async (track: any) => {
+    const handlePlay = async (item: Track | CachedFile) => {
+        const track: Track = { album: '', format: '', ...item } as Track;
         if (track.source === 'youtube' || track.source === 'ytmusic') {
             try {
-                const videoId = track.video_id || track.id;
+                const videoId = String(track.video_id || track.id);
 
                 // Cancel any previous cache download before starting a new one
                 await window.ipcRenderer.invoke('youtube:cancelCacheAudio');
@@ -171,22 +176,22 @@ const SearchPage = () => {
         }
     };
 
-    const providers: { id: SearchProvider; label: string; icon: any; color: string }[] = [
+    const providers: { id: SearchProvider; label: string; icon: LucideIcon; color: string }[] = [
         { id: 'youtube', label: 'YouTube Video', icon: Youtube, color: 'text-red-500' },
-        { id: 'library', label: 'Library', icon: Music, color: 'text-primary-500' },
+        { id: 'library', label: 'Library', icon: Music, color: 'text-primary' },
     ];
 
     const currentResults = () => {
         return lastResults[activeProvider as keyof typeof lastResults] || [];
     };
 
-    const startDownload = async (track: any) => {
+    const startDownload = async (track: Track & { youtubeId?: string }) => {
         const videoId = track.video_id || track.youtubeId || track.id;
         const url = `https://www.youtube.com/watch?v=${videoId}`;
         navigate(`/downloads?url=${encodeURIComponent(url)}`);
     };
 
-    const handleMoveToLibrary = async (e: React.MouseEvent, track: any) => {
+    const handleMoveToLibrary = async (e: React.MouseEvent, track: CachedFile) => {
         e.stopPropagation();
         try {
             const result = await window.ipcRenderer.invoke('cache:moveToLibrary', {
@@ -194,20 +199,20 @@ const SearchPage = () => {
                 title: track.title,
                 artist: track.artist,
                 duration: track.duration || 0,
-                thumbnail: track.thumbnail || track.image_path || '',
+                thumbnail: track.thumbnail || '',
                 video_id: track.video_id || track.id
             });
             if (result?.success) {
-                (window as any).showToast?.(`"${track.title}" moved to Song Library`);
+                window.showToast?.(`"${track.title}" moved to Song Library`);
                 fetchCacheStats();
             } else if (result?.error === 'already_exists') {
-                (window as any).showToast?.(`"${track.title}" already exists in Song Library`);
+                window.showToast?.(`"${track.title}" already exists in Song Library`);
             } else {
-                (window as any).showToast?.(result?.error || 'Failed to move to library');
+                window.showToast?.(result?.error || 'Failed to move to library');
             }
         } catch (err) {
             console.error('Move to library failed:', err);
-            (window as any).showToast?.('Failed to move to library');
+            window.showToast?.('Failed to move to library');
         }
     };
 
@@ -541,7 +546,7 @@ const SearchPage = () => {
                     ) : (
                         lastResults[activeProvider as keyof typeof lastResults].map((track, i) => (
                             <SearchResultItem
-                                key={track.id + i}
+                                key={`${track.id}-${i}`}
                                 track={track}
                                 onPlay={handlePlay}
                                 onDownload={() => startDownload(track)}
@@ -576,7 +581,7 @@ const SearchPage = () => {
     );
 };
 
-const SearchResultItem = ({ track, onPlay, onDownload }: { track: any, onPlay: (t: any) => void, onDownload?: () => void }) => {
+const SearchResultItem = ({ track, onPlay, onDownload }: { track: Track, onPlay: (t: Track) => void, onDownload?: () => void }) => {
     const canDownload = track.source === 'youtube' || track.source === 'ytmusic';
 
     return (
@@ -601,7 +606,7 @@ const SearchResultItem = ({ track, onPlay, onDownload }: { track: any, onPlay: (
             </div>
 
             <div className="flex-1 min-w-0 pr-4">
-                <h3 className="text-lg font-black text-on-background truncate mb-1 group-hover:text-primary-400 transition-colors" title={track.title}>
+                <h3 className="text-lg font-black text-on-background truncate mb-1 group-hover:text-primary transition-colors" title={track.title}>
                     {track.title}
                 </h3>
                 <div className="flex items-center gap-3 text-sm font-bold text-on-surface-variant">
@@ -612,11 +617,12 @@ const SearchResultItem = ({ track, onPlay, onDownload }: { track: any, onPlay: (
                             <span className="opacity-60">{track.date}</span>
                         </>
                     )}
-                    {track.duration && (
+                    {/* `!!`: a 0 duration used to render a stray "0"; floor: fractional seconds showed as "3:12.5" */}
+                    {!!track.duration && (
                         <>
                             <span className="w-1 h-1 rounded-full bg-white/20" />
                             <span className="opacity-60">
-                                {Math.floor(track.duration / 60)}:{(track.duration % 60).toString().padStart(2, '0')}
+                                {Math.floor(track.duration / 60)}:{Math.floor(track.duration % 60).toString().padStart(2, '0')}
                             </span>
                         </>
                     )}
@@ -629,7 +635,7 @@ const SearchResultItem = ({ track, onPlay, onDownload }: { track: any, onPlay: (
                         e.stopPropagation();
                         onDownload();
                     }}
-                    className="p-5 mr-4 flex-shrink-0 bg-white/5 opacity-0 group-hover:opacity-100 hover:bg-primary-500 hover:text-white text-on-surface-variant rounded-full transition-all shadow-xl z-10"
+                    className="p-5 mr-4 flex-shrink-0 bg-white/5 opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-white text-on-surface-variant rounded-full transition-all shadow-xl z-10"
                     title="Download options"
                 >
                     <Download className="h-6 w-6" />

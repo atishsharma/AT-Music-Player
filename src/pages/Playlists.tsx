@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { usePlaylistStore } from '../store/playlistStore';
-import { Plus, Music, Trash2 } from 'lucide-react';
+import { Plus, Music, Trash2, Wand2 } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import SmartRuleBuilder from '../components/playlists/SmartRuleBuilder';
+import type { SmartDef } from '../components/playlists/smart';
+
+const SMART_TINTS = ['from-primary/70 to-primary/20', 'from-fuchsia-500/70 to-orange-400/40', 'from-sky-500/70 to-emerald-400/40', 'from-amber-500/70 to-rose-500/40', 'from-violet-600/70 to-sky-400/40'];
 import { useNavigate } from 'react-router-dom';
 import { toAtmusicUrl } from '../utils/path';
 
@@ -9,9 +14,15 @@ const PlaylistsPage = () => {
     const navigate = useNavigate();
     const [isCreating, setIsCreating] = useState(false);
     const [newPlaylistName, setNewPlaylistName] = useState('');
+    const [smart, setSmart] = useState<SmartDef[]>([]);
+    const [building, setBuilding] = useState(false);
+
+    const loadSmart = () => window.ipcRenderer.invoke('smart:list').then((l: SmartDef[]) => setSmart(l || []));
 
     useEffect(() => {
         fetchPlaylists();
+        loadSmart();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleCreate = async (e: React.FormEvent) => {
@@ -75,6 +86,39 @@ const PlaylistsPage = () => {
                 </form>
             )}
 
+            {/* Smart playlists: rule-based, update themselves */}
+            <section>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold text-on-background flex items-center gap-2"><Wand2 size={18} className="text-primary" /> Smart playlists</h2>
+                    <button onClick={() => setBuilding(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-semibold text-primary bg-primary/10 hover:bg-primary/20">
+                        <Plus size={15} /> New smart playlist
+                    </button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {smart.map((p, i) => (
+                        <button key={String(p.id)} onClick={() => navigate(`/playlists/smart/${p.id}`)}
+                            className="group text-left rounded-2xl p-3 bg-on-background/[0.035] border border-on-background/[0.07] hover:bg-on-background/[0.07] transition-all hover:scale-[1.02]">
+                            <div className={`aspect-[4/3] rounded-xl mb-3 bg-gradient-to-br ${SMART_TINTS[i % SMART_TINTS.length]} grid place-items-center text-white relative overflow-hidden`}>
+                                <Wand2 size={30} className="opacity-90" />
+                                <span className="absolute bottom-2 right-2 text-[11px] font-semibold bg-black/30 rounded-full px-2 py-0.5">{p.count ?? 0}</span>
+                            </div>
+                            <p className="font-semibold text-on-background truncate">{p.name}</p>
+                            <p className="text-[12px] text-on-background/55 truncate">{p.builtin ? p.description : `${p.rules.length} rule${p.rules.length === 1 ? '' : 's'}`}</p>
+                        </button>
+                    ))}
+                </div>
+            </section>
+
+            <AnimatePresence>
+                {building && (
+                    <SmartRuleBuilder
+                        onClose={() => setBuilding(false)}
+                        onSaved={(id) => { setBuilding(false); loadSmart(); navigate(`/playlists/smart/${id}`); }}
+                    />
+                )}
+            </AnimatePresence>
+
+            <h2 className="text-lg font-bold text-on-background">Your playlists</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {playlists.map((playlist) => (
                     <div

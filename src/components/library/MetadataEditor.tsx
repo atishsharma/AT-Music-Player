@@ -20,7 +20,7 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ track, onClose }) => {
         try {
             const res = await window.ipcRenderer.invoke('metadata:searchArtist', artist || title);
             if (!res || res.length === 0) {
-                (window as any).showToast?.('No results found.');
+                window.showToast?.('No results found.');
             }
         } catch (e) {
             console.error('Metadata search failed:', e);
@@ -39,10 +39,10 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ track, onClose }) => {
             });
             await useLibraryStore.getState().refreshLibrary();
             onClose();
-            (window as any).showToast?.(`${title} - metadata updated!`);
+            window.showToast?.(`${title} - metadata updated!`);
         } catch (e) {
             console.error('Failed to update metadata:', e);
-            (window as any).showToast?.(`Error updating metadata.`);
+            window.showToast?.(`Error updating metadata.`);
         }
     };
 

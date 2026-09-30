@@ -6,24 +6,23 @@ import { getDB } from '../db';
 
 function parseLRC(lrc: string | null) {
     if (!lrc) return [];
-    const lines = lrc.split('\n');
-    const result: any[] = [];
-    const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
-
-    for (const line of lines) {
-        const match = timeRegex.exec(line);
-        if (match) {
-            const minutes = parseInt(match[1]);
-            const seconds = parseInt(match[2]);
-            const milliseconds = parseInt(match[3]);
-            const time = minutes * 60 + seconds + milliseconds / (match[3].length === 3 ? 1000 : 100);
-            const content = line.replace(timeRegex, '').trim();
-            if (content) {
-                result.push({ seconds: time, content });
-            }
+    const result: { seconds: number; content: string }[] = [];
+    // [mm:ss], [mm:ss.xx] or [mm:ss.xxx]; a line may carry several stamps ("[00:12.00][01:30.00] chorus"),
+    // which used to leave the second stamp in the text and drop that repeat
+    const stamp = /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
+    for (const line of lrc.split(/\r?\n/)) {
+        const times: number[] = [];
+        let m: RegExpExecArray | null;
+        stamp.lastIndex = 0;
+        while ((m = stamp.exec(line))) {
+            const frac = m[3] ? parseInt(m[3], 10) / 10 ** m[3].length : 0;
+            times.push(parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + frac);
         }
+        if (!times.length) continue;
+        const content = line.replace(stamp, '').trim();
+        if (content) for (const seconds of times) result.push({ seconds, content });
     }
-    return result;
+    return result.sort((a, b) => a.seconds - b.seconds);
 }
 
 export async function getLyrics(artist: string, title: string, album?: string, duration?: number) {
@@ -39,7 +38,7 @@ export async function getLyrics(artist: string, title: string, album?: string, d
             return {
                 plainLyrics: row.plain_lyrics,
                 syncedLyrics: parseLRC(row.synced_lyrics),
-                isSynced: !!row.synced_lyrics
+                isSynced: parseLRC(row.synced_lyrics).length > 0
             };
         }
     } catch (err) {
@@ -48,7 +47,7 @@ export async function getLyrics(artist: string, title: string, album?: string, d
 
     // 2. Fetch from API
     try {
-        const params: any = {
+        const params: Record<string, string | number> = {
             artist_name: artist,
             track_name: title,
         };
@@ -72,7 +71,7 @@ export async function getLyrics(artist: string, title: string, album?: string, d
             return {
                 plainLyrics: data.plainLyrics,
                 syncedLyrics: parseLRC(data.syncedLyrics),
-                isSynced: !!data.syncedLyrics
+                isSynced: parseLRC(data.syncedLyrics).length > 0
             };
         }
         return null;
@@ -97,7 +96,7 @@ export async function getLyrics(artist: string, title: string, album?: string, d
                 return {
                     plainLyrics: bestMatch.plainLyrics,
                     syncedLyrics: parseLRC(bestMatch.syncedLyrics),
-                    isSynced: !!bestMatch.syncedLyrics
+                    isSynced: parseLRC(bestMatch.syncedLyrics).length > 0
                 };
             }
         } catch (searchError) {
@@ -112,7 +111,7 @@ export async function fetchLRCLIB(searchArtist: string, searchTitle: string, sav
 
     // Fetch from API directly bypassing cache
     try {
-        const params: any = {
+        const params: Record<string, string | number> = {
             artist_name: searchArtist,
             track_name: searchTitle,
         };
@@ -135,7 +134,7 @@ export async function fetchLRCLIB(searchArtist: string, searchTitle: string, sav
             return {
                 plainLyrics: data.plainLyrics,
                 syncedLyrics: parseLRC(data.syncedLyrics),
-                isSynced: !!data.syncedLyrics
+                isSynced: parseLRC(data.syncedLyrics).length > 0
             };
         }
     } catch (error) {
@@ -158,7 +157,7 @@ export async function fetchLRCLIB(searchArtist: string, searchTitle: string, sav
                 return {
                     plainLyrics: bestMatch.plainLyrics,
                     syncedLyrics: parseLRC(bestMatch.syncedLyrics),
-                    isSynced: !!bestMatch.syncedLyrics
+                    isSynced: parseLRC(bestMatch.syncedLyrics).length > 0
                 };
             }
         } catch (searchError) {

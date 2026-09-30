@@ -14,7 +14,7 @@ interface WidgetConfig {
 
 const EMPTY: WidgetPlayerState = {
     title: '', artist: '', album: '', artwork: '', isPlaying: false, currentTime: 0, duration: 0,
-    loop: 'none', shuffle: false, isFavorite: false, appearance: 'dark', hasTrack: false,
+    loop: 'none', shuffle: false, isFavorite: false, appearance: 'dark', hasTrack: false, volume: 1, queue: [],
 };
 
 const send = (command: WidgetCommand) => window.ipcRenderer.send('widget:command', command);
@@ -62,7 +62,7 @@ const Artwork = ({ src, className, spin, playing }: { src: string; className?: s
                         className={clsx('w-full h-full object-cover', spin && 'widget-spin', spin && !playing && 'widget-spin-paused')}
                     />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-secondary">
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-primary">
                         <Music2 className="text-white/80" size={22} />
                     </div>
                 )}

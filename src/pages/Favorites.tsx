@@ -1,9 +1,11 @@
 import { useFavoritesStore } from '../store/favoritesStore';
 import SongList from '../components/library/SongList';
-import { Heart, Music, Disc, Mic2 } from 'lucide-react';
+import { Heart, Music, Disc, Mic2, type LucideIcon } from 'lucide-react';
+import type { Track } from '../types/library';
 import { useState } from 'react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
+import { usePlayerStore } from '../store/playerStore';
 import { toAtmusicUrl } from '../utils/path';
 
 type Tab = 'songs' | 'albums' | 'artists';
@@ -13,7 +15,8 @@ const Favorites = () => {
     const [activeTab, setActiveTab] = useState<Tab>('songs');
     const navigate = useNavigate();
 
-    const favSongs = favorites.filter(f => f.type === 'song');
+    // Favourite songs carry their full track data
+    const favSongs = favorites.filter(f => f.type === 'song') as unknown as Track[];
     const favAlbums = favorites.filter(f => f.type === 'album');
     const favArtists = favorites.filter(f => f.type === 'artist');
 
@@ -73,7 +76,7 @@ const Favorites = () => {
                 {activeTab === 'songs' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                         {favSongs.length > 0 ? (
-                            <SongList tracks={favSongs as any} onPlay={() => { }} />
+                            <SongList tracks={favSongs} onPlay={(t) => usePlayerStore.getState().playList(favSongs, favSongs.indexOf(t))} />
                         ) : (
                             <EmptyState icon={Music} label="No favorite songs yet" />
                         )}
@@ -93,7 +96,7 @@ const Favorites = () => {
                                         {album.image_path ? (
                                             <img src={toAtmusicUrl(album.image_path)} alt={album.title} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500" />
                                         ) : (
-                                            <div className="w-full h-full bg-gradient-to-br from-primary-500/20 to-secondary-500/20 flex items-center justify-center text-primary-500">
+                                            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/20 flex items-center justify-center text-primary">
                                                 <Disc size={48} />
                                             </div>
                                         )}
@@ -120,7 +123,7 @@ const Favorites = () => {
                                     onClick={() => navigate(`/artist/${encodeURIComponent(artist.title || '')}`)}
                                 >
                                     <div className="aspect-square bg-surface-variant rounded-full mb-3 overflow-hidden relative shadow-soft group-hover:shadow-xl transition-all mx-auto w-4/5 border-4 border-white/5">
-                                        <div className="w-full h-full bg-gradient-to-br from-secondary-100 to-primary-100 flex items-center justify-center text-secondary-300">
+                                        <div className="w-full h-full bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center text-primary/40">
                                             <span className="text-4xl font-bold opacity-50">{(artist.title || '?')[0]}</span>
                                         </div>
                                     </div>
@@ -139,7 +142,7 @@ const Favorites = () => {
     );
 };
 
-const EmptyState = ({ icon: Icon, label }: { icon: any, label: string }) => (
+const EmptyState = ({ icon: Icon, label }: { icon: LucideIcon, label: string }) => (
     <div className="flex flex-col items-center justify-center py-24 text-on-surface-variant space-y-4">
         <div className="w-20 h-20 rounded-full bg-surface-variant/30 flex items-center justify-center">
             <Icon size={40} className="opacity-20" />

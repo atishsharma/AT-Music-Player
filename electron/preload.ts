@@ -4,7 +4,7 @@ import { ipcRenderer, contextBridge, webFrame } from 'electron'
 contextBridge.exposeInMainWorld('ipcRenderer', {
   on(...args: Parameters<typeof ipcRenderer.on>) {
     const [channel, listener] = args
-    const subscription = (_event: any, ...args: any[]) => listener(_event, ...args)
+    const subscription = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => listener(_event, ...args)
     ipcRenderer.on(channel, subscription)
     return () => {
       ipcRenderer.removeListener(channel, subscription)

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Play, Plus, Minus, Heart, Edit2, Trash2, ArrowUpDown, AlignLeft } from 'lucide-react';
+import { Play, Plus, Minus, Heart, Edit2, Trash2, ArrowUpDown, AlignLeft, Radio } from 'lucide-react';
+import { useRadioStore } from '../../store/radioStore';
 import { Track } from '../../types/library';
 import { usePlaylistStore } from '../../store/playlistStore';
 import { usePlayerStore } from '../../store/playerStore';
@@ -42,8 +43,8 @@ const SongList: React.FC<SongListProps> = ({ tracks, onPlay, onRemove, currentPa
     const sortedTracks = useMemo(() => {
         if (sortKey === 'default') return tracks;
         return [...tracks].sort((a, b) => {
-            let valA: any = a[sortKey as keyof Track] || '';
-            let valB: any = b[sortKey as keyof Track] || '';
+            let valA: string | number = String(a[sortKey as keyof Track] ?? '');
+            let valB: string | number = String(b[sortKey as keyof Track] ?? '');
 
             if (sortKey === 'duration') {
                 valA = a.duration || 0;
@@ -90,12 +91,12 @@ const SongList: React.FC<SongListProps> = ({ tracks, onPlay, onRemove, currentPa
 
     const handleAddTrackToPlaylist = async (playlistId: number, track: Track) => {
         setSelectedPlaylistId(playlistId);
-        const success = await usePlaylistStore.getState().addTrackToPlaylist(playlistId, track.id as number);
+        const success = await usePlaylistStore.getState().addTrackToPlaylist(playlistId, track);
         if (success) {
             // Toast logic will be handled globally if possible, or we could add a local toast here
             // But user said "toast should appear... saying song name - added to playlist name"
             // Let's assume we have a global toast method
-            (window as any).showToast?.(`${track.title} - added to ${usePlaylistStore.getState().playlists.find(p => p.id === playlistId)?.name}`);
+            window.showToast?.(`${track.title} - added to ${usePlaylistStore.getState().playlists.find(p => p.id === playlistId)?.name}`);
             setTimeout(() => setSelectedPlaylistId(null), 1500);
         }
     };
@@ -147,7 +148,7 @@ const SongList: React.FC<SongListProps> = ({ tracks, onPlay, onRemove, currentPa
                                             alt=""
                                         />
                                     ) : (
-                                        <div className="w-full h-full bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center text-primary/40 text-xs font-bold font-mono">
+                                        <div className="w-full h-full bg-gradient-to-br from-primary/10 to-primary/10 flex items-center justify-center text-primary/40 text-xs font-bold font-mono">
                                             TRK
                                         </div>
                                     )}
@@ -246,14 +247,14 @@ const SongList: React.FC<SongListProps> = ({ tracks, onPlay, onRemove, currentPa
                                                 if (success) {
                                                     // Trigger global UI refresh (DB -> Store -> UI)
                                                     const libraryStore = useLibraryStore.getState();
-                                                    if ((window as any).refreshLibraryStore) {
-                                                        await (window as any).refreshLibraryStore();
+                                                    if (window.refreshLibraryStore) {
+                                                        await window.refreshLibraryStore();
                                                     } else {
                                                         await libraryStore.refreshLibrary();
                                                     }
 
-                                                    if ((window as any).refreshLibraryFromList) {
-                                                        await (window as any).refreshLibraryFromList();
+                                                    if (window.refreshLibraryFromList) {
+                                                        await window.refreshLibraryFromList();
                                                     }
                                                 }
                                             }
@@ -289,11 +290,20 @@ const SongList: React.FC<SongListProps> = ({ tracks, onPlay, onRemove, currentPa
                                                         e.stopPropagation();
                                                         usePlayerStore.getState().addToQueue(track);
                                                         if (typeof window !== 'undefined' && 'showToast' in window) {
-                                                            (window as any).showToast?.(`"${track.title}" added to queue`);
+                                                            window.showToast?.(`"${track.title}" added to queue`);
                                                         }
                                                     }}
                                                 >
                                                     <Plus size={14} /> Add to Queue
+                                                </button>
+                                                <button
+                                                    className="w-full text-left px-5 py-3 hover:bg-primary hover:text-on-primary text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-3"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        useRadioStore.getState().start(track);
+                                                    }}
+                                                >
+                                                    <Radio size={14} /> Start Radio
                                                 </button>
                                                 <div className="px-5 py-2.5 text-[9px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] bg-white/5">Collect in Playlist</div>
                                                 <div className="max-h-48 overflow-y-auto no-scrollbar">
