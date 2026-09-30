@@ -25,7 +25,7 @@ function seedOf(t: Track) {
 }
 
 async function fetchMix(seed: Track, exclude: Set<string>): Promise<Track[]> {
-    const items: any[] = await window.ipcRenderer.invoke('radio:getMix', seedOf(seed));
+    const items: Track[] = await window.ipcRenderer.invoke('radio:getMix', seedOf(seed));
     return (items || [])
         .filter(i => !exclude.has(String(i.id)))
         .map(i => ({ ...i, album: '', path: '', format: '' } as Track));

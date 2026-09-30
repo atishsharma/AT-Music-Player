@@ -79,10 +79,10 @@ const ArtistGrid: React.FC<ArtistGridProps> = ({ tracks }) => {
             <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-surface-variant/20 rounded-2xl border border-white/5">
                 <div className="flex items-center gap-4">
                     <div className="flex bg-surface-variant/40 rounded-lg p-1">
-                        {['name', 'count'].map(option => (
+                        {(['name', 'count'] as const).map(option => (
                             <button
                                 key={option}
-                                onClick={() => setArtistSortBy(option as any)}
+                                onClick={() => setArtistSortBy(option)}
                                 className={clsx(
                                     "px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-widest transition-all",
                                     artistSortBy === option ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"
@@ -123,7 +123,7 @@ const ArtistGrid: React.FC<ArtistGridProps> = ({ tracks }) => {
                                     className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500"
                                 />
                             ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-secondary-100 to-primary-100 flex items-center justify-center text-secondary-300">
+                                <div className="w-full h-full bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center text-primary/40">
                                     {/* Initials */}
                                     <span className="text-4xl font-bold opacity-50">{artist.name[0]}</span>
                                 </div>
@@ -145,7 +145,7 @@ const ArtistGrid: React.FC<ArtistGridProps> = ({ tracks }) => {
                                 >
                                     <Heart size={20} fill={isFavorite(`artist-${artist.name}`) ? "currentColor" : "none"} />
                                 </button>
-                                <div className="w-12 h-12 rounded-full bg-primary-500 text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+                                <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
                                     <Play size={24} fill="currentColor" className="ml-1" />
                                 </div>
                             </div>

@@ -7,17 +7,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: 'rgb(var(--md-sys-color-primary) / <alpha-value>)', // We need to ensure variables are RGB triplets in CSS for this to work, OR remove <alpha-value> and use direct color.
-        // Wait, the variables in index.css are HEX/Style values (e.g. #aabbcc). Tailwind requires checking. 
-        // If variables are just "0 95 175", then rgb(var()) works.
-        // My index.css update used HEX/RGB-func? START CHECK...
-        // Ah, in previous tool call I used: --md-sys-color-primary: 0 95 175; (Space separated RGB).
-        // Correct.
-
+        // Theme colours are "R G B" triplets in CSS variables, so opacity modifiers work
         primary: 'rgb(var(--md-sys-color-primary) / <alpha-value>)',
         'on-primary': 'rgb(var(--md-sys-color-on-primary) / <alpha-value>)',
         'primary-container': 'rgb(var(--md-sys-color-primary-container) / <alpha-value>)',
         'on-primary-container': 'rgb(var(--md-sys-color-on-primary-container) / <alpha-value>)',
+
+        // Second accent (player 2 in games, decorative gradients); was referenced but never defined
+        secondary: 'rgb(var(--md-sys-color-secondary, 236 72 153) / <alpha-value>)',
+        'on-secondary': 'rgb(var(--md-sys-color-on-secondary, 255 255 255) / <alpha-value>)',
 
         background: 'rgb(var(--md-sys-color-background) / <alpha-value>)',
         'on-background': 'rgb(var(--md-sys-color-on-background) / <alpha-value>)',

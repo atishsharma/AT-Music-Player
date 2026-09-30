@@ -28,3 +28,23 @@ export interface Artist {
     name: string;
     image?: string;
 }
+
+/** One timed lyric line (from LRC) */
+export interface LyricLine {
+    seconds: number;
+    content: string;
+}
+
+export interface Lyrics {
+    plainLyrics: string;
+    syncedLyrics: LyricLine[];
+    isSynced: boolean;
+}
+
+export interface PlaylistSummary {
+    id: number;
+    name: string;
+    description?: string;
+    image_path?: string;
+    created_at?: string;
+}

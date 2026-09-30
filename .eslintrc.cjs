@@ -14,7 +14,7 @@ module.exports = {
       'warn',
       { allowConstantExport: true },
     ],
-    // IPC bridge & dynamic API responses legitimately use `any`
+    // Typed everywhere now; the IPC bridge declaration opts out explicitly
     '@typescript-eslint/no-explicit-any': 'warn',
     // Unused vars: allow underscore-prefixed to signal intentional
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
@@ -23,4 +23,12 @@ module.exports = {
     // useEffect deps: warn only (many are intentionally run-once)
     'react-hooks/exhaustive-deps': 'warn',
   },
+  overrides: [
+    {
+      // Build helper scripts run in Node as CommonJS
+      files: ['scripts/**/*.js', '*.cjs'],
+      env: { node: true, browser: false },
+      rules: { '@typescript-eslint/no-var-requires': 'off' },
+    },
+  ],
 }

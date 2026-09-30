@@ -1,5 +1,6 @@
 import { ipcMain, dialog, BrowserWindow, shell } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import { getDB } from '../db';
 import { scanDirectory } from '../services/scanner';
 import { searchYouTube, searchYTMusic, getStreamUrl, getCacheStats, clearCache, getVideoInfo, getRadioMix, getSubtitleTracks, getSubtitleVtt } from '../services/ytdlp';
@@ -25,6 +26,20 @@ function imageExt(url: string): string {
         return '.png';
     }
 }
+
+const HTML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+function decodeHtml(text: string): string {
+    return String(text || '').replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+        if (e[0] === '#') {
+            const code = e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+            return Number.isFinite(code) ? String.fromCodePoint(code) : m;
+        }
+        return HTML_ENTITIES[e.toLowerCase()] ?? m;
+    });
+}
+
+// Last.fm serves this grey star for every artist without a photo
+const isLastfmPlaceholder = (url: string) => url.includes('2a96cbd8b46e442fc41c2b86b821562f');
 
 function parseYear(date?: string): number | null {
     if (!date) return null;
@@ -390,7 +405,7 @@ export function registerHandlers(win: BrowserWindow) {
                     FROM tracks
                     WHERE video_id = ?
                     LIMIT 1
-                `).get(videoId, videoId) as any;
+                `).get(videoId, videoId) as { title?: string; artist?: string; thumbnail?: string; duration?: number; source?: string } | undefined;
 
                 return {
                     id: videoId,
@@ -421,19 +436,16 @@ export function registerHandlers(win: BrowserWindow) {
     ipcMain.handle('cache:moveToLibrary', async (_event, track: { id: string; title: string; artist: string; duration: number; thumbnail: string; video_id: string }) => {
         try {
             const db = getDB();
-            const { getCacheStats } = await import('../services/ytdlp.js');
             const stats = getCacheStats();
             const cacheDir: string = stats.cacheDir || '';
 
             // Find the cached file for this video ID
-            const fs = await import('fs');
-            const pathMod = await import('path');
 
             const extensions = ['.webm', '.opus', '.mp3'];
             let sourcePath: string | null = null;
             let ext = '';
             for (const e of extensions) {
-                const candidate = pathMod.join(cacheDir, `${track.id}${e}`);
+                const candidate = path.join(cacheDir, `${track.id}${e}`);
                 if (fs.existsSync(candidate)) {
                     sourcePath = candidate;
                     ext = e;
@@ -459,7 +471,7 @@ export function registerHandlers(win: BrowserWindow) {
             let downloadsDir = dlPathSetting?.value;
             if (!downloadsDir) {
                 const { app: electronApp } = await import('electron');
-                downloadsDir = pathMod.join(electronApp.getPath('userData'), 'downloads');
+                downloadsDir = path.join(electronApp.getPath('userData'), 'downloads');
             }
             if (!fs.existsSync(downloadsDir)) {
                 fs.mkdirSync(downloadsDir, { recursive: true });
@@ -468,8 +480,8 @@ export function registerHandlers(win: BrowserWindow) {
             // Build safe filename
             const safeTitle = (track.title || track.id).replace(/[<>:"/\\|?*]/g, '_');
             // Never overwrite another song that happens to share the title
-            let destPath = pathMod.join(downloadsDir, `${safeTitle}${ext}`);
-            for (let n = 2; fs.existsSync(destPath); n++) destPath = pathMod.join(downloadsDir, `${safeTitle} (${n})${ext}`);
+            let destPath = path.join(downloadsDir, `${safeTitle}${ext}`);
+            for (let n = 2; fs.existsSync(destPath); n++) destPath = path.join(downloadsDir, `${safeTitle} (${n})${ext}`);
 
             // Move file from cache to downloads (copy then delete)
             fs.copyFileSync(sourcePath, destPath);
@@ -497,9 +509,9 @@ export function registerHandlers(win: BrowserWindow) {
             mainWindow.webContents.send('cache:stats-changed');
 
             return { success: true, title: track.title };
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to move cache to library:', err);
-            return { success: false, error: err?.message || 'Unknown error' };
+            return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
         }
     });
 
@@ -516,7 +528,7 @@ export function registerHandlers(win: BrowserWindow) {
     ipcMain.handle('library:updateTrackMetadata', (_event, { id, title, artist, album, image_path }) => {
         const db = getDB();
         const updates: string[] = [];
-        const values: any[] = [];
+        const values: (string | number)[] = [];
 
         if (title !== undefined) { updates.push('title = ?'); values.push(title); }
         if (artist !== undefined) { updates.push('artist = ?'); values.push(artist); }
@@ -747,17 +759,20 @@ export function registerHandlers(win: BrowserWindow) {
         return null;
     });
 
-    ipcMain.handle('metadata:syncArtist', async (_event, artistName) => {
+    ipcMain.handle('metadata:syncArtist', async (_event, artistName, opts?: { force?: boolean }) => {
         const db = getDB();
         // 1. Fetch from LastFM
         const lfmInfo = await getArtistInfo(artistName);
         if (!lfmInfo) return null;
 
-        // 2. Download Image
-        let localImagePath = null;
-        if (lfmInfo.image && lfmInfo.image.length > 0) {
+        // 2. Download Image. A photo the user picked (or one already fetched) is kept unless a
+        // refresh is asked for; this ran on every artist visit and replaced custom photos.
+        const current = db.prepare('SELECT image_path FROM artists WHERE name = ?').get(artistName) as { image_path: string | null } | undefined;
+        const keep = !opts?.force && current?.image_path && fs.existsSync(current.image_path) ? current.image_path : null;
+        let localImagePath: string | null = keep;
+        if (!keep && lfmInfo.image && lfmInfo.image.length > 0) {
             const imageUrl = lfmInfo.image[lfmInfo.image.length - 1]['#text'];
-            if (imageUrl) {
+            if (imageUrl && !isLastfmPlaceholder(imageUrl)) {
                 const ext = imageExt(imageUrl);
                 localImagePath = await downloadAsset(imageUrl, 'artists', `${artistName}${ext}`);
             }
@@ -777,17 +792,19 @@ export function registerHandlers(win: BrowserWindow) {
         };
     });
 
-    ipcMain.handle('metadata:syncAlbum', async (_event, { artist, album }) => {
+    ipcMain.handle('metadata:syncAlbum', async (_event, { artist, album, force }: { artist: string; album: string; force?: boolean }) => {
         const db = getDB();
         // 1. Fetch from LastFM
         const lfmInfo = await getAlbumInfo(artist, album);
         if (!lfmInfo) return null;
 
-        // 2. Download Image
-        let localImagePath = null;
-        if (lfmInfo.image && lfmInfo.image.length > 0) {
+        // 2. Download Image (a user-chosen cover is kept)
+        const current = db.prepare('SELECT image_path FROM albums WHERE title = ?').get(album) as { image_path: string | null } | undefined;
+        const keep = !force && current?.image_path && fs.existsSync(current.image_path) ? current.image_path : null;
+        let localImagePath: string | null = keep;
+        if (!keep && lfmInfo.image && lfmInfo.image.length > 0) {
             const imageUrl = lfmInfo.image[lfmInfo.image.length - 1]['#text'];
-            if (imageUrl) {
+            if (imageUrl && !isLastfmPlaceholder(imageUrl)) {
                 const ext = imageExt(imageUrl);
                 localImagePath = await downloadAsset(imageUrl, 'albums', `${artist}-${album}${ext}`);
             }
@@ -925,7 +942,7 @@ export function registerHandlers(win: BrowserWindow) {
         try {
             const apiKeyRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('youtube_api_key') as { value: string } | undefined;
             const searchQuery = `${mood} mood songs playlist`;
-            let items: any[] = [];
+            let items: { video_id: string; title: string; artist: string; thumbnail?: string }[] = [];
 
             if (apiKeyRow && apiKeyRow.value) {
                 const res = await axios.get('https://www.googleapis.com/youtube/v3/search', {
@@ -939,21 +956,23 @@ export function registerHandlers(win: BrowserWindow) {
                     }
                 });
 
-                items = res.data.items.map((item: any) => ({
-                    video_id: item.id.videoId,
-                    title: item.snippet.title,
-                    artist: item.snippet.channelTitle,
+                type ApiItem = { id: { videoId?: string }; snippet: { title: string; channelTitle: string; thumbnails: { high?: { url: string } } } };
+                // The Data API returns HTML-escaped titles ("Don&#39;t"); decode them
+                items = (res.data.items as ApiItem[]).map(item => ({
+                    video_id: item.id.videoId || '',
+                    title: decodeHtml(item.snippet.title),
+                    artist: decodeHtml(item.snippet.channelTitle),
                     thumbnail: item.snippet.thumbnails.high?.url
-                })).filter((item: any) => item.video_id);
+                })).filter(item => item.video_id);
             } else {
                 // FALLBACK: Use yt-dlp scraping via searchYTMusic
                 const fallbackItems = await searchYTMusic(searchQuery, 15);
-                items = fallbackItems.map((item: any) => ({
+                items = fallbackItems.map(item => ({
                     video_id: item.id,
-                    title: item.title,
+                    title: item.title || '',
                     artist: item.artist,
                     thumbnail: item.thumbnail
-                })).filter((item: any) => item.video_id);
+                })).filter(item => item.video_id);
             }
 
             if (items.length === 0) return [];

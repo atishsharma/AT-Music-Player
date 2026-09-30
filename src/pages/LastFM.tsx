@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Music, User, ExternalLink, Globe2, X } from 'lucide-react';
@@ -48,7 +48,7 @@ const LastFMPage = () => {
 
     const [region, setRegion] = useState('global');
 
-    const fetchTopCharts = async () => {
+    const fetchTopCharts = useCallback(async () => {
         if (!lastfmKey) return;
 
         try {
@@ -75,7 +75,7 @@ const LastFMPage = () => {
         } catch (err) {
             console.error(err);
         }
-    };
+    }, [lastfmKey, region]);
 
     const handleSearch = async (e?: React.FormEvent) => {
         e?.preventDefault();
@@ -83,7 +83,7 @@ const LastFMPage = () => {
 
         setActiveTab('search');
         try {
-            const res = await axios.get(`https://ws.audioscrobbler.com/2.0/?method=artist.search&artist=${query}&api_key=${lastfmKey}&format=json&limit=20`);
+            const res = await axios.get(`https://ws.audioscrobbler.com/2.0/?method=artist.search&artist=${encodeURIComponent(query.trim())}&api_key=${lastfmKey}&format=json&limit=20`);
             setSearchResults(res.data.results.artistmatches.artist);
         } catch (err) {
             console.error(err);
@@ -94,7 +94,7 @@ const LastFMPage = () => {
         if (lastfmKey) {
             fetchTopCharts();
         }
-    }, [lastfmKey, region]);
+    }, [lastfmKey, fetchTopCharts]);
 
     return (
         <motion.div
@@ -204,8 +204,8 @@ const LastFMPage = () => {
                         {/* Top Tracks */}
                         <section className="space-y-8">
                             <div className="flex items-center gap-4">
-                                <div className="p-3 bg-secondary/10 rounded-2xl">
-                                    <Music className="text-secondary" size={24} />
+                                <div className="p-3 bg-primary/10 rounded-2xl">
+                                    <Music className="text-primary" size={24} />
                                 </div>
                                 <h3 className="text-3xl font-black tracking-tighter capitalize">{region === 'global' ? 'Global' : region} Top Tracks</h3>
                             </div>
@@ -285,20 +285,20 @@ const ArtistCard = ({ artist, rank }: { artist: Artist, rank: number }) => (
 );
 
 const TrackCard = ({ track, rank }: { track: Track, rank: number }) => (
-    <div className="group flex items-center gap-6 p-4 bg-surface-variant/20 rounded-3xl border border-white/5 hover:bg-secondary/5 hover:border-secondary/20 transition-all">
-        <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center font-black text-2xl text-on-surface-variant/20 group-hover:text-secondary transition-colors italic">
+    <div className="group flex items-center gap-6 p-4 bg-surface-variant/20 rounded-3xl border border-white/5 hover:bg-primary/5 hover:border-primary/20 transition-all">
+        <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center font-black text-2xl text-on-surface-variant/20 group-hover:text-primary transition-colors italic">
             #{rank}
         </div>
-        <div className="w-16 h-16 rounded-2xl bg-secondary/10 flex-shrink-0 overflow-hidden">
+        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex-shrink-0 overflow-hidden">
             {track.image?.find(img => img.size === 'medium')?.['#text'] ? (
                 <img src={track.image.find(img => img.size === 'medium')?.['#text']} className="w-full h-full object-cover" />
-            ) : <Music className="text-secondary opacity-20 m-auto mt-4" />}
+            ) : <Music className="text-primary opacity-20 m-auto mt-4" />}
         </div>
         <div className="flex-1 min-w-0">
             <h4 className="font-black text-xl truncate">{track.name}</h4>
-            <p className="text-sm font-bold text-secondary uppercase tracking-tighter opacity-70 group-hover:opacity-100">{track.artist.name}</p>
+            <p className="text-sm font-bold text-primary uppercase tracking-tighter opacity-70 group-hover:opacity-100">{track.artist.name}</p>
         </div>
-        <a href={track.url} target="_blank" rel="noreferrer" className="p-3 bg-white/5 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-secondary hover:text-on-secondary">
+        <a href={track.url} target="_blank" rel="noreferrer" className="p-3 bg-white/5 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-primary hover:text-on-secondary">
             <ExternalLink size={18} />
         </a>
     </div>

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { Track } from '../types/library';
 
 export interface Playlist {
     id: number;
@@ -6,7 +7,7 @@ export interface Playlist {
     description?: string;
     image_path?: string;
     created_at: string;
-    tracks?: any[];
+    tracks?: Track[];
 }
 
 interface PlaylistState {

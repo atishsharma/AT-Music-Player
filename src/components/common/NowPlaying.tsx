@@ -12,8 +12,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import BackgroundWatermarks from './BackgroundWatermarks';
 import LiquidBackdrop from './LiquidBackdrop';
 import { toAtmusicUrl } from '../../utils/path';
+import type { Track, LyricLine, PlaylistSummary } from '../../types/library';
+import type { QueueStepProps, QueueItemProps } from './queueTypes';
 
-const QueueStepControls = ({ index, queue, reorderQueue, appearance }: any) => {
+
+const QueueStepControls = ({ index, queue, reorderQueue, appearance }: QueueStepProps) => {
     const move = (e: React.MouseEvent, direction: 'up' | 'down') => {
         e.stopPropagation();
         const newQueue = [...queue];
@@ -54,9 +57,9 @@ const QueueStepControls = ({ index, queue, reorderQueue, appearance }: any) => {
 };
 
 // Extracted Item for main Zen Queue
-const ZenQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, removeFavorite, appearance, queue, reorderQueue }: any) => {
+const ZenQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, removeFavorite, appearance, queue, reorderQueue }: QueueItemProps) => {
     const [showPlaylistPopup, setShowPlaylistPopup] = useState(false);
-    const [playlists, setPlaylists] = useState<any[]>([]);
+    const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
     const playlistPopupRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -98,7 +101,7 @@ const ZenQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, rem
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        const id = track.id?.toString() || track.id;
+                        const id = String(track.id);
                         isFav ? removeFavorite(id) : addFavorite({ ...track, id, type: 'song' });
                     }}
                     className={clsx("p-2 rounded-full transition-colors", isFav ? "text-primary bg-primary/10" : "text-primary hover:bg-primary/20")}
@@ -131,8 +134,8 @@ const ZenQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, rem
                                         onClick={async (e) => {
                                             e.stopPropagation();
                                             if (track?.id) {
-                                                await window.ipcRenderer.invoke('playlist:addTrack', { playlistId: pl.id, trackId: track.id });
-                                                (window as any).showToast?.(`Added to ${pl.name}`);
+                                                const ok = await usePlaylistStore.getState().addTrackToPlaylist(pl.id, track);
+                                                window.showToast?.(ok ? `Added to ${pl.name}` : `Couldn't add to ${pl.name} (already there?)`);
                                             }
                                             setShowPlaylistPopup(false);
                                         }}
@@ -169,7 +172,7 @@ const NowPlaying = () => {
         setVolume: s.setVolume, volume: s.volume, isMuted: s.isMuted, toggleMute: s.toggleMute, queue: s.queue,
         lyrics: s.lyrics, setLyrics: s.setLyrics, loadingLyrics: s.loadingLyrics, setLoadingLyrics: s.setLoadingLyrics,
         reorderQueue: s.reorderQueue, removeFromQueue: s.removeFromQueue, clearQueue: s.clearQueue,
-    }))) as any;
+    })));
     // This component stays mounted while closed; only track playback time while it's visible
     // (it previously re-rendered all ~1700 lines on every timeupdate even when hidden).
     const currentTime = usePlayerStore(s => (s.isPlayerOpen ? s.currentTime : 0));
@@ -187,12 +190,12 @@ const NowPlaying = () => {
 
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
     const { addTrackToPlaylist } = usePlaylistStore();
-    const isFav = currentTrack ? isFavorite(currentTrack.id?.toString() || currentTrack.id) : false;
+    const isFav = currentTrack ? isFavorite(String(currentTrack.id)) : false;
 
     const handleFavToggle = () => {
         if (!currentTrack) return;
-        if (isFav) removeFavorite(currentTrack.id?.toString() || currentTrack.id);
-        else addFavorite({ ...currentTrack, id: currentTrack.id?.toString() || currentTrack.id, type: 'song' });
+        if (isFav) removeFavorite(String(currentTrack.id));
+        else addFavorite({ ...currentTrack, id: String(currentTrack.id), type: 'song' });
     };
 
     const [fetchedVideoId, setFetchedVideoId] = useState<string | null>(null);
@@ -214,7 +217,7 @@ const NowPlaying = () => {
 
     // Priority: fetchedVideoId (from YouTube search for local tracks) > video_id (stored on track) > id (for searched YouTube tracks where id IS the video ID)
     const isYouTubeIdInTrackId = typeof currentTrack?.id === 'string' && currentTrack.id.length >= 10;
-    const videoId = fetchedVideoId || currentTrack?.video_id || (isYouTubeIdInTrackId ? currentTrack.id : null);
+    const videoId = fetchedVideoId || currentTrack?.video_id || (isYouTubeIdInTrackId ? String(currentTrack.id) : null);
 
     // Lyrics Search State
     const [searchForm, setSearchForm] = useState({ title: '', artist: '', album: '' });
@@ -229,8 +232,10 @@ const NowPlaying = () => {
             // Only trigger if not typing in an input/textarea
             if (
                 e.code === 'Space' &&
-                document.activeElement?.tagName !== 'INPUT' &&
-                document.activeElement?.tagName !== 'TEXTAREA'
+                !e.repeat &&
+                // Not while typing or using a dropdown / editable field
+                !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '') &&
+                !(document.activeElement as HTMLElement | null)?.isContentEditable
             ) {
                 e.preventDefault();
                 // Video mode: Space controls the video (the audio deck stays paused)
@@ -272,7 +277,7 @@ const NowPlaying = () => {
 
     const [showQueuePopup, setShowQueuePopup] = useState(false);
     const [showPlaylistPopup, setShowPlaylistPopup] = useState(false);
-    const [playlists, setPlaylists] = useState<any[]>([]);
+    const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
 
     const truncateTitle = (text: string, limit: number = 40) => {
         if (!text || text.length <= limit) return text;
@@ -298,7 +303,7 @@ const NowPlaying = () => {
                     state.seek(state.currentTime);
                     if (!state.isPlaying) state.play();
                 }
-                togglePlayer(false);
+                togglePlayer();
                 setShowQueuePopup(false);
                 setShowPlaylistPopup(false);
             }
@@ -357,8 +362,9 @@ const NowPlaying = () => {
         if (!needsVideoLookup || !currentTrack) return;
         let cancelled = false;
 
-        if ((currentTrack as any).youtubeId) {
-            setFetchedVideoId((currentTrack as any).youtubeId);
+        const youtubeId = (currentTrack as Track & { youtubeId?: string }).youtubeId;
+        if (youtubeId) {
+            setFetchedVideoId(youtubeId);
             return;
         }
         if (!currentTrack.title || !currentTrack.artist) return;
@@ -391,7 +397,7 @@ const NowPlaying = () => {
             if (playbackMode === 'video' && videoId) {
                 try {
                     setIsVideoLoading(true);
-                    const url = await (window as any).yt.getVideoStreamWithQuality(videoId, videoQuality);
+                    const url = await window.yt.getVideoStreamWithQuality(videoId, videoQuality);
                     setVideoStreamUrl(url);
                 } catch (err) {
                     console.error("Failed to fetch video stream", err);
@@ -402,7 +408,7 @@ const NowPlaying = () => {
                 setVideoStreamUrl(null);
                 // Stop ffmpeg proxy when leaving video mode (unless the floating window took it over)
                 if (!poppingOut.current) {
-                    try { (window as any).yt.stopVideoStream(); } catch { /* ignore */ }
+                    try { window.yt.stopVideoStream(); } catch { /* ignore */ }
                 }
                 poppingOut.current = false;
             }
@@ -466,7 +472,7 @@ const NowPlaying = () => {
         if (!videoId) return;
         console.log("Video stream expired, refreshing...");
         try {
-            const url = await (window as any).yt.getVideoStreamWithQuality(videoId, videoQuality);
+            const url = await window.yt.getVideoStreamWithQuality(videoId, videoQuality);
             setVideoStreamUrl(url);
         } catch (err) {
             console.error("Failed to refresh video stream", err);
@@ -488,7 +494,7 @@ const NowPlaying = () => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const analyser = (window as any)._audioAnalyser;
+        const analyser = window._audioAnalyser;
         if (!analyser) return;
 
         const bufferLength = analyser.frequencyBinCount;
@@ -1025,7 +1031,7 @@ const NowPlaying = () => {
                         <button
                             onClick={async () => {
                                 try {
-                                    await (window as any).windowControls.miniPlayer();
+                                    await window.windowControls.miniPlayer();
                                 } catch (err) { /* ignore */ }
                             }}
                             className="p-3 bg-surface-variant/20 hover:bg-primary text-on-surface-variant hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md shadow-xl"
@@ -1186,7 +1192,7 @@ const NowPlaying = () => {
                                             className="w-full h-full object-cover"
                                         />
                                     ) : (
-                                        <div className="w-full h-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                                        <div className="w-full h-full bg-gradient-to-br from-primary to-primary flex items-center justify-center">
                                             <Mic2 size={visualizerActive ? 32 : 80} className="text-white/20" />
                                         </div>
                                     )}
@@ -1306,7 +1312,7 @@ const NowPlaying = () => {
                                                             onClick={async () => {
                                                                 if (currentTrack?.id) {
                                                                     const ok = await addTrackToPlaylist(pl.id, currentTrack);
-                                                                    (window as any).showToast?.(ok ? `${currentTrack.title} added to playlist!` : `Couldn't add ${currentTrack.title} (already in the playlist?)`);
+                                                                    window.showToast?.(ok ? `${currentTrack.title} added to playlist!` : `Couldn't add ${currentTrack.title} (already in the playlist?)`);
                                                                 }
                                                                 setShowPlaylistPopup(false);
                                                             }}
@@ -1353,7 +1359,7 @@ const NowPlaying = () => {
                                 {lyrics ? (
                                     lyrics.isSynced ? (
                                         <div className="space-y-10 py-[40vh]" ref={lyricsContainerRef}>
-                                            {Array.isArray(lyrics?.syncedLyrics) && lyrics.syncedLyrics.map((line: any, i: number) => {
+                                            {Array.isArray(lyrics?.syncedLyrics) && lyrics.syncedLyrics.map((line: LyricLine, i: number) => {
                                                 const isActive = i === activeLineIndex;
                                                 return (
                                                     <p
@@ -1460,8 +1466,8 @@ const NowPlaying = () => {
                                     </div>
                                     <div className="space-y-2 pb-20">
                                         {queue && queue.length > 0 ? (
-                                            queue.map((track: any, i: number) => {
-                                                const id = track.id?.toString() || track.id;
+                                            queue.map((track: Track, i: number) => {
+                                                const id = String(track.id);
                                                 const isFavOfItem = isFavorite(id);
                                                 return (
                                                     <ZenQueueItem
@@ -1625,7 +1631,7 @@ const NowPlaying = () => {
                                                                 onClick={async () => {
                                                                     if (currentTrack?.id) {
                                                                         const ok = await addTrackToPlaylist(pl.id, currentTrack);
-                                                                        (window as any).showToast?.(ok ? `${currentTrack.title} added to playlist!` : `Couldn't add ${currentTrack.title} (already in the playlist?)`);
+                                                                        window.showToast?.(ok ? `${currentTrack.title} added to playlist!` : `Couldn't add ${currentTrack.title} (already in the playlist?)`);
                                                                     }
                                                                     setShowPlaylistPopup(false);
                                                                 }}
@@ -1709,8 +1715,8 @@ const NowPlaying = () => {
                                                             </div>
                                                             <div className="space-y-2 pb-20">
                                                                 {queue && queue.length > 0 ? (
-                                                                    queue.map((track: any, i: number) => {
-                                                                        const id = track.id?.toString() || track.id;
+                                                                    queue.map((track: Track, i: number) => {
+                                                                        const id = String(track.id);
                                                                         const isFavOfItem = isFavorite(id);
                                                                         return (
                                                                             <ZenQueueItem
@@ -1746,7 +1752,7 @@ const NowPlaying = () => {
                                 <button
                                     onClick={async () => {
                                         try {
-                                            await (window as any).windowControls.miniPlayer();
+                                            await window.windowControls.miniPlayer();
                                         } catch (err) { /* ignore */ }
                                     }}
                                     className="p-3 bg-surface-variant/10 hover:bg-primary text-on-surface-variant hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md shadow-xl"

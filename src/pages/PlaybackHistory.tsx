@@ -6,9 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toAtmusicUrl } from '../utils/path';
 import { useThemeStore } from '../store/themeStore';
 import clsx from 'clsx';
+import type { Track } from '../types/library';
 
 const PlaybackHistory = () => {
-    const [history, setHistory] = useState<any[]>([]);
+    const [history, setHistory] = useState<Track[]>([]);
     const [page, setPage] = useState(0);
     const play = usePlayerStore(s => s.play);
     const liquidGlass = useThemeStore(s => s.liquidGlass);

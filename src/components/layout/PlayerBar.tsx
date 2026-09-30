@@ -10,7 +10,9 @@ import { useFavoritesStore } from '../../store/favoritesStore';
 import { useEqualizerStore } from '../../store/equalizerStore';
 import clsx from 'clsx';
 import { toAtmusicUrl } from '../../utils/path';
+import type { PlaylistSummary } from '../../types/library';
 import Equalizer from '../common/Equalizer';
+import { usePlaylistStore } from '../../store/playlistStore';
 import SingAlongButton from '../singalong/SingAlongButton';
 
 const formatTime = (seconds: number) => {
@@ -141,7 +143,7 @@ const PlayerBar = () => {
         toggleSidebarLyrics: s.toggleSidebarLyrics,
         isSidebarQueueOpen: s.isSidebarQueueOpen,
         isSidebarLyricsOpen: s.isSidebarLyricsOpen,
-    }))) as any;
+    })));
 
     const appearance = useThemeStore(s => s.appearance);
     const liquidGlass = useThemeStore(s => s.liquidGlass);
@@ -149,7 +151,7 @@ const PlayerBar = () => {
 
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
     const [showPlaylistPopup, setShowPlaylistPopup] = useState(false);
-    const [playlists, setPlaylists] = useState<any[]>([]);
+    const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
     const playlistPopupRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -162,12 +164,12 @@ const PlayerBar = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const isFav = currentTrack ? isFavorite(currentTrack.id?.toString() || currentTrack.id) : false;
+    const isFav = currentTrack ? isFavorite(String(currentTrack.id)) : false;
 
     const handleFavToggle = () => {
         if (!currentTrack) return;
-        if (isFav) removeFavorite(currentTrack.id?.toString() || currentTrack.id);
-        else addFavorite({ ...currentTrack, id: currentTrack.id?.toString() || currentTrack.id, type: 'song' });
+        if (isFav) removeFavorite(String(currentTrack.id));
+        else addFavorite({ ...currentTrack, id: String(currentTrack.id), type: 'song' });
     };
 
     const truncateTitle = (text: string, limit: number = 40) => {
@@ -222,7 +224,7 @@ const PlayerBar = () => {
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                         />
                     ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-primary to-secondary" />
+                        <div className="w-full h-full bg-gradient-to-br from-primary to-primary" />
                     )}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                         <ChevronUp size={20} className="text-white" />
@@ -324,7 +326,8 @@ const PlayerBar = () => {
                                             key={pl.id}
                                             onClick={async () => {
                                                 if (currentTrack?.id) {
-                                                    await window.ipcRenderer.invoke('playlist:addTrack', { playlistId: pl.id, trackId: currentTrack.id });
+                                                    const ok = await usePlaylistStore.getState().addTrackToPlaylist(pl.id, currentTrack);
+                                                    window.showToast?.(ok ? `${currentTrack.title} added to ${pl.name}` : `Couldn't add to ${pl.name} (already there?)`);
                                                 }
                                                 setShowPlaylistPopup(false);
                                             }}
@@ -441,7 +444,7 @@ const PlayerBar = () => {
                 <button
                     onClick={async () => {
                         try {
-                            await (window as any).windowControls.miniPlayer();
+                            await window.windowControls.miniPlayer();
                         } catch (err) {
                             console.error('Failed to switch to mini player:', err);
                         }

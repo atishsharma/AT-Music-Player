@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Play, TrendingUp } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
+import type { Track } from '../../types/library';
+import { type HomeSong, toHomeSong, homeSongTrack, readDailyCache, writeDailyCache } from './homeSong';
 import { useSettingsStore } from '../../store/settingsStore';
 
 const Trending = () => {
-    const [trending, setTrending] = useState<any[]>([]);
+    const [trending, setTrending] = useState<HomeSong[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const play = usePlayerStore(s => s.play);
     const { youtubeApiKey } = useSettingsStore();
@@ -16,16 +18,11 @@ const Trending = () => {
             setIsLoading(true);
             try {
                 const cacheKey = 'youtube-trending-5';
-                const cached = localStorage.getItem(cacheKey);
-                const today = new Date().toDateString();
-
-                if (cached) {
-                    const parsed = JSON.parse(cached);
-                    if (parsed.date === today) {
-                        setTrending(parsed.songs);
-                        setIsLoading(false);
-                        return;
-                    }
+                const cached = readDailyCache(cacheKey);
+                if (cached?.length) {
+                    setTrending(cached);
+                    setIsLoading(false);
+                    return;
                 }
 
                 // Call the existing youtube:getRecommendations or a new handler?
@@ -34,18 +31,10 @@ const Trending = () => {
                 // without modifying main/ipc, let's use a specific trending search.
                 const data = await window.ipcRenderer.invoke('youtube:search', 'trending music 2026');
                 
-                const top5 = data.slice(0, 5).map((item: any) => ({
-                    video_id: item.id || item.video_id,
-                    title: item.title,
-                    artist: item.artist || item.channelTitle,
-                    thumbnail: item.thumbnail || item.thumbnails?.high?.url || item.image_path,
-                }));
+                const top5 = (data as Track[]).slice(0, 5).map(toHomeSong);
 
                 setTrending(top5);
-                localStorage.setItem(cacheKey, JSON.stringify({
-                    date: today,
-                    songs: top5
-                }));
+                writeDailyCache(cacheKey, top5);
             } catch (err) {
                 console.error("Failed to fetch trending songs", err);
             } finally {
@@ -82,17 +71,7 @@ const Trending = () => {
                         <div
                             key={item.video_id}
                             className="bg-surface-variant/20 rounded-2xl p-3 hover:bg-surface-variant/40 transition-all duration-300 group cursor-pointer border border-white/5 flex items-center gap-4"
-                            onClick={() => play({
-                                id: item.video_id,
-                                title: item.title,
-                                artist: item.artist,
-                                image_path: item.thumbnail,
-                                source: 'youtube',
-                                album: 'Trending',
-                                duration: 0,
-                                path: '',
-                                format: 'youtube'
-                            } as any)}
+                            onClick={() => play(homeSongTrack(item, 'Trending'))}
                         >
                             <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 relative shadow-md">
                                 <img

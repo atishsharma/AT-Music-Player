@@ -47,7 +47,7 @@ const Player = () => {
     const normalize = useAudioStore(s => s.normalize);
     const vocalReduction = useAudioStore(s => s.vocalReduction);
     const [streamUrl, setStreamUrl] = useState<string>('');
-    const spotifyPlayerRef = useRef<any>(null);
+    const spotifyPlayerRef = useRef<SpotifyPlayer | null>(null);
     const [isSpotifyReady, setIsSpotifyReady] = useState(false);
 
     // Media session action handlers only need registering once; they read live state.
@@ -184,7 +184,7 @@ const Player = () => {
         try {
             const engine = createAudioEngine([deckA.current, deckB.current]);
             engineRef.current = engine;
-            (window as any)._audioAnalyser = engine.analyser;
+            window._audioAnalyser = engine.analyser;
             engine.setVolume(usePlayerStore.getState().volume);
             engine.setNormalize(useAudioStore.getState().normalize);
         } catch (e) {
@@ -208,12 +208,12 @@ const Player = () => {
     const isSpotifyTrack = currentTrack?.source === 'spotify';
     useEffect(() => {
         if (!isSpotifyTrack || isSpotifyReady) return;
-        if ((window as any).Spotify) {
+        if (window.Spotify) {
             setIsSpotifyReady(true);
             return;
         }
 
-        (window as any).onSpotifyWebPlaybackSDKReady = () => setIsSpotifyReady(true);
+        window.onSpotifyWebPlaybackSDKReady = () => setIsSpotifyReady(true);
         const script = document.createElement("script");
         script.src = "https://sdk.scdn.co/spotify-player.js";
         script.async = true;
@@ -227,9 +227,9 @@ const Player = () => {
             // settings:get returns the raw string value (not a `{ value }` row), so the token
             // was always undefined and Spotify playback never initialised.
             const token = await window.ipcRenderer.invoke('settings:get', 'spotify_access_token') as string | null;
-            if (!token) return;
+            if (!token || !window.Spotify) return;
 
-            const player = new (window as any).Spotify.Player({
+            const player = new window.Spotify.Player({
                 name: 'AT Music Pro',
                 getOAuthToken: (cb: (token: string) => void) => { cb(token); },
                 volume: usePlayerStore.getState().volume

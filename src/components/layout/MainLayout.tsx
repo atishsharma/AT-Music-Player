@@ -84,7 +84,7 @@ const MainLayout = () => {
         const unsubPrev = window.ipcRenderer?.on?.('tray:prev', () => store().prev());
 
         // Main process pushes window state changes (replaces a 500ms IPC polling loop)
-        (window as any).windowControls?.getState?.()
+        window.windowControls?.getState?.()
             .then((state: { isMiniPlayer: boolean }) => setIsMiniMode(!!state?.isMiniPlayer))
             .catch(() => { /* ignore */ });
         const unsubState = window.ipcRenderer?.on?.('window:state', (_event, state: { isMiniPlayer: boolean }) => {
@@ -101,7 +101,7 @@ const MainLayout = () => {
 
     // Layout Independence for Mini Player - Reset zoom to 1.0 when in mini mode
     useEffect(() => {
-        const isLinux = (window as any).windowControls.platform === 'linux';
+        const isLinux = window.windowControls.platform === 'linux';
 
         if (isMiniMode) {
             // Mini player to 80% on Linux by default, 100% otherwise

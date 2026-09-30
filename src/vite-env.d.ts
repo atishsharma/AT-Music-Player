@@ -2,32 +2,60 @@
 
 declare const __APP_VERSION__: string;
 
+interface WindowState {
+    isMaximized: boolean;
+    isFullScreen: boolean;
+    isMiniPlayer: boolean;
+}
+
 interface Window {
+    /**
+     * Generic IPC bridge from the preload script. Payloads cross the process boundary as
+     * structured-clone data whose shape depends on the channel, so results are untyped here
+     * and narrowed at each call site.
+     */
     ipcRenderer: {
-        on(channel: string, listener: (event: any, ...args: any[]) => void): () => void;
-        off(channel: string, listener: (event: any, ...args: any[]) => void): void;
-        send(channel: string, ...args: any[]): void;
-        invoke(channel: string, ...args: any[]): Promise<any>;
-        'youtube:search'(query: string): Promise<any[]>;
-        'youtube:stream'(videoId: string): Promise<any>;
-        'download:start': (videoId: string) => Promise<{ success: boolean; message?: string }>;
-        'download:cancel': (videoId: string) => Promise<boolean>;
-        'lyrics:get': (metadata: any) => Promise<any>;
-        'playlist:create': (data: { name: string; description?: string }) => Promise<any>;
-        'playlist:getAll': () => Promise<any[]>;
-        'playlist:get': (id: number | string) => Promise<any>;
-        'playlist:addTrack': (data: { playlistId: number | string; trackId: number | string }) => Promise<boolean>;
-        'playlist:removeTrack': (data: { playlistId: number | string; trackId: number | string }) => Promise<boolean>;
-        'playlist:delete': (id: number | string) => Promise<boolean>;
-        'metadata:searchArtist': (query: string) => Promise<any[]>;
-        'metadata:getArtist': (mbid: string) => Promise<any>;
-        'metadata:getAlbum': (mbid: string) => Promise<any>;
-        'metadata:syncArtist': (artistName: string) => Promise<{ bio: string; image: string } | null>;
-        'metadata:syncAlbum': (data: { artist: string; album: string }) => Promise<{ cover: string; year: number } | null>;
-        'settings:get': (key: string) => Promise<string | null>;
-        'settings:set': (data: { key: string; value: string }) => Promise<boolean>;
-        'shell:showItemInFolder': (path: string) => Promise<void>;
-        'shell:trashItem': (path: string) => Promise<boolean>;
+        /* eslint-disable @typescript-eslint/no-explicit-any -- IPC payloads are channel-specific */
+        on(channel: string, listener: (event: unknown, ...args: any[]) => void): () => void;
+        off(channel: string, listener: (event: unknown, ...args: any[]) => void): void;
+        send(channel: string, ...args: unknown[]): void;
+        invoke(channel: string, ...args: unknown[]): Promise<any>;
+        /* eslint-enable @typescript-eslint/no-explicit-any */
         setZoomFactor?: (factor: number) => void;
     };
+    windowControls: {
+        minimize(): Promise<void>;
+        maximize(): Promise<void>;
+        close(): Promise<void>;
+        isMaximized(): Promise<boolean>;
+        toggleFullScreen(): Promise<boolean>;
+        toggleAlwaysOnTop(alwaysOnTop: boolean): Promise<void>;
+        miniPlayer(): Promise<void>;
+        normalMode(): Promise<void>;
+        isMiniPlayer(): Promise<boolean>;
+        getState(): Promise<WindowState>;
+        platform: string;
+    };
+    yt: {
+        getVideoStream(videoId: string): Promise<string>;
+        getVideoStreamWithQuality(videoId: string, quality: string): Promise<string>;
+        stopVideoStream(): Promise<void>;
+    };
+    ytdlp: { check(): Promise<boolean> };
+
+    /** Set by <Toast /> once mounted */
+    showToast?: (text: string) => void;
+    /** Set by the library page so other views can ask it to reload */
+    refreshLibraryStore?: () => Promise<void> | void;
+    refreshLibraryFromList?: () => Promise<void> | void;
+    /** Shared analyser for visualisers, created by the audio engine */
+    _audioAnalyser?: AnalyserNode;
+    webkitAudioContext?: typeof AudioContext;
+    Spotify?: { Player: new (options: Record<string, unknown>) => SpotifyPlayer };
+    onSpotifyWebPlaybackSDKReady?: () => void;
+}
+
+interface SpotifyPlayer {
+    addListener(event: string, cb: (data: { device_id: string }) => void): void;
+    connect(): Promise<boolean>;
 }

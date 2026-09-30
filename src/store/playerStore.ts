@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Track } from '../types/library';
+import type { Track, Lyrics } from '../types/library';
 
 interface PlayerState {
     isPlaying: boolean;
@@ -14,7 +14,7 @@ interface PlayerState {
     isPlayerOpen: boolean;
     isSidebarQueueOpen: boolean;
     isSidebarLyricsOpen: boolean;
-    lyrics: { plainLyrics: string; syncedLyrics: any[]; isSynced: boolean } | null;
+    lyrics: Lyrics | null;
     isMuted: boolean;
     previousVolume: number;
     loadingLyrics: boolean;
@@ -39,7 +39,7 @@ interface PlayerState {
     toggleSidebarQueue: (open?: boolean) => void;
     toggleSidebarLyrics: (open?: boolean) => void;
     toggleMute: () => void;
-    setLyrics: (lyrics: any) => void;
+    setLyrics: (lyrics: Lyrics | null) => void;
     setLoadingLyrics: (loading: boolean) => void;
     removeFromQueue: (index: number) => void;
     reorderQueue: (newQueue: Track[]) => void;

@@ -30,6 +30,10 @@ interface SettingsState {
     setMiniPlayerResizable: (resizable: boolean) => Promise<void>;
 }
 
+function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+    return allowed.includes(value as T) ? (value as T) : fallback;
+}
+
 export const useSettingsStore = create<SettingsState>((set) => ({
     lastfmKey: '',
     spotifyClientId: '',
@@ -65,11 +69,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
             spotifyClientSecret: sSec || '',
             youtubeApiKey: yt || '',
             downloadPath: dlPath || '',
-            albumSortBy: (sortBy as any) || 'name',
-            albumSortOrder: (sortOrder as any) || 'asc',
+            // Stored values are validated: a bad value used to flow straight into the sort code
+            albumSortBy: oneOf(sortBy, ['name', 'artist', 'count'] as const, 'name'),
+            albumSortOrder: oneOf(sortOrder, ['asc', 'desc'] as const, 'asc'),
             albumThumbnailSize: thumbSize ? parseInt(thumbSize) : 150,
-            artistSortBy: (artistBy as any) || 'name',
-            artistSortOrder: (artistOrder as any) || 'asc',
+            artistSortBy: oneOf(artistBy, ['name', 'count'] as const, 'name'),
+            artistSortOrder: oneOf(artistOrder, ['asc', 'desc'] as const, 'asc'),
             isMiniPlayerResizable: resizable === 'true',
         });
     },

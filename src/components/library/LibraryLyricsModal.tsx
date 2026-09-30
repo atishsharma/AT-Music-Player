@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Edit3, RefreshCw, AudioLines, Music, Quote } from 'lucide-react';
-import { Track } from '../../types/library';
+import type { Track, Lyrics } from '../../types/library';
 
 interface LibraryLyricsModalProps {
     track: Track;
@@ -10,28 +10,22 @@ interface LibraryLyricsModalProps {
 
 const LibraryLyricsModal: React.FC<LibraryLyricsModalProps> = ({ track, onClose, onSearchRequest }) => {
     const [loading, setLoading] = useState(false);
-    const [lyrics, setLyrics] = useState<{ plainLyrics: string, syncedLyrics: any[], isSynced: boolean } | null>(null);
+    const [lyrics, setLyrics] = useState<Lyrics | null>(null);
 
     useEffect(() => {
-        fetchLyricsFromDB();
-    }, [track]);
-
-    const fetchLyricsFromDB = async () => {
+        let cancelled = false;
         setLoading(true);
-        try {
-            const result = await window.ipcRenderer.invoke('lyrics:get', {
-                artist: track.artist,
-                title: track.title,
-                album: track.album,
-                duration: track.duration
-            });
-            setLyrics(result);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+        window.ipcRenderer.invoke('lyrics:get', {
+            artist: track.artist,
+            title: track.title,
+            album: track.album,
+            duration: track.duration
+        })
+            .then((result: Lyrics | null) => { if (!cancelled) setLyrics(result); })
+            .catch(console.error)
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
+    }, [track]);
 
     return (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-xl z-[100] flex items-center justify-center p-6">

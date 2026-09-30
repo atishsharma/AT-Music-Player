@@ -22,7 +22,7 @@ const SearchBar = () => {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search music, artists, albums..."
-                className="w-full h-11 pl-10 pr-4 rounded-full bg-surface-variant/50 border-none focus:ring-2 focus:ring-primary-500/50 focus:bg-white transition-all text-sm font-medium"
+                className="w-full h-11 pl-10 pr-4 rounded-full bg-surface-variant/50 border-none focus:ring-2 focus:ring-primary/50 focus:bg-white transition-all text-sm font-medium"
             />
         </form>
     );

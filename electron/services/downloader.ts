@@ -3,18 +3,19 @@ import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { getDB } from '../db';
+import type { ChildProcess } from 'child_process';
 
 
 // Store active downloads
-const activeDownloads = new Map<string, any>();
+const activeDownloads = new Map<string, ChildProcess>();
 
-export async function startDownload(track: any, options: { format: string, quality: string, formatId?: string, customFilename?: string, embedThumbnail?: boolean }, mainWindow: BrowserWindow) {
+export async function startDownload(track: { id: string; title: string }, options: { format: string, quality: string, formatId?: string, customFilename?: string, embedThumbnail?: boolean }, mainWindow: BrowserWindow) {
     const db = getDB();
     const videoId = track.id;
     const downloadId = videoId;
 
     // Check if already downloading or downloaded
-    const existing = db.prepare('SELECT state FROM downloads WHERE id = ?').get(downloadId) as any;
+    const existing = db.prepare('SELECT state FROM downloads WHERE id = ?').get(downloadId) as { state: string } | undefined;
     if (existing && existing.state === 'completed') {
         return { success: false, message: 'Already downloaded' };
     }

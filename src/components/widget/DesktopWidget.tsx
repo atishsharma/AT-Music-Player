@@ -62,7 +62,7 @@ const Artwork = ({ src, className, spin, playing }: { src: string; className?: s
                         className={clsx('w-full h-full object-cover', spin && 'widget-spin', spin && !playing && 'widget-spin-paused')}
                     />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-secondary">
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-primary">
                         <Music2 className="text-white/80" size={22} />
                     </div>
                 )}

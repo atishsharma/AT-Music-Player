@@ -2,10 +2,11 @@ import { useState, useMemo } from 'react';
 import { Play, ArrowUpDown } from 'lucide-react';
 import { toAtmusicUrl } from '../../utils/path';
 import clsx from 'clsx';
+import type { Track } from '../../types/library';
 
 interface SongGridProps {
-    tracks: any[];
-    onPlay: (track: any) => void;
+    tracks: Track[];
+    onPlay: (track: Track) => void;
 }
 
 type SortKey = 'default' | 'title' | 'artist' | 'album' | 'date' | 'duration';
@@ -27,8 +28,8 @@ const SongGrid = ({ tracks, onPlay }: SongGridProps) => {
     const sortedTracks = useMemo(() => {
         if (sortKey === 'default') return tracks;
         return [...tracks].sort((a, b) => {
-            let valA: any = a[sortKey as keyof typeof a] || '';
-            let valB: any = b[sortKey as keyof typeof b] || '';
+            let valA: string | number = String(a[sortKey as keyof Track] ?? '');
+            let valB: string | number = String(b[sortKey as keyof Track] ?? '');
 
             if (sortKey === 'duration') {
                 valA = a.duration || 0;

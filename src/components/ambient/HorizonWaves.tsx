@@ -36,7 +36,7 @@ const HorizonWaves = ({ active, playing, lowPower }: Props) => {
         let palette = colors();
         const paletteTimer = window.setInterval(() => { palette = colors(); }, 2000);
 
-        const analyser: AnalyserNode | undefined = (window as any)._audioAnalyser;
+        const analyser: AnalyserNode | undefined = window._audioAnalyser;
         const bins = analyser ? new Uint8Array(analyser.frequencyBinCount) : null;
         const interval = 1000 / (lowPower ? 15 : 30);
         let raf = 0, last = 0, phase = 0;

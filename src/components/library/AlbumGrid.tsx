@@ -25,7 +25,7 @@ const AlbumGrid: React.FC<AlbumGridProps> = ({ tracks }) => {
         tracks.forEach(t => {
             const key = `${t.album}-${t.artist}`;
             if (!map.has(key)) {
-                map.set(key, { title: t.album || 'Unknown Album', artist: t.artist || 'Unknown Artist', count: 0, art: t.image_path, year: (t as any).year });
+                map.set(key, { title: t.album || 'Unknown Album', artist: t.artist || 'Unknown Artist', count: 0, art: t.image_path, year: (t as Track & { year?: number }).year });
             }
             map.get(key)!.count++;
         });
@@ -33,23 +33,23 @@ const AlbumGrid: React.FC<AlbumGridProps> = ({ tracks }) => {
     }, [tracks]);
 
     useEffect(() => {
+        // Covers appear as they arrive (used to wait for every album), and a stale run stops
+        // when the library changes or the view closes
+        let cancelled = false;
         const fetchCovers = async () => {
-            const covers: Record<string, { cover?: string; year?: number }> = {};
             for (const album of albumsArr) {
-                if (album.art && album.year) {
-                    covers[album.title] = { cover: album.art, year: album.year };
-                    continue;
-                }
-                const data = await window.ipcRenderer.invoke('metadata:syncAlbum', { artist: album.artist, album: album.title });
-                if (data) {
-                    covers[album.title] = { cover: data.cover || album.art, year: data.year || album.year };
-                }
+                if (cancelled) return;
+                if (album.art && album.year) continue;
+                try {
+                    const data = await window.ipcRenderer.invoke('metadata:syncAlbum', { artist: album.artist, album: album.title });
+                    if (data && !cancelled) {
+                        setAlbumCovers(prev => ({ ...prev, [album.title]: { cover: data.cover || album.art, year: data.year || album.year } }));
+                    }
+                } catch { /* offline / no key */ }
             }
-            setAlbumCovers(covers);
         };
-        if (albumsArr.length > 0) {
-            fetchCovers();
-        }
+        if (albumsArr.length > 0) fetchCovers();
+        return () => { cancelled = true; };
     }, [albumsArr]);
 
     const sortedAlbums = useMemo(() => {
@@ -69,7 +69,7 @@ const AlbumGrid: React.FC<AlbumGridProps> = ({ tracks }) => {
             return albumSortOrder === 'asc' ? res : -res;
         });
         return sorted;
-    }, [albumsArr, albumSortBy, albumSortOrder, albumCovers]);
+    }, [albumsArr, albumSortBy, albumSortOrder]);
 
     if (albumsArr.length === 0) {
         return (
@@ -86,10 +86,10 @@ const AlbumGrid: React.FC<AlbumGridProps> = ({ tracks }) => {
             <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-surface-variant/20 rounded-2xl border border-white/5">
                 <div className="flex items-center gap-4">
                     <div className="flex bg-surface-variant/40 rounded-lg p-1">
-                        {['name', 'artist', 'count'].map(option => (
+                        {(['name', 'artist', 'count'] as const).map(option => (
                             <button
                                 key={option}
-                                onClick={() => setAlbumSortBy(option as any)}
+                                onClick={() => setAlbumSortBy(option)}
                                 className={clsx(
                                     "px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-widest transition-all",
                                     albumSortBy === option ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"
@@ -152,7 +152,7 @@ const AlbumGrid: React.FC<AlbumGridProps> = ({ tracks }) => {
                                     className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500"
                                 />
                             ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-primary-500/20 to-secondary-500/20 flex items-center justify-center text-primary-500">
+                                <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/20 flex items-center justify-center text-primary">
                                     <Disc size={40} />
                                 </div>
                             )}
@@ -173,7 +173,7 @@ const AlbumGrid: React.FC<AlbumGridProps> = ({ tracks }) => {
                                 >
                                     <Heart size={20} fill={isFavorite(`album-${album.title}-${album.artist}`) ? "currentColor" : "none"} />
                                 </button>
-                                <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-110 transition-transform hover:bg-primary-600">
+                                <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-110 transition-transform hover:bg-primary/90">
                                     <Play size={24} fill="currentColor" className="ml-1" />
                                 </div>
                             </div>

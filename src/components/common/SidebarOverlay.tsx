@@ -1,5 +1,6 @@
 
 import { useRef, useEffect, useState } from 'react';
+import { usePlaylistStore } from '../../store/playlistStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useActiveLyricIndex } from '../../hooks/useActiveLyricIndex';
@@ -9,8 +10,10 @@ import { X, Mic2, ListMusic, Play, Heart, Plus, Music2, ChevronUp, ChevronDown }
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { toAtmusicUrl } from '../../utils/path';
+import type { Track, LyricLine, PlaylistSummary } from '../../types/library';
+import type { QueueStepProps, QueueItemProps } from './queueTypes';
 
-const QueueStepControls = ({ index, queue, reorderQueue, appearance }: any) => {
+const QueueStepControls = ({ index, queue, reorderQueue, appearance }: QueueStepProps) => {
     const move = (e: React.MouseEvent, direction: 'up' | 'down') => {
         e.stopPropagation();
         const newQueue = [...queue];
@@ -50,9 +53,9 @@ const QueueStepControls = ({ index, queue, reorderQueue, appearance }: any) => {
     );
 };
 
-const SidebarQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, removeFavorite, appearance, queue, reorderQueue }: any) => {
+const SidebarQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, removeFavorite, appearance, queue, reorderQueue }: QueueItemProps) => {
     const [showPlaylistPopup, setShowPlaylistPopup] = useState(false);
-    const [playlists, setPlaylists] = useState<any[]>([]);
+    const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
     const playlistPopupRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -94,7 +97,7 @@ const SidebarQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite,
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        const id = track.id?.toString() || track.id;
+                        const id = String(track.id);
                         isFav ? removeFavorite(id) : addFavorite({ ...track, id, type: 'song' });
                     }}
                     className={clsx("p-2 rounded-full transition-colors", isFav ? "text-primary bg-primary/10" : "text-primary hover:bg-primary/20")}
@@ -127,8 +130,8 @@ const SidebarQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite,
                                         onClick={async (e) => {
                                             e.stopPropagation();
                                             if (track?.id) {
-                                                await window.ipcRenderer.invoke('playlist:addTrack', { playlistId: pl.id, trackId: track.id });
-                                                (window as any).showToast?.(`Added to ${pl.name}`);
+                                                const ok = await usePlaylistStore.getState().addTrackToPlaylist(pl.id, track);
+                                                window.showToast?.(ok ? `Added to ${pl.name}` : `Couldn't add to ${pl.name} (already there?)`);
                                             }
                                             setShowPlaylistPopup(false);
                                         }}
@@ -182,7 +185,7 @@ const SidebarOverlay = () => {
         removeFromQueue: s.removeFromQueue,
         reorderQueue: s.reorderQueue,
         clearQueue: s.clearQueue,
-    }))) as any;
+    })));
 
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
     const appearance = useThemeStore(s => s.appearance);
@@ -240,7 +243,7 @@ const SidebarOverlay = () => {
                                 {lyrics ? (
                                     lyrics.isSynced ? (
                                         <div className="space-y-6 py-12 text-center" ref={lyricsContainerRef}>
-                                            {lyrics.syncedLyrics.map((line: any, i: number) => {
+                                            {lyrics.syncedLyrics.map((line: LyricLine, i: number) => {
                                                 const isActive = i === activeLineIndex;
                                                 return (
                                                     <p
@@ -303,8 +306,8 @@ const SidebarOverlay = () => {
                                     </div>
                                     <div className="space-y-2 pb-20">
                                         {queue && queue.length > 0 ? (
-                                            queue.map((track: any, i: number) => {
-                                                const id = track.id?.toString() || track.id;
+                                            queue.map((track: Track, i: number) => {
+                                                const id = String(track.id);
                                                 const isFav = isFavorite(id);
                                                 return (
                                                     <SidebarQueueItem key={track.id + '-' + i} track={track} i={i} isFav={isFav} play={play} removeFromQueue={removeFromQueue} addFavorite={addFavorite} removeFavorite={removeFavorite} appearance={appearance} queue={queue} reorderQueue={reorderQueue} />

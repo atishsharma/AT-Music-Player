@@ -89,7 +89,16 @@ function queue(): ScrobbleTrack[] {
     try { return JSON.parse(getSetting('lastfm_queue') || '[]'); } catch { return []; }
 }
 
-export async function lastfmScrobble(t: ScrobbleTrack) {
+// Scrobbles are sent one request at a time: two overlapping requests both read the
+// offline queue and sent (and re-queued) the same songs twice.
+let scrobbleChain: Promise<void> = Promise.resolve();
+
+export function lastfmScrobble(t: ScrobbleTrack) {
+    scrobbleChain = scrobbleChain.then(() => sendScrobble(t)).catch(() => { /* logged inside */ });
+    return scrobbleChain;
+}
+
+async function sendScrobble(t: ScrobbleTrack) {
     const sk = active();
     if (!sk || !t.artist || !t.track) return;
     // Send this one plus anything queued while offline (max 50 per request)

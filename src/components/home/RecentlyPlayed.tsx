@@ -3,9 +3,10 @@ import { Play, Clock, ArrowRight } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
 import { useNavigate } from 'react-router-dom';
 import { toAtmusicUrl } from '../../utils/path';
+import type { Track } from '../../types/library';
 
 const RecentlyPlayed = () => {
-    const [recent, setRecent] = useState<any[]>([]);
+    const [recent, setRecent] = useState<Track[]>([]);
     const [visibleCount, setVisibleCount] = useState(7);
     const play = usePlayerStore(s => s.play);
     const navigate = useNavigate();
@@ -15,7 +16,7 @@ const RecentlyPlayed = () => {
             try {
                 const data = await window.ipcRenderer.invoke('library:getRecentlyPlayed', 14);
                 // Deduplicate by id or title+artist
-                const unique = data.reduce((acc: any[], current: any) => {
+                const unique = (data as Track[]).reduce((acc: Track[], current) => {
                     const x = acc.find(item => item.id === current.id || (item.title === current.title && item.artist === current.artist));
                     if (!x) return acc.concat([current]);
                     else return acc;
@@ -82,12 +83,12 @@ const RecentlyPlayed = () => {
                         <div className="aspect-square rounded-[2rem] bg-surface-variant overflow-hidden shadow-lg group-hover:shadow-primary/20 group-hover:shadow-2xl transition-all duration-500 relative">
                             {item.image_path ? (
                                 <img
-                                    src={item.image_path.startsWith('http') ? item.image_path : toAtmusicUrl(item.image_path)}
+                                    src={toAtmusicUrl(item.image_path)}
                                     alt={item.title}
                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                 />
                             ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
+                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/10">
                                     <div className="w-16 h-16 rounded-full bg-primary/5 flex items-center justify-center">
                                         <Play size={32} className="text-primary/20" />
                                     </div>

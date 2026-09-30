@@ -7,6 +7,7 @@ import { useFavoritesStore } from '../../store/favoritesStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { toAtmusicUrl } from '../../utils/path';
+import type { Track, Lyrics, LyricLine } from '../../types/library';
 import { useEqualizerStore } from '../../store/equalizerStore';
 import Equalizer from './Equalizer';
 
@@ -31,7 +32,7 @@ const MiniPlayer = () => {
         setVolume,
         toggleMute,
         isMuted
-    } = usePlayerStore() as any;
+    } = usePlayerStore();
 
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
     const liquidGlass = useThemeStore(s => s.liquidGlass);
@@ -40,7 +41,7 @@ const MiniPlayer = () => {
     // Round glass icon button used across the header/transport
     const glassBtn = 'lg-panel lg-press text-on-background hover:text-primary';
 
-    const [lyrics, setLyrics] = useState<any>(null);
+    const [lyrics, setLyrics] = useState<Lyrics | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [dragValue, setDragValue] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
@@ -52,12 +53,12 @@ const MiniPlayer = () => {
     const setEqOpen = useEqualizerStore(state => state.setOpen);
     const lyricsRef = useRef<HTMLDivElement>(null);
 
-    const isFav = currentTrack ? isFavorite(currentTrack.id?.toString() || currentTrack.id) : false;
+    const isFav = currentTrack ? isFavorite(String(currentTrack.id)) : false;
 
     const handleFavToggle = () => {
         if (!currentTrack) return;
-        if (isFav) removeFavorite(currentTrack.id?.toString() || currentTrack.id);
-        else addFavorite({ ...currentTrack, id: currentTrack.id?.toString() || currentTrack.id, type: 'song' });
+        if (isFav) removeFavorite(String(currentTrack.id));
+        else addFavorite({ ...currentTrack, id: String(currentTrack.id), type: 'song' });
     };
 
     useEffect(() => {
@@ -85,7 +86,7 @@ const MiniPlayer = () => {
     }, [activeLineIndex]);
 
     const exitMiniPlayer = async () => {
-        try { await (window as any).windowControls.normalMode(); }
+        try { await window.windowControls.normalMode(); }
         catch (err) { console.error('Failed to exit mini player:', err); }
     };
 
@@ -122,7 +123,7 @@ const MiniPlayer = () => {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 return;
             }
-            const analyser = (window as any)._audioAnalyser;
+            const analyser = window._audioAnalyser;
             
             if (!analyser) {
                 // Poll every 100ms if not found
@@ -218,7 +219,7 @@ const MiniPlayer = () => {
                     <button
                         onClick={() => {
                             setIsAlwaysOnTop(!isAlwaysOnTop);
-                            (window as any).windowControls.toggleAlwaysOnTop(!isAlwaysOnTop);
+                            window.windowControls.toggleAlwaysOnTop(!isAlwaysOnTop);
                         }}
                         className={clsx(
                             "p-2 rounded-full transition-all",
@@ -259,7 +260,7 @@ const MiniPlayer = () => {
                         <Maximize2 size={16} />
                     </button>
                     <button
-                        onClick={() => (window as any).windowControls.minimize()}
+                        onClick={() => window.windowControls.minimize()}
                         title="Minimize"
                         className={clsx("p-2 rounded-full transition-all", g(glassBtn, 'text-primary border-2 border-primary bg-primary/5 opacity-60 hover:opacity-100 hover:bg-primary/10'))}
                     >
@@ -313,7 +314,7 @@ const MiniPlayer = () => {
 
                             {lyrics?.syncedLyrics ? (
                                 <div ref={lyricsRef} className="flex-1 overflow-y-auto no-scrollbar px-5 py-8 space-y-4">
-                                    {lyrics.syncedLyrics.map((line: any, i: number) => {
+                                    {lyrics.syncedLyrics.map((line: LyricLine, i: number) => {
                                         const isActive = i === activeLineIndex;
                                         return (
                                             <p
@@ -593,7 +594,7 @@ const MiniPlayer = () => {
                         {/* Queue list */}
                         <div className="flex-1 overflow-y-auto no-scrollbar px-3 pb-4 space-y-1">
                             {queue && queue.length > 0 ? (
-                                queue.map((track: any, i: number) => (
+                                queue.map((track: Track, i: number) => (
                                     <div
                                         key={track.id + '-' + i}
                                         onClick={() => { play(track); removeFromQueue(i); setShowQueue(false); }}
@@ -602,9 +603,7 @@ const MiniPlayer = () => {
                                         <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 bg-surface-variant/30 flex items-center justify-center relative">
                                             {(track.image_path || track.thumbnail) ? (
                                                 <img
-                                                    src={(track.image_path || track.thumbnail).startsWith('http')
-                                                        ? (track.image_path || track.thumbnail)
-                                                        : toAtmusicUrl(track.image_path || track.thumbnail)}
+                                                    src={toAtmusicUrl(track.image_path || track.thumbnail)}
                                                     className="w-full h-full object-cover"
                                                     alt=""
                                                 />

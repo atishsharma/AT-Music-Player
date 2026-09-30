@@ -64,7 +64,7 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                             ? "lg-panel lg-strong lg-blur text-on-background"
                             : "bg-background/95 border-on-background/10 text-on-background shadow-black/30"
                     )}
-                    style={{ WebkitAppRegion: 'no-drag' } as any}
+                    style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                 >
                     {/* Header */}
                     <div className={clsx(
@@ -171,7 +171,7 @@ const Equalizer = ({ isOpen, onClose, anchor = 'bottom', align = 'right' }: Equa
                                                 onChange={(e) => setGain(index, parseFloat(e.target.value))}
                                                 className="eq-slider-vertical"
                                                 style={{
-                                                    writingMode: 'vertical-lr' as any,
+                                                    writingMode: 'vertical-lr',
                                                     direction: 'rtl',
                                                     width: '140px',
                                                     height: '30px',

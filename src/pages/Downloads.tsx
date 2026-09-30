@@ -6,13 +6,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { YtDlpFooter } from '../components/common/YtDlpFooter';
 
+interface DownloadFormat { formatId: string; extension: string; codec?: string; abr?: number; filesize?: number; label: string }
+interface PendingTrack { id: string; title: string; artist: string; duration?: number; thumbnail?: string; source: 'youtube'; formats: DownloadFormat[] }
+
 const Downloads = () => {
     const { downloads, setDownload, removeDownload } = useDownloadStore();
     const [searchParams, setSearchParams] = useSearchParams();
     const [url, setUrl] = useState(searchParams.get('url') || '');
     const [isFetchingInfo, setIsFetchingInfo] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-    const [pendingTrack, setPendingTrack] = useState<any>(null);
+    const [pendingTrack, setPendingTrack] = useState<PendingTrack | null>(null);
     const [selectedFormat, setSelectedFormat] = useState('m4a');
     const [selectedFormatId, setSelectedFormatId] = useState<string | null>(null);
     const [customFilename, setCustomFilename] = useState('');
@@ -43,7 +46,7 @@ const Downloads = () => {
                 setCustomFilename(info.title);
                 // Select best m4a quality by default if available
                 if (info.formats && info.formats.length > 0) {
-                    const defaultFormat = info.formats.find((f: any) => f.extension === 'm4a') || info.formats[0];
+                    const defaultFormat = (info.formats as DownloadFormat[]).find(f => f.extension === 'm4a') || info.formats[0];
                     setSelectedFormatId(defaultFormat.formatId);
                     setSelectedFormat(defaultFormat.extension === 'm4a' ? 'm4a' : 'mp3');
                 }
@@ -307,7 +310,7 @@ const Downloads = () => {
                             className="relative w-full max-w-2xl bg-surface p-10 rounded-[4rem] border border-white/10 shadow-3xl overflow-hidden"
                         >
                             <div className="absolute -top-32 -right-32 w-64 h-64 bg-primary/20 blur-[120px] rounded-full" />
-                            <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-secondary/10 blur-[120px] rounded-full" />
+                            <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-primary/10 blur-[120px] rounded-full" />
 
                             <div className="relative space-y-10">
                                 <div className="flex items-center justify-between">
@@ -333,7 +336,7 @@ const Downloads = () => {
                                         <p className="text-on-surface-variant/60 font-bold uppercase tracking-widest text-xs">{pendingTrack.artist}</p>
                                         <div className="flex gap-3 pt-2">
                                             <span className="px-4 py-1.5 bg-primary/20 rounded-full text-[10px] font-black uppercase tracking-widest text-primary border border-primary/20">
-                                                {Math.floor(pendingTrack.duration / 60)}:{(pendingTrack.duration % 60).toString().padStart(2, '0')}
+                                                {Math.floor((pendingTrack.duration || 0) / 60)}:{Math.floor((pendingTrack.duration || 0) % 60).toString().padStart(2, '0')}
                                             </span>
                                             <span className="px-4 py-1.5 bg-white/5 rounded-full text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 border border-white/5">
                                                 YouTube
@@ -349,7 +352,7 @@ const Downloads = () => {
                                         </label>
                                         <div className="space-y-2 max-h-[220px] overflow-y-auto no-scrollbar pr-2">
                                             {pendingTrack.formats.length > 0 ? (
-                                                pendingTrack.formats.map((f: any) => (
+                                                pendingTrack.formats.map((f) => (
                                                     <button
                                                         key={f.formatId}
                                                         onClick={() => {
