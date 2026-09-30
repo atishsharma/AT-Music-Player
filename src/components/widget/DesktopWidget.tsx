@@ -14,7 +14,7 @@ interface WidgetConfig {
 
 const EMPTY: WidgetPlayerState = {
     title: '', artist: '', album: '', artwork: '', isPlaying: false, currentTime: 0, duration: 0,
-    loop: 'none', shuffle: false, isFavorite: false, appearance: 'dark', hasTrack: false,
+    loop: 'none', shuffle: false, isFavorite: false, appearance: 'dark', hasTrack: false, volume: 1, queue: [],
 };
 
 const send = (command: WidgetCommand) => window.ipcRenderer.send('widget:command', command);

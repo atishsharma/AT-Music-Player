@@ -2,8 +2,9 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Palette, MonitorPlay, AppWindow, Library, Link2, Cpu, Info, Search,
+    Palette, MonitorPlay, AppWindow, Library, Link2, Cpu, Info, Search, Smartphone,
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import { useSettingsStore } from '../store/settingsStore';
 import { useThemeStore, type Appearance, type Mood } from '../store/themeStore';
 import { useAmbientStore, AMBIENT_SCENES, type AmbientScene } from '../store/ambientStore';
@@ -128,11 +129,65 @@ const SECTIONS = [
     { id: 'appearance', label: 'Appearance', icon: Palette, k: 'theme light dark oled glass liquid mood colour color interface size zoom scale' },
     { id: 'ambient', label: 'Ambient mode', icon: MonitorPlay, k: 'ambient scene aurora vinyl horizon clock idle screensaver full screen keep screen on' },
     { id: 'widget', label: 'Widget & mini player', icon: AppWindow, k: 'desktop widget style pill card orb always on top mini player resizable' },
+    { id: 'remote', label: 'Phone remote', icon: Smartphone, k: 'phone remote control qr code lan wifi mobile' },
     { id: 'library', label: 'Library', icon: Library, k: 'download folder location audio cache clear' },
     { id: 'connections', label: 'Connections', icon: Link2, k: 'youtube api key last.fm lastfm' },
     { id: 'system', label: 'System', icon: Cpu, k: 'hardware acceleration gpu yt-dlp ffmpeg' },
     { id: 'about', label: 'About', icon: Info, k: 'about version license' },
 ] as const;
+
+interface RemoteInfo { enabled: boolean; running: boolean; url: string; port: number }
+
+/** Phone remote: enable the LAN server, show its QR code/link, rotate the secret link. */
+const PhoneRemote = ({ say }: { say: (m: string) => void }) => {
+    const [info, setInfo] = useState<RemoteInfo | null>(null);
+    const [qr, setQr] = useState('');
+    const [busy, setBusy] = useState(false);
+
+    useEffect(() => { window.ipcRenderer.invoke('remote:status').then(setInfo); }, []);
+    useEffect(() => {
+        if (!info?.url) { setQr(''); return; }
+        QRCode.toDataURL(info.url, { margin: 1, width: 360, color: { dark: '#000000', light: '#ffffff' } }).then(setQr).catch(() => setQr(''));
+    }, [info?.url]);
+
+    const run = async (fn: () => Promise<RemoteInfo>, msg: string) => {
+        setBusy(true);
+        try { setInfo(await fn()); say(msg); } finally { setBusy(false); }
+    };
+
+    return (
+        <Group>
+            <Row label="Control from your phone" hint="Scan the code on a phone on the same Wi-Fi. No app needed." k="enable">
+                <Switch
+                    on={!!info?.enabled}
+                    onChange={v => run(() => window.ipcRenderer.invoke('remote:setEnabled', v), v ? 'Phone remote on' : 'Phone remote off')}
+                    label="Phone remote"
+                />
+            </Row>
+            {info?.enabled && (
+                <Row label="Scan to connect" k="qr link url" stack>
+                    {info.running && info.url ? (
+                        <div className="flex flex-wrap items-center gap-5">
+                            <div className="w-40 h-40 rounded-2xl bg-white p-2 grid place-items-center shrink-0">
+                                {qr && <img src={qr} alt="QR code for the phone remote" className="w-full h-full [image-rendering:pixelated]" />}
+                            </div>
+                            <div className="min-w-0 flex-1 flex flex-col gap-2.5">
+                                <span className="font-mono text-[12px] text-on-background/70 break-all select-text">{info.url}</span>
+                                <span className="text-[12.5px] text-on-background/50">Anyone with this link on your network can control playback. Reset it to lock out old devices.</span>
+                                <div className="flex gap-2">
+                                    <Btn onClick={() => { navigator.clipboard.writeText(info.url); say('Link copied'); }}>Copy link</Btn>
+                                    <Btn disabled={busy} onClick={() => run(() => window.ipcRenderer.invoke('remote:resetLink'), 'New link created')}>Reset link</Btn>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <Status tone="warn">Couldn't start the remote server. Check your firewall.</Status>
+                    )}
+                </Row>
+            )}
+        </Group>
+    );
+};
 
 const Section = ({ id, title, action, children }: { id: string; title: string; action?: React.ReactNode; children: React.ReactNode }) => {
     const q = useContext(QueryContext);
@@ -449,6 +504,11 @@ const SettingsPage = () => {
                                 <Switch on={settings.isMiniPlayerResizable} onChange={v => { settings.setMiniPlayerResizable(v); say('Saved'); }} label="Resizable mini player" />
                             </Row>
                         </Group>
+                    </Section>
+
+                    {/* ─── Phone remote ─── */}
+                    <Section id="remote" title="Phone remote">
+                        <PhoneRemote say={say} />
                     </Section>
 
                     {/* ─── Library ─── */}

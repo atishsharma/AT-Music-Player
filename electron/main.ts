@@ -6,6 +6,8 @@ import { stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { initDB, getSetting, getDB } from './db'
 import { registerHandlers } from './ipc'
+import { startRemote, stopRemote, remoteStatus, newRemoteToken } from './services/remote'
+import { searchYouTube } from './services/ytdlp'
 
 // Initialize Database early (settings below are needed before `ready`)
 initDB();
@@ -628,8 +630,48 @@ ipcMain.handle('system:info', async () => {
   };
 });
 
+// Phone remote (LAN web page, token-protected)
+function remoteToken() {
+  let t = getSetting('remote_token');
+  if (!t) { t = newRemoteToken(); setSetting('remote_token', t); }
+  return t;
+}
+
+async function startPhoneRemote() {
+  return startRemote({
+    getState: () => lastPlayerState ?? { hasTrack: false },
+    command: (cmd) => win?.webContents.send('player:command', cmd),
+    artwork: () => {
+      const art = (lastPlayerState as { artwork?: string } | null)?.artwork || '';
+      return art.startsWith('atmusic://') ? resolveProtocolPath(art) : art;
+    },
+    search: async (q) => {
+      const term = `%${q}%`;
+      const local = getDB().prepare('SELECT * FROM tracks WHERE title LIKE ? OR artist LIKE ? OR album LIKE ? LIMIT 8').all(term, term, term);
+      let online: unknown[] = [];
+      try { online = (await searchYouTube(q)).slice(0, 12); } catch { /* offline */ }
+      return [...local, ...online];
+    },
+  }, remoteToken(), parseInt(getSetting('remote_port') || '7777', 10) || 7777);
+}
+
+ipcMain.handle('remote:status', () => ({ enabled: getSetting('remote_enabled') === 'true', ...remoteStatus() }));
+ipcMain.handle('remote:setEnabled', async (_event, enabled: boolean) => {
+  setSetting('remote_enabled', String(!!enabled));
+  if (enabled) {
+    try { await startPhoneRemote(); } catch (err) { console.error('Phone remote failed to start', err); }
+  } else stopRemote();
+  return { enabled: !!enabled, ...remoteStatus() };
+});
+ipcMain.handle('remote:resetLink', async () => {
+  setSetting('remote_token', newRemoteToken());
+  if (getSetting('remote_enabled') === 'true') await startPhoneRemote();
+  return { enabled: getSetting('remote_enabled') === 'true', ...remoteStatus() };
+});
+
 app.on('before-quit', () => {
   isQuitting = true;
+  stopRemote();
   widgetWin?.destroy();
   videoWin?.destroy();
 });
@@ -747,4 +789,5 @@ app.whenReady().then(() => {
   if (!gotSingleInstanceLock) return;
   createTray();
   createWindow();
+  if (getSetting('remote_enabled') === 'true') startPhoneRemote().catch(err => console.error('Phone remote failed to start', err));
 });

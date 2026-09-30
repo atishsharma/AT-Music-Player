@@ -28,12 +28,14 @@
   "dependencies": {
     "axios": "^1.13.5",
     "better-sqlite3": "^12.6.2",
-    "music-metadata": "^11.12.1"
+    "music-metadata": "^11.12.1",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.2",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.3.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.2.64",
     "@types/react-dom": "^18.2.21",
     "@typescript-eslint/eslint-plugin": "^7.1.1",
