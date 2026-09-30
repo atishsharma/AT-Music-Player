@@ -1,6 +1,7 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Play, SkipBack, SkipForward, Repeat, Shuffle, Volume2, VolumeX, Pause, ChevronUp, Maximize2, ListMusic, Mic2, Heart, Plus, PictureInPicture2, SlidersHorizontal, MonitorPlay } from 'lucide-react';
+import { Play, SkipBack, SkipForward, Repeat, Shuffle, Volume2, VolumeX, Pause, ChevronUp, Maximize2, ListMusic, Mic2, Heart, Plus, PictureInPicture2, SlidersHorizontal, MonitorPlay, Radio } from 'lucide-react';
+import { useRadioStore } from '../../store/radioStore';
 import { useAmbientStore } from '../../store/ambientStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -74,6 +75,27 @@ const SeekBar = ({ isLight }: { isLight: boolean }) => {
             </div>
             <span className="w-10">{formatTime(duration)}</span>
         </div>
+    );
+};
+
+/** Smart Radio: start a station from the current song, or stop the running one */
+const RadioButton = ({ isLight }: { isLight: boolean }) => {
+    const active = useRadioStore(s => s.active);
+    const loading = useRadioStore(s => s.loading);
+    const seed = useRadioStore(s => s.seedTitle);
+    return (
+        <button
+            onClick={() => (active ? useRadioStore.getState().stop() : useRadioStore.getState().start())}
+            className={clsx(
+                "p-2 rounded-full transition-all relative",
+                active
+                    ? (isLight ? "bg-white text-primary" : "bg-primary text-on-primary")
+                    : (isLight ? "text-on-primary/70 hover:bg-black/5" : "text-on-surface-variant hover:bg-white/5")
+            )}
+            title={active ? `Radio from “${seed}” (click to stop)` : 'Start radio from this song'}
+        >
+            <Radio size={18} className={clsx(loading && "animate-pulse")} />
+        </button>
     );
 };
 
@@ -323,6 +345,7 @@ const PlayerBar = () => {
 
             {/* Right Side Tools */}
             <div className="shrink-0 flex justify-end items-center gap-2 xl:gap-4">
+                <RadioButton isLight={isLight} />
                 <button
                     onClick={() => toggleSidebarLyrics()}
                     className={clsx(

@@ -372,3 +372,31 @@ export function cancelCacheAudio() {
     activeCacheVideoId = null;
 }
 
+
+/**
+ * Smart Radio: YouTube's auto-generated "mix" (radio) playlist for a video, i.e.
+ * `watch?v=ID&list=RDID`. Returns playable entries in the app's search-result shape.
+ */
+export async function getRadioMix(videoId: string, limit = 25) {
+    try {
+        const output = await execYtDlpJson([
+            `https://www.youtube.com/watch?v=${videoId}&list=RD${videoId}`,
+            '--flat-playlist',
+            '--playlist-end', String(limit + 1),
+        ]);
+        const entries: any[] = output?.entries ?? [];
+        return entries
+            .filter(e => e?.id && e.id !== videoId && (!e.duration || e.duration < 20 * 60))
+            .map(e => ({
+                id: e.id,
+                title: e.title,
+                artist: e.uploader || e.channel || e.artist || 'Unknown Artist',
+                duration: e.duration,
+                thumbnail: e.thumbnails?.[e.thumbnails.length - 1]?.url || `https://i.ytimg.com/vi/${e.id}/hqdefault.jpg`,
+                source: 'youtube',
+            }));
+    } catch (error) {
+        console.error('Radio mix error:', error);
+        return [];
+    }
+}

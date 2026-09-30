@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Play, Plus, Minus, Heart, Edit2, Trash2, ArrowUpDown, AlignLeft } from 'lucide-react';
+import { Play, Plus, Minus, Heart, Edit2, Trash2, ArrowUpDown, AlignLeft, Radio } from 'lucide-react';
+import { useRadioStore } from '../../store/radioStore';
 import { Track } from '../../types/library';
 import { usePlaylistStore } from '../../store/playlistStore';
 import { usePlayerStore } from '../../store/playerStore';
@@ -294,6 +295,15 @@ const SongList: React.FC<SongListProps> = ({ tracks, onPlay, onRemove, currentPa
                                                     }}
                                                 >
                                                     <Plus size={14} /> Add to Queue
+                                                </button>
+                                                <button
+                                                    className="w-full text-left px-5 py-3 hover:bg-primary hover:text-on-primary text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-3"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        useRadioStore.getState().start(track);
+                                                    }}
+                                                >
+                                                    <Radio size={14} /> Start Radio
                                                 </button>
                                                 <div className="px-5 py-2.5 text-[9px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] bg-white/5">Collect in Playlist</div>
                                                 <div className="max-h-48 overflow-y-auto no-scrollbar">

@@ -2,7 +2,7 @@ import { ipcMain, dialog, BrowserWindow, shell } from 'electron';
 import path from 'path';
 import { getDB } from '../db';
 import { scanDirectory } from '../services/scanner';
-import { searchYouTube, searchYTMusic, getStreamUrl, getCacheStats, clearCache, getVideoInfo } from '../services/ytdlp';
+import { searchYouTube, searchYTMusic, getStreamUrl, getCacheStats, clearCache, getVideoInfo, getRadioMix } from '../services/ytdlp';
 import { startDownload, cancelDownload } from '../services/downloader';
 import { getLyrics, fetchLRCLIB } from '../services/lyrics';
 import { searchArtists, getArtistById, getAlbumById, getCoverArt } from '../services/musicbrainz';
@@ -188,6 +188,24 @@ export function registerHandlers(win: BrowserWindow) {
             console.error("Failed to get video ID:", error);
             return null;
         }
+    });
+
+    // Smart Radio: similar songs for a seed. Local tracks without a video id are matched
+    // to YouTube first (and the id is remembered on the track).
+    ipcMain.handle('radio:getMix', async (_event, seed: { videoId?: string; title?: string; artist?: string; trackId?: number }) => {
+        let videoId = seed.videoId;
+        if (!videoId && seed.title) {
+            try {
+                const output = await execYtDlpJson([`ytsearch1:${seed.title} ${seed.artist ?? ''} audio`, '--flat-playlist']);
+                videoId = output?.entries?.[0]?.id || output?.id;
+                if (videoId && typeof seed.trackId === 'number') {
+                    getDB().prepare('UPDATE tracks SET video_id = ? WHERE id = ?').run(videoId, seed.trackId);
+                }
+            } catch (err) {
+                console.error('Radio seed lookup failed:', err);
+            }
+        }
+        return videoId ? getRadioMix(videoId) : [];
     });
 
     ipcMain.handle('youtube:stream', async (_event, videoId) => {

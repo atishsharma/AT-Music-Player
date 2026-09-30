@@ -18,6 +18,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import Toast from '../common/Toast';
 import LiquidBackdrop from '../common/LiquidBackdrop';
 import { useWidgetBridge } from '../../hooks/useWidgetBridge';
+import { useRadioTopUp } from '../../hooks/useRadio';
 import { useState, useEffect, Suspense, lazy } from 'react';
 import { useAmbientStore } from '../../store/ambientStore';
 
@@ -46,6 +47,7 @@ const MainLayout = () => {
         return () => { offOpen?.(); offIdle?.(); };
     }, []);
     useWidgetBridge();
+    useRadioTopUp();
     const [isMiniMode, setIsMiniMode] = useState(false);
 
     // Listen for tray controls
