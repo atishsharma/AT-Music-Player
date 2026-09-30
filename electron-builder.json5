@@ -71,13 +71,12 @@
   "mac": {
     "icon": "build/icon.icns",
     "category": "public.app-category.music",
-    "target": [
-      { "target": "dmg", "arch": ["x64", "arm64"] },
-      { "target": "zip", "arch": ["x64", "arm64"] },
-      { "target": "pkg", "arch": ["x64", "arm64"] }
-    ],
-    // Ad-hoc signature: required for Apple Silicon to launch unsigned builds
-    "identity": "-",
+    // Arch comes from the CLI (--x64 / --arm64). Building both arches in one run makes
+    // the pkg targets race on a shared temp file, so they are built one after another.
+    "target": ["dmg", "zip", "pkg"],
+    // No Developer ID: skip signing here; scripts/afterPack.cjs applies an ad-hoc
+    // signature so Apple Silicon will launch the app.
+    "identity": null,
     "hardenedRuntime": false,
     "gatekeeperAssess": false,
     "extendInfo": {
