@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
-import { FolderPlus, Music, Disc, Mic2, RefreshCw, Search, X, ChevronLeft, ChevronRight, Play, Shuffle, LayoutGrid, List } from 'lucide-react';
+import { FolderPlus, Music, Disc, Mic2, RefreshCw, Search, X, Play, Shuffle, LayoutGrid, List } from 'lucide-react';
 import { useLibraryStore } from '../store/libraryStore';
 import { usePlayerStore } from '../store/playerStore';
 import SongList from '../components/library/SongList';
 import SongGrid from '../components/library/SongGrid';
 import AlbumGrid from '../components/library/AlbumGrid';
+import Pager from '../components/library/Pager';
 import ArtistGrid from '../components/library/ArtistGrid';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
@@ -18,21 +19,6 @@ const Library = () => {
     const [refreshKey, setRefreshKey] = useState(0);
     const [folders, setFolders] = useState<{ id: number; path: string; added_at: string }[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const [pageInput, setPageInput] = useState('1');
-
-    useEffect(() => {
-        setPageInput(String(currentPage));
-    }, [currentPage]);
-
-    const handlePageSubmit = (valStr: string) => {
-        const val = parseInt(valStr);
-        const max = Math.ceil(tracks.length / itemsPerPage);
-        if (!isNaN(val) && val >= 1 && val <= max) {
-            setCurrentPage(val);
-        } else {
-            setPageInput(String(currentPage));
-        }
-    };
     const itemsPerPage = 50;
     const { tracks, isLoading, scanProgress, refreshLibrary, setScanProgress } = useLibraryStore();
 
@@ -245,65 +231,7 @@ const Library = () => {
                     )}
 
                     {activeTab === 'songs' && !searchResults && viewMode === 'list' && (
-                        <div className="flex items-center gap-3 bg-surface-variant/20 rounded-full border border-primary/30 p-1.5 outline outline-1 outline-primary/20 shadow-lg shadow-black/20">
-                            <button
-                                disabled={currentPage === 1}
-                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                className="p-2.5 rounded-full text-on-surface-variant hover:text-primary hover:bg-primary/10 disabled:opacity-20 transition-all active:scale-90"
-                            >
-                                <ChevronLeft size={20} />
-                            </button>
-
-                            <div className="flex items-center gap-3 px-2">
-                                <button
-                                    onClick={() => setCurrentPage(1)}
-                                    className={clsx(
-                                        "text-[10px] font-black transition-all hover:text-primary",
-                                        currentPage === 1 ? "text-primary scale-110" : "text-on-surface-variant/40"
-                                    )}
-                                >
-                                    1
-                                </button>
-                                <div className="h-1 w-1 rounded-full bg-white/10" />
-
-                                <div className="relative group">
-                                    <input
-                                        type="text"
-                                        value={pageInput}
-                                        onChange={(e) => setPageInput(e.target.value)}
-                                        onBlur={(e) => handlePageSubmit(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                handlePageSubmit((e.target as HTMLInputElement).value);
-                                            }
-                                        }}
-                                        className="w-14 bg-primary/10 border border-primary/20 rounded-lg py-1.5 text-center text-sm font-black text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-inner"
-                                    />
-                                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-surface border border-white/10 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                        Jump to
-                                    </div>
-                                </div>
-
-                                <div className="h-1 w-1 rounded-full bg-white/10" />
-                                <button
-                                    onClick={() => setCurrentPage(Math.ceil(tracks.length / itemsPerPage))}
-                                    className={clsx(
-                                        "text-[10px] font-black transition-all hover:text-primary",
-                                        currentPage === Math.ceil(tracks.length / itemsPerPage) ? "text-primary scale-110" : "text-on-surface-variant/40"
-                                    )}
-                                >
-                                    {Math.ceil(tracks.length / itemsPerPage)}
-                                </button>
-                            </div>
-
-                            <button
-                                disabled={currentPage >= Math.ceil(tracks.length / itemsPerPage)}
-                                onClick={() => setCurrentPage(prev => Math.min(Math.ceil(tracks.length / itemsPerPage), prev + 1))}
-                                className="p-2.5 rounded-full text-on-surface-variant hover:text-primary hover:bg-primary/10 disabled:opacity-20 transition-all active:scale-90"
-                            >
-                                <ChevronRight size={20} />
-                            </button>
-                        </div>
+                        <Pager page={currentPage} totalPages={Math.ceil(tracks.length / itemsPerPage)} onChange={setCurrentPage} />
                     )}
                 </div>
             </div>

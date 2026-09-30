@@ -8,6 +8,9 @@ import { useEffect, useState, useMemo } from 'react';
 import { toAtmusicUrl } from '../../utils/path';
 import { useSettingsStore } from '../../store/settingsStore';
 import { ArrowDownAZ, ArrowUpZA, ArrowDown10, ArrowUp01, SlidersHorizontal } from 'lucide-react';
+import Pager from './Pager';
+
+const ALBUMS_PER_PAGE = 27;
 
 interface AlbumGridProps {
     tracks: Track[];
@@ -18,6 +21,7 @@ const AlbumGrid: React.FC<AlbumGridProps> = ({ tracks }) => {
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
     const { albumSortBy, albumSortOrder, albumThumbnailSize, setAlbumSortBy, setAlbumSortOrder, setAlbumThumbnailSize } = useSettingsStore();
     const [albumCovers, setAlbumCovers] = useState<Record<string, { cover?: string; year?: number }>>({});
+    const [page, setPage] = useState(1);
 
     // Group tracks by album
     const albumsArr = React.useMemo(() => {
@@ -32,25 +36,6 @@ const AlbumGrid: React.FC<AlbumGridProps> = ({ tracks }) => {
         return Array.from(map.values());
     }, [tracks]);
 
-    useEffect(() => {
-        // Covers appear as they arrive (used to wait for every album), and a stale run stops
-        // when the library changes or the view closes
-        let cancelled = false;
-        const fetchCovers = async () => {
-            for (const album of albumsArr) {
-                if (cancelled) return;
-                if (album.art && album.year) continue;
-                try {
-                    const data = await window.ipcRenderer.invoke('metadata:syncAlbum', { artist: album.artist, album: album.title });
-                    if (data && !cancelled) {
-                        setAlbumCovers(prev => ({ ...prev, [album.title]: { cover: data.cover || album.art, year: data.year || album.year } }));
-                    }
-                } catch { /* offline / no key */ }
-            }
-        };
-        if (albumsArr.length > 0) fetchCovers();
-        return () => { cancelled = true; };
-    }, [albumsArr]);
 
     const sortedAlbums = useMemo(() => {
         const sorted = [...albumsArr].sort((a, b) => {
@@ -70,6 +55,35 @@ const AlbumGrid: React.FC<AlbumGridProps> = ({ tracks }) => {
         });
         return sorted;
     }, [albumsArr, albumSortBy, albumSortOrder]);
+
+    // Pagination: back to page 1 when the sort changes; stay in range when the library shrinks
+    const totalPages = Math.max(1, Math.ceil(sortedAlbums.length / ALBUMS_PER_PAGE));
+    useEffect(() => { setPage(1); }, [albumSortBy, albumSortOrder]);
+    useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
+    const pagedAlbums = useMemo(
+        () => sortedAlbums.slice((page - 1) * ALBUMS_PER_PAGE, page * ALBUMS_PER_PAGE),
+        [sortedAlbums, page]
+    );
+
+    useEffect(() => {
+        // Only the visible page is looked up (was every album in the library, one request each);
+        // covers appear as they arrive and a stale run stops when the page changes
+        let cancelled = false;
+        const fetchCovers = async () => {
+            for (const album of pagedAlbums) {
+                if (cancelled) return;
+                if (album.art && album.year) continue;
+                try {
+                    const data = await window.ipcRenderer.invoke('metadata:syncAlbum', { artist: album.artist, album: album.title });
+                    if (data && !cancelled) {
+                        setAlbumCovers(prev => ({ ...prev, [album.title]: { cover: data.cover || album.art, year: data.year || album.year } }));
+                    }
+                } catch { /* offline / no key */ }
+            }
+        };
+        if (pagedAlbums.length > 0) fetchCovers();
+        return () => { cancelled = true; };
+    }, [pagedAlbums]);
 
     if (albumsArr.length === 0) {
         return (
@@ -113,6 +127,8 @@ const AlbumGrid: React.FC<AlbumGridProps> = ({ tracks }) => {
                     </button>
                 </div>
 
+                <Pager page={page} totalPages={totalPages} onChange={setPage} />
+
                 <div className="flex items-center gap-3">
                     <SlidersHorizontal size={14} className="text-on-surface-variant" />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-70">Grid Size</span>
@@ -134,7 +150,7 @@ const AlbumGrid: React.FC<AlbumGridProps> = ({ tracks }) => {
                     gridTemplateColumns: `repeat(auto-fill, minmax(${albumThumbnailSize}px, 1fr))`
                 }}
             >
-                {sortedAlbums.map((album) => (
+                {pagedAlbums.map((album) => (
                     <div
                         key={`${album.title}-${album.artist}`}
                         className="group cursor-pointer flex flex-col items-center text-center"
