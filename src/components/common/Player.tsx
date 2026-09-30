@@ -10,11 +10,13 @@ import type { Track } from '../../types/library';
 const trackKey = (t: Track) => `${t.source || 'local'}:${t.id}`;
 
 async function resolveStream(track: Track): Promise<string | null> {
-    if (track.path) {
+    // History rows store online songs as `yt:<id>` paths
+    const ytId = track.path?.startsWith('yt:') ? track.path.slice(3) : null;
+    if (track.path && !ytId) {
         return track.path.startsWith('http://') || track.path.startsWith('https://') ? track.path : toAtmusicUrl(track.path);
     }
-    if ((track.source === 'youtube' || track.source === 'ytmusic') && track.id) {
-        const data = await window.ipcRenderer.invoke('youtube:stream', track.id);
+    if (ytId || ((track.source === 'youtube' || track.source === 'ytmusic') && track.id)) {
+        const data = await window.ipcRenderer.invoke('youtube:stream', ytId || track.id);
         return data?.url ? toAtmusicUrl(data.url) : null;
     }
     return null;

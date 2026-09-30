@@ -19,6 +19,7 @@ import Toast from '../common/Toast';
 import LiquidBackdrop from '../common/LiquidBackdrop';
 import { useWidgetBridge } from '../../hooks/useWidgetBridge';
 import { useRadioTopUp } from '../../hooks/useRadio';
+import { useListening } from '../../hooks/useListening';
 import { useState, useEffect, Suspense, lazy } from 'react';
 import { useAmbientStore } from '../../store/ambientStore';
 import { useVideoStore } from '../../store/videoStore';
@@ -49,6 +50,7 @@ const MainLayout = () => {
     }, []);
     useWidgetBridge();
     useRadioTopUp();
+    useListening();
 
     // Floating video: resume audio where the video left off; close it when the track changes
     useEffect(() => {

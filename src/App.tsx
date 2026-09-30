@@ -10,6 +10,7 @@ const Favorites = lazy(() => import('./pages/Favorites'));
 const Search = lazy(() => import('./pages/Search'));
 const Downloads = lazy(() => import('./pages/Downloads'));
 const PlaybackHistory = lazy(() => import('./pages/PlaybackHistory'));
+const StatsPage = lazy(() => import('./pages/Stats'));
 
 // Pages other than Home are split into their own chunks (faster startup)
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -40,6 +41,7 @@ const App = () => {
             <Route path="album/:id" element={<AlbumDetail />} />
             <Route path="favorites" element={<Favorites />} />
             <Route path="favorites/history" element={<PlaybackHistory />} />
+            <Route path="stats" element={<StatsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="lastfm" element={<LastFMPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -12,6 +12,7 @@ import axios from 'axios';
 import { execFile } from 'child_process';
 import { ytDlpBinaryPath, checkSystemYtDlp, execYtDlpJson } from '../utils/ytdlp-bin';
 import util from 'util';
+import { registerStatsHandlers } from './stats';
 const execFilePromise = util.promisify(execFile);
 
 // Extension from the URL path only (query strings like ?v=1 must not leak into filenames)
@@ -39,6 +40,7 @@ export function registerHandlers(win: BrowserWindow) {
     mainWindow = win;
     if (handlersRegistered) return;
     handlersRegistered = true;
+    registerStatsHandlers();
 
     // Dialogs
     ipcMain.handle('dialog:openDirectory', async () => {

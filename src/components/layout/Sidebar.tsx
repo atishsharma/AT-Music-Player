@@ -1,4 +1,4 @@
-import { Home, Library, Settings, ListMusic, Heart, Download, Search, ChevronLeft, ChevronRight, History, TrendingUp, Gamepad2, Sun, Moon, Zap, Droplets } from 'lucide-react';
+import { Home, Library, Settings, ListMusic, Heart, Download, Search, ChevronLeft, ChevronRight, History, TrendingUp, Gamepad2, Sun, Moon, Zap, Droplets, BarChart3 } from 'lucide-react';
 import type { Appearance } from '../../store/themeStore';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -166,6 +166,7 @@ const Sidebar = () => {
                 <NavItem to="/playlists" icon={ListMusic} label="Playlists" isCollapsed={isCollapsed} />
                 <NavItem to="/favorites" icon={Heart} label="Favorites" isCollapsed={isCollapsed} />
                 <NavItem to="/favorites/history" icon={History} label="History" isCollapsed={isCollapsed} />
+                <NavItem to="/stats" icon={BarChart3} label="Stats" isCollapsed={isCollapsed} />
                 <NavItem to="/lastfm" icon={TrendingUp} label="Last.FM" isCollapsed={isCollapsed} />
                 <NavItem to="/fun" icon={Gamepad2} label="Fun Zone" isCollapsed={isCollapsed} />
             </nav>

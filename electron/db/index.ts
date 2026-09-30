@@ -154,6 +154,9 @@ export function initDB() {
   if (!columnNames.includes('path')) {
     db.exec("ALTER TABLE history ADD COLUMN path TEXT");
   }
+  if (!columnNames.includes('listened')) {
+    db.exec("ALTER TABLE history ADD COLUMN listened REAL"); // seconds actually heard
+  }
 
   const trackColumns = db.prepare("PRAGMA table_info(tracks)").all() as any[];
   if (!trackColumns.some(c => c.name === 'mtime')) {
