@@ -116,7 +116,7 @@ const SearchPage = () => {
 
     useEffect(() => {
         const history = localStorage.getItem('recent-searches');
-        if (history) setRecentSearches(JSON.parse(history));
+        try { if (history) setRecentSearches(JSON.parse(history)); } catch { localStorage.removeItem('recent-searches'); }
     }, []);
 
     const saveSearch = (term: string) => {

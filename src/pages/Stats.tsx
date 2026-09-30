@@ -173,8 +173,6 @@ const StatsPage = () => {
     const [range, setRange] = useState<Range>('month');
     const [stats, setStats] = useState<Stats | null>(null);
     const [recapYear, setRecapYear] = useState<number | null>(null);
-    const play = usePlayerStore(s => s.play);
-    const setQueue = usePlayerStore(s => s.setQueue);
 
     useEffect(() => {
         let alive = true;
@@ -190,9 +188,7 @@ const StatsPage = () => {
 
     const playTop = (i: number) => {
         if (!stats) return;
-        const tracks = stats.topTracks.map(toTrack);
-        setQueue(tracks.slice(i + 1));
-        play(tracks[i]);
+        usePlayerStore.getState().playList(stats.topTracks.map(toTrack), i);
     };
 
     return (

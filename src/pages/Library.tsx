@@ -148,9 +148,7 @@ const Library = () => {
                     <button
                         onClick={() => {
                             if (tracks.length > 0) {
-                                const state = usePlayerStore.getState() as any;
-                                state.setQueue(tracks);
-                                state.play(tracks[0]);
+                                usePlayerStore.getState().playList(tracks);
                             }
                         }}
                         className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-full transition-colors shadow-lg hover:shadow-primary/30 active:scale-95 transform duration-200"
@@ -161,11 +159,10 @@ const Library = () => {
                     <button
                         onClick={() => {
                             if (tracks.length > 0) {
-                                const shuffled = [...tracks].sort(() => Math.random() - 0.5);
-                                const state = usePlayerStore.getState() as any;
-                                state.setQueue(shuffled);
-                                state.play(shuffled[0]);
+                                const state = usePlayerStore.getState();
                                 if (!state.shuffle) state.toggleShuffle();
+                                // playList shuffles the rest; start from a random song too
+                                state.playList(tracks, Math.floor(Math.random() * tracks.length));
                             }
                         }}
                         className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-full transition-colors shadow-lg hover:shadow-primary/30 active:scale-95 transform duration-200"

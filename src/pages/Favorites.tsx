@@ -4,6 +4,7 @@ import { Heart, Music, Disc, Mic2 } from 'lucide-react';
 import { useState } from 'react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
+import { usePlayerStore } from '../store/playerStore';
 import { toAtmusicUrl } from '../utils/path';
 
 type Tab = 'songs' | 'albums' | 'artists';
@@ -73,7 +74,7 @@ const Favorites = () => {
                 {activeTab === 'songs' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                         {favSongs.length > 0 ? (
-                            <SongList tracks={favSongs as any} onPlay={() => { }} />
+                            <SongList tracks={favSongs as any} onPlay={(t) => usePlayerStore.getState().playList(favSongs as any, favSongs.indexOf(t as any))} />
                         ) : (
                             <EmptyState icon={Music} label="No favorite songs yet" />
                         )}

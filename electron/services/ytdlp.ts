@@ -77,7 +77,8 @@ export async function searchYTMusic(query: string, limit: number = 20) {
                 title: entry.title,
                 artist: entry.uploader || 'Unknown Artist',
                 duration: entry.duration,
-                thumbnail: entry.thumbnail,
+                // Flat search entries usually have no `thumbnail` field
+                thumbnail: entry.thumbnail || entry.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${entry.id}/hqdefault.jpg`,
                 date: entry.upload_date ? `${entry.upload_date.slice(0, 4)}-${entry.upload_date.slice(4, 6)}-${entry.upload_date.slice(6, 8)}` : '',
                 source: 'ytmusic'
             }));

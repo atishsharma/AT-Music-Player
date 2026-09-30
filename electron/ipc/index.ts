@@ -467,7 +467,9 @@ export function registerHandlers(win: BrowserWindow) {
 
             // Build safe filename
             const safeTitle = (track.title || track.id).replace(/[<>:"/\\|?*]/g, '_');
-            const destPath = pathMod.join(downloadsDir, `${safeTitle}${ext}`);
+            // Never overwrite another song that happens to share the title
+            let destPath = pathMod.join(downloadsDir, `${safeTitle}${ext}`);
+            for (let n = 2; fs.existsSync(destPath); n++) destPath = pathMod.join(downloadsDir, `${safeTitle} (${n})${ext}`);
 
             // Move file from cache to downloads (copy then delete)
             fs.copyFileSync(sourcePath, destPath);
@@ -582,9 +584,29 @@ export function registerHandlers(win: BrowserWindow) {
         return { ...playlist, tracks };
     });
 
-    ipcMain.handle('playlist:addTrack', (_event, { playlistId, trackId }) => {
+    // Library row id for a track; online songs get a `yt:<id>` row (same as saving a queue)
+    const ensureTrackRow = (track: { id?: unknown; video_id?: string; title?: string; artist?: string; album?: string; duration?: number; image_path?: string; thumbnail?: string; source?: string }): number | null => {
+        const db = getDB();
+        if (typeof track.id === 'number' || /^\d+$/.test(String(track.id))) {
+            const row = db.prepare('SELECT id FROM tracks WHERE id = ?').get(Number(track.id)) as { id: number } | undefined;
+            if (row && (track.source === 'local' || !track.source || !track.video_id)) return row.id;
+        }
+        const videoId = track.video_id || (typeof track.id === 'string' ? track.id : '');
+        if (!videoId || !track.title) return null;
+        const existing = db.prepare('SELECT id FROM tracks WHERE video_id = ? OR path = ?').get(videoId, `yt:${videoId}`) as { id: number } | undefined;
+        if (existing) return existing.id;
+        return Number(db.prepare(`
+            INSERT INTO tracks (title, artist, album, duration, path, image_path, source, video_id)
+            VALUES (?, ?, ?, ?, ?, ?, 'youtube', ?)
+        `).run(track.title, track.artist || '', track.album || '', track.duration || 0, `yt:${videoId}`, track.image_path || track.thumbnail || '', videoId).lastInsertRowid);
+    };
+
+    ipcMain.handle('playlist:addTrack', (_event, { playlistId, trackId: rawId, track }) => {
         const db = getDB();
         try {
+            // YouTube songs have string ids that aren't library rows; they used to fail silently
+            const trackId = track ? ensureTrackRow(track) : rawId;
+            if (!trackId) return false;
             // Get current max position
             const maxPos = db.prepare('SELECT MAX(position) as val FROM playlist_tracks WHERE playlist_id = ?').get(playlistId) as { val: number };
             const nextPos = (maxPos?.val || 0) + 1;
@@ -837,8 +859,10 @@ export function registerHandlers(win: BrowserWindow) {
 
         // Only set track_id if it references an existing library row (FKs are enforced)
         const isLocal = track.source === 'local' || !track.source;
-        const trackId = isLocal && typeof track.id === 'number'
-            && db.prepare('SELECT 1 FROM tracks WHERE id = ?').get(track.id) ? track.id : null;
+        // (Favourites store ids as strings, so accept numeric strings too)
+        const numericId = /^\d+$/.test(String(track.id)) ? Number(track.id) : null;
+        const trackId = isLocal && numericId !== null
+            && db.prepare('SELECT 1 FROM tracks WHERE id = ?').get(numericId) ? numericId : null;
 
         return db.prepare(sql).run(
             trackId,
@@ -847,7 +871,11 @@ export function registerHandlers(win: BrowserWindow) {
             track.artist,
             track.album,
             track.duration,
-            track.path || (track.source === 'youtube' ? `yt:${track.video_id || track.id}` : null),
+            // Online songs are stored as `yt:<id>`, not the temporary cache/stream path they
+            // played from, so History and Stats can still replay them after the cache is cleared
+            (track.source === 'youtube' || track.source === 'ytmusic') && (track.video_id || typeof track.id === 'string')
+                ? `yt:${track.video_id || track.id}`
+                : track.path || null,
             track.image_path || track.thumbnail,
             track.source || 'local'
         );

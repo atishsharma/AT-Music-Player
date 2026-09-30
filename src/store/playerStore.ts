@@ -21,6 +21,8 @@ interface PlayerState {
 
     // Actions
     play: (track?: Track) => void;
+    /** Play `tracks[index]` with the songs after it as the queue (shuffled if shuffle is on) */
+    playList: (tracks: Track[], index?: number) => void;
     pause: () => void;
     next: (auto?: boolean) => void;
     prev: () => void;
@@ -83,6 +85,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         } else if (get().currentTrack) {
             set({ isPlaying: true });
         }
+    },
+
+    playList: (tracks, index = 0) => {
+        const track = tracks[index];
+        if (!track) return;
+        // The queue used to be set to the WHOLE list (including the song being started and
+        // everything before it), so "Play all" replayed the first song or jumped back to it.
+        const rest = tracks.slice(index + 1);
+        if (get().shuffle) {
+            for (let i = rest.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [rest[i], rest[j]] = [rest[j], rest[i]];
+            }
+        }
+        set({ queue: rest });
+        get().play(track);
     },
 
     pause: () => set({ isPlaying: false }),

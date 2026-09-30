@@ -27,8 +27,6 @@ interface ArtistData {
 const ArtistDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const play = usePlayerStore(s => s.play);
-    const setQueue = usePlayerStore(s => s.setQueue);
 
     const [artistData, setArtistData] = useState<ArtistData | null>(null);
     const [localTracks, setLocalTracks] = useState<any[]>([]);
@@ -105,8 +103,7 @@ const ArtistDetail = () => {
 
     const handlePlayAll = () => {
         if (localTracks.length > 0) {
-            setQueue(localTracks);
-            play(localTracks[0]);
+            usePlayerStore.getState().playList(localTracks);
         }
     };
 
@@ -337,10 +334,7 @@ const ArtistDetail = () => {
                     localTracks.length > 0 ? (
                         <SongList
                             tracks={localTracks}
-                            onPlay={(track) => {
-                                setQueue(localTracks);
-                                play(track);
-                            }}
+                            onPlay={(track) => usePlayerStore.getState().playList(localTracks, localTracks.indexOf(track))}
                         />
                     ) : (
                         <div className="p-8 text-center text-on-surface-variant bg-surface-variant/30 rounded-xl">

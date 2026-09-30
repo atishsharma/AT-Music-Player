@@ -91,7 +91,7 @@ const SongList: React.FC<SongListProps> = ({ tracks, onPlay, onRemove, currentPa
 
     const handleAddTrackToPlaylist = async (playlistId: number, track: Track) => {
         setSelectedPlaylistId(playlistId);
-        const success = await usePlaylistStore.getState().addTrackToPlaylist(playlistId, track.id as number);
+        const success = await usePlaylistStore.getState().addTrackToPlaylist(playlistId, track);
         if (success) {
             // Toast logic will be handled globally if possible, or we could add a local toast here
             // But user said "toast should appear... saying song name - added to playlist name"

@@ -7,19 +7,20 @@ import crypto from 'crypto';
 const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.flac', '.wav', '.ogg', '.opus', '.aac'];
 
 // Async, non-blocking directory walk (the old sync walk froze the main process on big libraries)
-async function walk(dirPath: string, files: { path: string; mtime: number }[]) {
+async function walk(dirPath: string, files: { path: string; mtime: number }[], errors = { count: 0 }) {
     let entries: fs.Dirent[];
     try {
         entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
     } catch (e) {
         console.error(`Error reading directory ${dirPath}:`, e);
+        errors.count++;
         return;
     }
 
     for (const entry of entries) {
         const fullPath = path.join(dirPath, entry.name);
         if (entry.isDirectory()) {
-            await walk(fullPath, files);
+            await walk(fullPath, files, errors);
         } else if (entry.isFile() && AUDIO_EXTENSIONS.includes(path.extname(entry.name).toLowerCase())) {
             try {
                 const stats = await fs.promises.stat(fullPath);
@@ -41,7 +42,8 @@ export async function scanDirectory(dirPath: string, window?: BrowserWindow) {
     db.prepare('INSERT OR IGNORE INTO folders (path) VALUES (?)').run(dirPath);
 
     const found: { path: string; mtime: number }[] = [];
-    await walk(dirPath, found);
+    const walkErrors = { count: 0 };
+    await walk(dirPath, found, walkErrors);
 
     // Skip files that are already indexed and unchanged since the last scan
     const known = new Map<string, number | null>();
@@ -49,6 +51,18 @@ export async function scanDirectory(dirPath: string, window?: BrowserWindow) {
         known.set(row.path, row.mtime);
     }
     const files = found.filter(f => known.get(f.path) !== f.mtime);
+
+    // Drop library rows for files deleted from this folder since the last scan (they only
+    // failed on play before). Skipped when the folder itself is missing, e.g. an unplugged
+    // drive, or when any sub-folder couldn't be read, so the library isn't wiped.
+    if (walkErrors.count === 0 && fs.existsSync(dirPath)) {
+        const present = new Set(found.map(f => f.path));
+        const base = dirPath.replace(/[\\/]+$/, '');
+        const stale = [...known.keys()].filter(p => (p.startsWith(base + '/') || p.startsWith(base + '\\')) && !present.has(p));
+        const del = db.prepare("DELETE FROM tracks WHERE path = ? AND source = 'local'");
+        db.transaction((paths: string[]) => { for (const p of paths) del.run(p); })(stale);
+        if (stale.length) console.log(`[Scanner] Removed ${stale.length} missing files.`);
+    }
     console.log(`[Scanner] Found ${found.length} audio files, ${files.length} new or changed.`);
 
     // UPSERT keeps the existing row id. The previous INSERT OR REPLACE deleted and re-inserted

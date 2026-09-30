@@ -22,8 +22,6 @@ const SmartPlaylistDetail = () => {
     const navigate = useNavigate();
     const [data, setData] = useState<Smart | null>(null);
     const [editing, setEditing] = useState(false);
-    const play = usePlayerStore(s => s.play);
-    const setQueue = usePlayerStore(s => s.setQueue);
 
     const key = /^\d+$/.test(id) ? Number(id) : id;
     const load = useCallback(() => window.ipcRenderer.invoke('smart:get', key).then(setData), [key]);
@@ -32,9 +30,7 @@ const SmartPlaylistDetail = () => {
     if (!data) return <div className="p-8 text-on-background/60">Loading…</div>;
 
     const start = (tracks: Track[], i = 0) => {
-        if (!tracks.length) return;
-        setQueue(tracks.slice(i + 1));
-        play(tracks[i]);
+        usePlayerStore.getState().playList(tracks, i);
     };
     const shuffled = () => [...data.tracks].sort(() => Math.random() - 0.5);
 

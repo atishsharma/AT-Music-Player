@@ -179,9 +179,9 @@ const NowPlaying = () => {
     const [vizMode, setVizMode] = useState<'wave' | 'piano' | 'isometric' | 'dna' | 'geometry' | 'solar'>('isometric');
     const [playbackMode, setPlaybackMode] = useState<'audio' | 'video'>('audio');
     const playbackModeRef = useRef(playbackMode);
-    useEffect(() => {
-        playbackModeRef.current = playbackMode;
-    }, [playbackMode]);
+    // Updates the ref immediately (not after render): handlers switch mode and resume audio
+    // in the same tick, and the video-mode audio guard below reads the ref.
+    const setMode = (mode: 'audio' | 'video') => { playbackModeRef.current = mode; setPlaybackMode(mode); };
     const [visualizerActive, setVisualizerActive] = useState(false);
     const [isFullScreenViz, setIsFullScreenViz] = useState(false);
 
@@ -233,6 +233,12 @@ const NowPlaying = () => {
                 document.activeElement?.tagName !== 'TEXTAREA'
             ) {
                 e.preventDefault();
+                // Video mode: Space controls the video (the audio deck stays paused)
+                const v = videoRef.current;
+                if (playbackModeRef.current === 'video' && usePlayerStore.getState().isPlayerOpen && v) {
+                    if (v.paused) v.play().catch(() => { /* ignore */ }); else v.pause();
+                    return;
+                }
                 if (isPlayingRef.current) pause();
                 else play();
             }
@@ -241,6 +247,24 @@ const NowPlaying = () => {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [play, pause]);
+
+    // Video mode plays sound from the <video>. Anything that starts the audio deck meanwhile
+    // (next/prev, media keys, tray, phone remote) used to play both at once: route it to the
+    // video instead. Runs inside the store update, so the audio deck never starts.
+    useEffect(() => usePlayerStore.subscribe((s, prev) => {
+        if (!s.isPlaying || prev.isPlaying || playbackModeRef.current !== 'video' || !s.isPlayerOpen) return;
+        usePlayerStore.setState({ isPlaying: false });
+        videoRef.current?.play().catch(() => { /* the new video autoplays when ready */ });
+    }), []);
+
+    // Player closed some other way while in video mode: hand playback back to the audio deck
+    useEffect(() => {
+        if (isPlayerOpen || playbackModeRef.current !== 'video') return;
+        const s = usePlayerStore.getState();
+        setMode('audio');
+        s.seek(s.currentTime);
+        s.play();
+    }, [isPlayerOpen]);
 
     // Save Playlist State
     const [isDraggingSlider, setIsDraggingSlider] = useState(false);
@@ -270,9 +294,9 @@ const NowPlaying = () => {
             if (e.key === 'Escape' && isPlayerOpen) {
                 if (playbackModeRef.current === 'video') {
                     const state = usePlayerStore.getState();
+                    setMode('audio');
                     state.seek(state.currentTime);
                     if (!state.isPlaying) state.play();
-                    setPlaybackMode('audio');
                 }
                 togglePlayer(false);
                 setShowQueuePopup(false);
@@ -345,7 +369,7 @@ const NowPlaying = () => {
             .then((vidId) => {
                 if (cancelled) return;
                 if (!vidId) {
-                    setPlaybackMode('audio');
+                    setMode('audio');
                     return;
                 }
                 setFetchedVideoId(vidId);
@@ -355,7 +379,7 @@ const NowPlaying = () => {
             })
             .catch((err) => {
                 console.error("Failed to fetch video ID", err);
-                if (!cancelled) setPlaybackMode('audio');
+                if (!cancelled) setMode('audio');
             })
             .finally(() => { if (!cancelled) setIsSearchingVideo(false); });
 
@@ -434,7 +458,7 @@ const NowPlaying = () => {
         });
         useVideoStore.getState().set({ floating: true });
         v?.pause();
-        setPlaybackMode('audio');
+        setMode('audio');
         togglePlayer(); // close the full-screen player: the video now floats above other apps
     };
 
@@ -849,9 +873,9 @@ const NowPlaying = () => {
                     <button onClick={() => {
                         if (playbackMode === 'video') {
                             const state = usePlayerStore.getState();
+                            setMode('audio');
                             state.seek(state.currentTime);
                             if (!state.isPlaying) state.play();
-                            setPlaybackMode('audio');
                         }
                         togglePlayer();
                     }} className="p-3 bg-surface-variant/10 text-primary hover:bg-primary hover:text-white outline outline-1 outline-primary rounded-full transition-all hover:-rotate-90 shadow-sm hover:shadow-[0_0_15px_rgba(var(--md-sys-color-primary),0.5)]">
@@ -964,7 +988,7 @@ const NowPlaying = () => {
                         <div className="bg-surface-variant/20 backdrop-blur-md p-1.5 rounded-full border border-white/10 flex items-center shadow-xl">
                             <button
                                 onClick={() => {
-                                    setPlaybackMode('audio');
+                                    setMode('audio');
                                     seek(currentTime); // Force audio player to sync to the exact time on switch
                                     if (!isPlaying) play(); // Resume audio
                                 }}
@@ -979,7 +1003,7 @@ const NowPlaying = () => {
                                 disabled={isSearchingVideo}
                                 onClick={() => {
                                     // Switching to video triggers the (lazy) YouTube lookup if needed
-                                    setPlaybackMode('video');
+                                    setMode('video');
                                     // Pause audio playback when switching to video
                                     if (isPlaying) pause();
                                 }}
@@ -1036,6 +1060,10 @@ const NowPlaying = () => {
                                     autoPlay
                                     className="w-full h-full absolute inset-0 md:rounded-3xl"
                                     onError={handleVideoError}
+                                    onEnded={(e) => {
+                                        if (usePlayerStore.getState().loop === 'one') { e.currentTarget.currentTime = 0; e.currentTarget.play().catch(() => { /* ignore */ }); }
+                                        else usePlayerStore.getState().next(true);
+                                    }}
                                     onCanPlay={(e) => (e.target as HTMLVideoElement).play()}
                                     onTimeUpdate={(e) => {
                                         // Drive the synced lyrics and global player time with the video's time!
@@ -1277,8 +1305,8 @@ const NowPlaying = () => {
                                                             key={pl.id}
                                                             onClick={async () => {
                                                                 if (currentTrack?.id) {
-                                                                    await addTrackToPlaylist(pl.id, currentTrack.id);
-                                                                    (window as any).showToast?.(`${currentTrack.title} added to playlist!`);
+                                                                    const ok = await addTrackToPlaylist(pl.id, currentTrack);
+                                                                    (window as any).showToast?.(ok ? `${currentTrack.title} added to playlist!` : `Couldn't add ${currentTrack.title} (already in the playlist?)`);
                                                                 }
                                                                 setShowPlaylistPopup(false);
                                                             }}
@@ -1596,8 +1624,8 @@ const NowPlaying = () => {
                                                                 key={pl.id}
                                                                 onClick={async () => {
                                                                     if (currentTrack?.id) {
-                                                                        await addTrackToPlaylist(pl.id, currentTrack.id);
-                                                                        (window as any).showToast?.(`${currentTrack.title} added to playlist!`);
+                                                                        const ok = await addTrackToPlaylist(pl.id, currentTrack);
+                                                                        (window as any).showToast?.(ok ? `${currentTrack.title} added to playlist!` : `Couldn't add ${currentTrack.title} (already in the playlist?)`);
                                                                     }
                                                                     setShowPlaylistPopup(false);
                                                                 }}

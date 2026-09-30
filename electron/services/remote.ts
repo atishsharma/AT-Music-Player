@@ -54,9 +54,11 @@ function json(res: http.ServerResponse, code: number, body: unknown) {
 function readBody(req: http.IncomingMessage): Promise<unknown> {
     return new Promise((resolve) => {
         let data = '';
-        req.on('data', (c) => { data += c; if (data.length > 64_000) req.destroy(); });
+        // An oversized body is dropped; 'close' still settles the promise (no 'end' after destroy)
+        req.on('data', (c) => { data += c; if (data.length > 64_000) { data = ''; req.destroy(); } });
         req.on('end', () => { try { resolve(JSON.parse(data || '{}')); } catch { resolve({}); } });
         req.on('error', () => resolve({}));
+        req.on('close', () => resolve({}));
     });
 }
 

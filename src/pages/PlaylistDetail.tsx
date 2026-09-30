@@ -10,8 +10,6 @@ const PlaylistDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { currentPlaylist, fetchPlaylist, removeTrackFromPlaylist, deletePlaylist } = usePlaylistStore();
-    const play = usePlayerStore(s => s.play);
-    const setQueue = usePlayerStore(s => s.setQueue);
 
     useEffect(() => {
         if (id) {
@@ -21,8 +19,7 @@ const PlaylistDetail = () => {
 
     const handlePlayPlaylist = () => {
         if (currentPlaylist?.tracks && currentPlaylist.tracks.length > 0) {
-            setQueue(currentPlaylist.tracks);
-            play(currentPlaylist.tracks[0]);
+            usePlayerStore.getState().playList(currentPlaylist.tracks);
         }
     };
 
@@ -100,8 +97,8 @@ const PlaylistDetail = () => {
                     <SongList
                         tracks={currentPlaylist.tracks}
                         onPlay={(track) => {
-                            setQueue(currentPlaylist.tracks || []);
-                            play(track);
+                            const list = currentPlaylist.tracks || [];
+                            usePlayerStore.getState().playList(list, list.indexOf(track));
                         }}
                         onRemove={async (track) => {
                             if (id && track.id) {

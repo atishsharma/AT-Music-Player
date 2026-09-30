@@ -57,9 +57,18 @@ export const useRadioStore = create<RadioState>()(
                 set({ loading: true, active: true, seedTitle: seed.title });
                 try {
                     const mix = await fetchMix(seed, new Set([String(seed.id), seed.video_id ?? '']));
+                    // No mix (offline / no match): keep the user's queue instead of wiping it
+                    if (!mix.length) {
+                        set({ active: false, seedTitle: '' });
+                        (window as { showToast?: (m: string) => void }).showToast?.(`Couldn't find a radio mix for “${seed.title}”`);
+                        return;
+                    }
                     if (seed !== usePlayerStore.getState().currentTrack) usePlayerStore.getState().play(seed);
                     // A station replaces the queue with the mix
                     usePlayerStore.getState().setQueue(mix);
+                } catch (err) {
+                    console.error('Radio failed to start:', err);
+                    set({ active: false, seedTitle: '' });
                 } finally {
                     set({ loading: false });
                 }
@@ -80,6 +89,8 @@ export const useRadioStore = create<RadioState>()(
                         const p = usePlayerStore.getState();
                         p.setQueue([...p.queue, ...more.slice(0, 15)]);
                     }
+                } catch (err) {
+                    console.error('Radio top-up failed:', err);
                 } finally {
                     set({ loading: false });
                 }

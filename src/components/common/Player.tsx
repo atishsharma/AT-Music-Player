@@ -159,7 +159,6 @@ const Player = () => {
         }
 
         return () => { cancelled = true; };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentTrack]);
 
     // Point the active deck at the current stream (a hand-off deck already has it)
@@ -275,7 +274,6 @@ const Player = () => {
     useEffect(() => {
         if (engineRef.current) engineRef.current.setVolume(volume);
         else [0, 1].forEach(i => { const d = el(i); if (d) d.volume = volume; });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [volume]);
 
     // Lets the OS media controls show the right play/pause state
