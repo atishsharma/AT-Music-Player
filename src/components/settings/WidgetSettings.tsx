@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { AppWindow, Cpu, Pin } from 'lucide-react';
+import { AppWindow, Cpu, Pin, MonitorPlay } from 'lucide-react';
+import { useAmbientStore, AMBIENT_SCENES } from '../../store/ambientStore';
 import clsx from 'clsx';
 
 type WidgetStyle = 'pill' | 'card' | 'orb';
@@ -112,6 +113,74 @@ const WidgetSettings = () => {
                     />
                 </div>
             )}
+        </div>
+    );
+};
+
+const IDLE_OPTIONS = [0, 2, 5, 10, 20];
+
+export const AmbientSettingsCard = () => {
+    const { scene, idleMinutes, fullScreen, keepAwake, set, open } = useAmbientStore();
+    return (
+        <div className="lg:col-span-2 bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-10 border border-outline/10 space-y-8 mt-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                    <div className="p-4 bg-primary/10 rounded-[1.5rem]">
+                        <MonitorPlay className="text-primary" size={24} />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-black text-on-surface">Ambient Mode</h2>
+                        <p className="text-xs text-on-surface-variant/60 font-bold uppercase tracking-widest">Full-screen lyrics and slow backgrounds, like a screensaver</p>
+                    </div>
+                </div>
+                <button
+                    onClick={() => open()}
+                    className="px-6 py-3 rounded-full bg-primary text-on-primary font-black uppercase tracking-widest text-xs flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform"
+                >
+                    <MonitorPlay size={14} /> Open now
+                </button>
+            </div>
+
+            <div className="space-y-3">
+                <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant/70">Start automatically when idle (music playing)</p>
+                <div className="flex flex-wrap gap-2">
+                    {IDLE_OPTIONS.map(m => (
+                        <button
+                            key={m}
+                            onClick={() => set({ idleMinutes: m })}
+                            className={clsx(
+                                "px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all",
+                                idleMinutes === m ? "bg-primary text-on-primary shadow-lg shadow-primary/30" : "bg-surface-variant/10 border border-white/10 text-on-surface-variant hover:bg-surface-variant/30"
+                            )}
+                        >
+                            {m === 0 ? 'Never' : `${m} min`}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="space-y-3">
+                <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant/70">Default scene</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {AMBIENT_SCENES.map(s => (
+                        <button
+                            key={s}
+                            onClick={() => set({ scene: s })}
+                            className={clsx(
+                                "rounded-[1.25rem] p-4 text-left border transition-all duration-300 hover:-translate-y-0.5 font-black capitalize",
+                                scene === s ? "border-primary bg-primary/10 text-on-surface shadow-lg shadow-primary/20" : "border-white/10 bg-surface-variant/5 text-on-surface-variant hover:bg-surface-variant/20"
+                            )}
+                        >
+                            {s}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Toggle on={fullScreen} label="Full screen when opened" onClick={() => set({ fullScreen: !fullScreen })} />
+                <Toggle on={keepAwake} label="Keep screen on while playing" onClick={() => set({ keepAwake: !keepAwake })} />
+            </div>
         </div>
     );
 };

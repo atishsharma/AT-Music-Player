@@ -18,12 +18,33 @@ import { useSettingsStore } from '../../store/settingsStore';
 import Toast from '../common/Toast';
 import LiquidBackdrop from '../common/LiquidBackdrop';
 import { useWidgetBridge } from '../../hooks/useWidgetBridge';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
+import { useAmbientStore } from '../../store/ambientStore';
+
+// Loaded on first use: keeps ambient mode out of the startup bundle
+const AmbientMode = lazy(() => import('../ambient/AmbientMode'));
 
 const MainLayout = () => {
     const isPlayerOpen = usePlayerStore(state => state.isPlayerOpen);
     const location = useLocation();
     const liquidGlass = useThemeStore(state => state.liquidGlass);
+    const ambientOpen = useAmbientStore(state => state.isOpen);
+    const idleMinutes = useAmbientStore(state => state.idleMinutes);
+
+    // Ambient mode: tray item, and screensaver-style auto start on system inactivity
+    useEffect(() => {
+        window.ipcRenderer?.invoke?.('ambient:setIdleMinutes', idleMinutes);
+    }, [idleMinutes]);
+    useEffect(() => {
+        const offOpen = window.ipcRenderer?.on?.('ambient:open', () => useAmbientStore.getState().open());
+        const offIdle = window.ipcRenderer?.on?.('ambient:idle', () => {
+            const player = usePlayerStore.getState();
+            const ambient = useAmbientStore.getState();
+            // Only as a screensaver for music that is actually playing
+            if (player.isPlaying && player.currentTrack && !ambient.isOpen) ambient.open(true);
+        });
+        return () => { offOpen?.(); offIdle?.(); };
+    }, []);
     useWidgetBridge();
     const [isMiniMode, setIsMiniMode] = useState(false);
 
@@ -87,6 +108,11 @@ const MainLayout = () => {
             <Toast />
             <Player />
             
+            {ambientOpen && !isMiniMode && (
+                <Suspense fallback={null}>
+                    <AmbientMode />
+                </Suspense>
+            )}
             {isMiniMode ? (
                 <MiniPlayer />
             ) : (

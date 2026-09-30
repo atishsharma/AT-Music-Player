@@ -1,6 +1,7 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Play, SkipBack, SkipForward, Repeat, Shuffle, Volume2, VolumeX, Pause, ChevronUp, Maximize2, ListMusic, Mic2, Heart, Plus, PictureInPicture2, SlidersHorizontal } from 'lucide-react';
+import { Play, SkipBack, SkipForward, Repeat, Shuffle, Volume2, VolumeX, Pause, ChevronUp, Maximize2, ListMusic, Mic2, Heart, Plus, PictureInPicture2, SlidersHorizontal, MonitorPlay } from 'lucide-react';
+import { useAmbientStore } from '../../store/ambientStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useThemeStore } from '../../store/themeStore';
@@ -400,6 +401,16 @@ const PlayerBar = () => {
                     </div>
                 </div>
 
+                <button
+                    onClick={() => useAmbientStore.getState().open()}
+                    className={clsx(
+                        "p-3 rounded-xl transition-all",
+                        isLight ? "bg-black/5 hover:bg-white text-on-primary hover:text-primary" : "bg-primary/10 hover:bg-primary text-primary hover:text-on-primary"
+                    )}
+                    title="Ambient Mode"
+                >
+                    <MonitorPlay size={20} />
+                </button>
                 <button
                     onClick={async () => {
                         try {

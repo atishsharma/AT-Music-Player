@@ -1,4 +1,4 @@
-import { app, BrowserWindow, protocol, shell, Tray, Menu, nativeImage, ipcMain, screen } from 'electron'
+import { app, BrowserWindow, protocol, shell, Tray, Menu, nativeImage, ipcMain, screen, powerMonitor, powerSaveBlocker } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -243,6 +243,13 @@ function createTray() {
       }
     },
     { label: 'Show Desktop Widget', click: () => showWidget() },
+    {
+      label: 'Ambient Mode',
+      click: () => {
+        showMainWindow();
+        win?.webContents.send('ambient:open');
+      }
+    },
     { type: 'separator' },
     { label: 'Play / Pause', click: () => win?.webContents.send('tray:playPause') },
     { label: 'Next Track', click: () => win?.webContents.send('tray:next') },
@@ -358,6 +365,46 @@ ipcMain.handle('window:toggleFullScreen', () => {
   }
   return false;
 });
+// Set full screen explicitly; returns the previous state so callers can restore it
+ipcMain.handle('window:setFullScreen', (_event, full: boolean) => {
+  if (!win) return false;
+  const wasFull = win.isFullScreen();
+  if (wasFull !== full) win.setFullScreen(full);
+  return wasFull;
+});
+
+// ─── Ambient mode ──────────────────────────────────────────────────────────
+// Keep the display awake while ambient mode shows playing music
+let awakeBlocker: number | null = null;
+ipcMain.handle('ambient:keepAwake', (_event, on: boolean) => {
+  if (on && awakeBlocker === null) {
+    awakeBlocker = powerSaveBlocker.start('prevent-display-sleep');
+  } else if (!on && awakeBlocker !== null) {
+    powerSaveBlocker.stop(awakeBlocker);
+    awakeBlocker = null;
+  }
+  return on;
+});
+
+// System-wide inactivity (keyboard/mouse anywhere), polled cheaply every 15 s.
+// Fires 'ambient:idle' once per idle period once the threshold is reached.
+let ambientIdleMinutes = 0;
+let ambientIdleFired = false;
+setInterval(() => {
+  if (!ambientIdleMinutes || !win || !win.isVisible() || win.isMinimized()) return;
+  const idleSeconds = powerMonitor.getSystemIdleTime();
+  if (idleSeconds < 30) ambientIdleFired = false;
+  if (!ambientIdleFired && idleSeconds >= ambientIdleMinutes * 60) {
+    ambientIdleFired = true;
+    win.webContents.send('ambient:idle');
+  }
+}, 15_000);
+ipcMain.handle('ambient:setIdleMinutes', (_event, minutes: number) => {
+  ambientIdleMinutes = Math.max(0, Number(minutes) || 0);
+  ambientIdleFired = false;
+  return ambientIdleMinutes;
+});
+
 ipcMain.handle('window:toggleAlwaysOnTop', (_event, alwaysOnTop: boolean) => {
   if (win) win.setAlwaysOnTop(alwaysOnTop);
 });
