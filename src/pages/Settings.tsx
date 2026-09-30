@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
 import { useThemeStore } from '../store/themeStore';
-import { Globe, Sparkles, ShieldCheck, Sun, Moon, Zap, FolderPlus, Monitor, ExternalLink, Eye, EyeOff, LayoutTemplate } from 'lucide-react';
+import { Globe, Sparkles, ShieldCheck, Sun, Moon, Zap, FolderPlus, Monitor, ExternalLink, Eye, EyeOff, LayoutTemplate, Droplets } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import SettingSpinner from '../components/settings/SettingSpinner';
@@ -18,7 +18,7 @@ const SettingsPage = () => {
         setDownloadPath
     } = useSettingsStore();
 
-    const { currentMood, appearance, setAppearance, generateLuckyTheme, setMood, zoomLevel, setZoomLevel, luckyTheme } = useThemeStore();
+    const { currentMood, appearance, setAppearance, generateLuckyTheme, setMood, zoomLevel, setZoomLevel, luckyTheme, liquidGlass, setLiquidGlass } = useThemeStore();
 
     const [tempKey, setTempKey] = useState('');
     const [ytKey, setYtKey] = useState('');
@@ -234,6 +234,27 @@ const SettingsPage = () => {
                         ))}
                     </div>
                 </div>
+                {/* Liquid Glass material: layered on top of whichever appearance is chosen */}
+                <button
+                    onClick={() => setLiquidGlass(!liquidGlass)}
+                    className={clsx(
+                        "w-full flex items-center justify-between gap-6 px-6 py-5 rounded-[1.75rem] transition-all duration-300 text-left",
+                        liquidGlass ? "lg-panel lg-strong lg-sheen" : "bg-surface-variant/10 border border-white/10 hover:bg-surface-variant/30"
+                    )}
+                >
+                    <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/80 to-primary/20 flex items-center justify-center shadow-lg shadow-primary/20 shrink-0">
+                            <Droplets className="text-on-primary" size={22} />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="font-black text-on-surface">Liquid Glass</p>
+                            <p className="text-xs text-on-surface-variant/80">Translucent floating panels over a backdrop tinted by the current artwork. Works with Light, Dark and OLED.</p>
+                        </div>
+                    </div>
+                    <span className={clsx("relative w-12 h-7 rounded-full transition-colors shrink-0", liquidGlass ? "bg-primary" : "bg-on-surface-variant/25")}>
+                        <span className={clsx("absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ease-[cubic-bezier(.34,1.56,.64,1)]", liquidGlass && "translate-x-5")} />
+                    </span>
+                </button>
                 <div className="flex flex-wrap gap-4">
                     {([
                         { type: 'calm', color: '#007AFF', label: 'Blue' },

@@ -186,6 +186,7 @@ const SidebarOverlay = () => {
 
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
     const appearance = useThemeStore(s => s.appearance);
+    const liquidGlass = useThemeStore(s => s.liquidGlass);
     const lyricsContainerRef = useRef<HTMLDivElement>(null);
 
     // Re-renders only when the sung line changes, and never while the panel is closed
@@ -207,7 +208,13 @@ const SidebarOverlay = () => {
                     animate={{ x: 0 }}
                     exit={{ x: '100%' }}
                     transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className="fixed top-[40px] right-0 h-[calc(100vh-40px-6rem)] w-[26%] bg-surface/80 backdrop-blur-2xl border-l border-white/5 z-50 flex flex-col shadow-2xl outline outline-1 outline-primary outline-offset-[-1px] pt-[15px]"
+                    className={clsx(
+                        "fixed w-[26%] z-50 flex flex-col",
+                        liquidGlass
+                            // Floating glass sheet between title bar and player capsule
+                            ? "top-[44px] right-3 h-[calc(100vh-44px-7.5rem)] rounded-[28px] overflow-hidden lg-panel lg-strong lg-blur pt-1"
+                            : "top-[40px] right-0 h-[calc(100vh-40px-6rem)] bg-surface/80 backdrop-blur-2xl border-l border-white/5 shadow-2xl outline outline-1 outline-primary outline-offset-[-1px] pt-[15px]"
+                    )}
                 >
                     <div className="flex items-center justify-between p-6 border-b border-white/5">
                         <div className="flex items-center gap-2">

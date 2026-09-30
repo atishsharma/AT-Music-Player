@@ -9,6 +9,7 @@ import { ChevronDown, ChevronUp, ListMusic, Mic2, Play, Pause, SkipBack, SkipFor
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import BackgroundWatermarks from './BackgroundWatermarks';
+import LiquidBackdrop from './LiquidBackdrop';
 import { toAtmusicUrl } from '../../utils/path';
 
 const QueueStepControls = ({ index, queue, reorderQueue, appearance }: any) => {
@@ -159,6 +160,7 @@ const ZenQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, rem
 
 const NowPlaying = () => {
     const appearance = useThemeStore(state => state.appearance);
+    const liquidGlass = useThemeStore(state => state.liquidGlass);
     const { isPlayerOpen, togglePlayer, currentTrack, duration, isPlaying, pause, play, next, prev, loop, toggleLoop, shuffle, toggleShuffle, seek, setVolume, volume, isMuted, toggleMute, queue, lyrics, setLyrics, loadingLyrics, setLoadingLyrics, reorderQueue, removeFromQueue, clearQueue } = usePlayerStore(useShallow(s => ({
         isPlayerOpen: s.isPlayerOpen, togglePlayer: s.togglePlayer, currentTrack: s.currentTrack, duration: s.duration,
         isPlaying: s.isPlaying, pause: s.pause, play: s.play, next: s.next, prev: s.prev, loop: s.loop,
@@ -754,12 +756,19 @@ const NowPlaying = () => {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-0 pt-[45px] bg-background z-[60] flex flex-col overflow-hidden"
+            className={clsx("fixed inset-0 pt-[45px] z-[60] flex flex-col overflow-hidden", !liquidGlass && "bg-background")}
         >
-            {/* Unified Vibrant Background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-background via-background/90 to-primary/20 pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-tl from-transparent via-background/50 to-surface-variant/10 pointer-events-none mix-blend-overlay" />
-            <BackgroundWatermarks />
+            {liquidGlass ? (
+                // Full-screen ambient artwork: the album colours become the room
+                <LiquidBackdrop />
+            ) : (
+                <>
+                    {/* Unified Vibrant Background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-background via-background/90 to-primary/20 pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-tl from-transparent via-background/50 to-surface-variant/10 pointer-events-none mix-blend-overlay" />
+                    <BackgroundWatermarks />
+                </>
+            )}
 
             {/* If Video Mode, add a backdrop to focus on video */}
             {playbackMode === 'video' && (

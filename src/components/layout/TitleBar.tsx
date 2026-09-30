@@ -1,9 +1,11 @@
 import { Minus, Square, X, Maximize } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import clsx from 'clsx';
+import { useThemeStore } from '../../store/themeStore';
 
 
 const TitleBar = () => {
+    const liquidGlass = useThemeStore(s => s.liquidGlass);
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
     const [isMaximized, setIsMaximized] = useState(false);
@@ -49,7 +51,7 @@ const TitleBar = () => {
                 "fixed top-0 inset-x-0 z-[100] flex items-center justify-between h-[36px] transition-all duration-300",
                 isFullScreen 
                     ? (isHovering ? "translate-y-0 bg-background/95 backdrop-blur-xl shadow-xl pointer-events-auto" : "-translate-y-full opacity-0 pointer-events-none") 
-                    : "bg-background md:bg-transparent pointer-events-auto",
+                    : clsx(liquidGlass ? "bg-transparent" : "bg-background md:bg-transparent", "pointer-events-auto"),
                 // Provide a tiny hover hit-box when hidden
                 isFullScreen && !isHovering ? "h-2 border-none bg-transparent translate-y-0 opacity-0 pointer-events-auto no-drag" : "drag"
             )}

@@ -16,6 +16,8 @@ interface ThemeState {
     appearance: Appearance;
     luckyTheme: LuckyTheme | null;
     zoomLevel: number;
+    liquidGlass: boolean;
+    setLiquidGlass: (enabled: boolean) => void;
     setMood: (mood: Mood) => void;
     setAppearance: (appearance: Appearance) => void;
     setZoomLevel: (level: number) => void;
@@ -52,7 +54,9 @@ const generateLucky = (): LuckyTheme => {
 };
 
 const updateBodyClass = (mood: Mood, appearance: Appearance, luckyTheme?: LuckyTheme | null) => {
-    document.body.className = `mood-${mood} appearance-${appearance}`;
+    // Preserve the Liquid Glass material class; it is toggled independently of mood/appearance
+    const lg = document.body.classList.contains('lg');
+    document.body.className = `mood-${mood} appearance-${appearance}${lg ? ' lg' : ''}`;
     if (mood === 'lucky' && luckyTheme) {
         document.body.style.setProperty('--md-sys-color-primary', luckyTheme.primaryColor);
         document.body.style.setProperty('--md-sys-color-on-primary', '255 255 255');
@@ -98,6 +102,11 @@ export const useThemeStore = create<ThemeState>()(
             appearance: 'light',
             luckyTheme: null,
             zoomLevel: 0.8,
+            liquidGlass: true,
+            setLiquidGlass: (enabled) => {
+                document.body.classList.toggle('lg', enabled);
+                set({ liquidGlass: enabled });
+            },
             setZoomLevel: (level) => {
                 set({ zoomLevel: level });
                 if (window.ipcRenderer?.setZoomFactor) {
@@ -134,6 +143,7 @@ export const useThemeStore = create<ThemeState>()(
             name: 'mood-theme-storage',
             onRehydrateStorage: () => (state) => {
                 if (state) {
+                    document.body.classList.toggle('lg', state.liquidGlass ?? true);
                     updateBodyClass(state.currentMood, state.appearance, state.luckyTheme);
                     if (window.ipcRenderer?.setZoomFactor) {
                         window.ipcRenderer.setZoomFactor(state.zoomLevel ?? 0.8);

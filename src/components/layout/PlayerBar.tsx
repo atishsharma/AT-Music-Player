@@ -120,6 +120,7 @@ const PlayerBar = () => {
     }))) as any;
 
     const appearance = useThemeStore(s => s.appearance);
+    const liquidGlass = useThemeStore(s => s.liquidGlass);
     const { isOpen: isEqOpen, toggleOpen: toggleEq, setOpen: setEqOpen, enabled: isEqEnabled } = useEqualizerStore();
 
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
@@ -156,23 +157,29 @@ const PlayerBar = () => {
     if (!currentTrack) {
         return (
             <div className={clsx(
-                "h-24 border-t flex items-center justify-center font-bold uppercase tracking-widest text-xs",
-                appearance === 'light' ? "bg-primary/10 text-primary border-primary/20" : "bg-surface text-on-surface-variant border-white/5"
+                "h-24 flex items-center justify-center font-bold uppercase tracking-widest text-xs",
+                liquidGlass
+                    ? "lg-panel lg-blur rounded-[28px] mx-3 mb-3 h-16 text-on-surface-variant"
+                    : clsx("border-t", appearance === 'light' ? "bg-primary/10 text-primary border-primary/20" : "bg-surface text-on-surface-variant border-white/5")
             )}>
                 Select a song to play
             </div>
         );
     }
 
-    const isLight = appearance === 'light';
+    // The solid primary "light" bar doesn't apply to glass: glass uses theme ink on a translucent capsule
+    const isLight = appearance === 'light' && !liquidGlass;
 
     return (
         <div className={clsx(
-            "h-24 backdrop-blur-xl border-t flex items-center px-6 gap-6 justify-between transition-all duration-300 relative z-[70]",
-            isLight ? "bg-primary text-on-primary border-primary/20 shadow-[-10px_-10px_30px_rgba(var(--md-sys-color-primary),0.2)]" : "bg-surface/80 border-white/5 text-on-background"
+            "h-24 flex items-center px-6 gap-6 justify-between transition-all duration-300 relative z-[70]",
+            liquidGlass
+                // Floating capsule: blurs the page scrolling beneath it
+                ? "lg-panel lg-strong lg-blur lg-sheen rounded-[32px] mx-3 mb-3 text-on-background"
+                : clsx("backdrop-blur-xl border-t", isLight ? "bg-primary text-on-primary border-primary/20 shadow-[-10px_-10px_30px_rgba(var(--md-sys-color-primary),0.2)]" : "bg-surface/80 border-white/5 text-on-background")
         )}>
             {/* Track Info */}
-            <div className="flex items-center gap-4 w-[25%] min-w-[200px]">
+            <div className="flex items-center gap-4 flex-1 min-w-[180px] max-w-[25%]">
                 <div
                     className={clsx(
                         "w-14 h-14 rounded-xl overflow-hidden shadow-lg border cursor-pointer group relative",
@@ -204,8 +211,8 @@ const PlayerBar = () => {
             </div>
 
             {/* Controls */}
-            <div className="flex flex-col items-center gap-2 flex-1 max-w-2xl px-4">
-                <div className="flex items-center gap-6">
+            <div className="flex flex-col items-center gap-2 flex-[2] min-w-0 max-w-2xl px-2">
+                <div className="flex items-center gap-3 xl:gap-6">
                     <button
                         onClick={handleFavToggle}
                         className={clsx("p-2 rounded-full transition-all hover:scale-110", isFav ? (isLight ? "text-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" : "text-primary shadow-[0_0_10px_rgba(var(--md-sys-color-primary),0.5)]") : (isLight ? "text-on-primary/60 hover:text-white" : "text-on-surface-variant/40 hover:text-on-surface-variant hover:bg-white/5"))}
@@ -314,7 +321,7 @@ const PlayerBar = () => {
             </div>
 
             {/* Right Side Tools */}
-            <div className="w-[25%] flex justify-end items-center gap-4">
+            <div className="shrink-0 flex justify-end items-center gap-2 xl:gap-4">
                 <button
                     onClick={() => toggleSidebarLyrics()}
                     className={clsx(

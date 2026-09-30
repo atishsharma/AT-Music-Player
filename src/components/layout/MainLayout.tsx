@@ -16,12 +16,14 @@ import { usePlayerStore } from '../../store/playerStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import Toast from '../common/Toast';
+import LiquidBackdrop from '../common/LiquidBackdrop';
 import { useWidgetBridge } from '../../hooks/useWidgetBridge';
 import { useState, useEffect, Suspense } from 'react';
 
 const MainLayout = () => {
     const isPlayerOpen = usePlayerStore(state => state.isPlayerOpen);
     const location = useLocation();
+    const liquidGlass = useThemeStore(state => state.liquidGlass);
     useWidgetBridge();
     const [isMiniMode, setIsMiniMode] = useState(false);
 
@@ -76,9 +78,12 @@ const MainLayout = () => {
     // so React does not unmount and recreate the HTML5 Audio/Video elements when switching modes!
     return (
         <div className={clsx(
-            "flex h-screen bg-background overflow-hidden relative transition-all duration-300",
-            isMiniMode ? "border-x-4 border-b-4 border-primary/60" : "border-r-4 border-l-4 border-b-4 border-primary/60"
+            "flex h-screen overflow-hidden relative transition-colors duration-300",
+            liquidGlass
+                ? (isMiniMode ? "" : "pl-3")
+                : clsx("bg-background", isMiniMode ? "border-x-4 border-b-4 border-primary/60" : "border-r-4 border-l-4 border-b-4 border-primary/60")
         )}>
+            {liquidGlass && <LiquidBackdrop />}
             <Toast />
             <Player />
             
@@ -92,7 +97,7 @@ const MainLayout = () => {
                         <NowPlaying />
                     </AnimatePresence>
                     <Sidebar />
-                    <div className="flex-1 flex flex-col min-w-0 pt-[40px]">
+                    <div className="flex-1 flex flex-col min-w-0 pt-[40px] relative z-[1]">
                         <div className="flex-1 overflow-y-auto no-scrollbar relative p-6">
                             <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" /></div>}>
                                 {/* Lightweight route transition (opacity + small lift, GPU-composited) */}
