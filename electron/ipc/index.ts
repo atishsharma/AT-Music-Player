@@ -14,6 +14,7 @@ import { ytDlpBinaryPath, checkSystemYtDlp, execYtDlpJson } from '../utils/ytdlp
 import util from 'util';
 import { registerStatsHandlers } from './stats';
 import { registerSmartHandlers } from './smart';
+import { registerSocialHandlers } from './social';
 const execFilePromise = util.promisify(execFile);
 
 // Extension from the URL path only (query strings like ?v=1 must not leak into filenames)
@@ -43,6 +44,7 @@ export function registerHandlers(win: BrowserWindow) {
     handlersRegistered = true;
     registerStatsHandlers();
     registerSmartHandlers();
+    registerSocialHandlers();
 
     // Dialogs
     ipcMain.handle('dialog:openDirectory', async () => {

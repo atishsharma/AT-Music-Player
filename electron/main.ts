@@ -6,6 +6,7 @@ import { stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { initDB, getSetting, getDB } from './db'
 import { registerHandlers } from './ipc'
+import { stopSocial } from './ipc/social'
 import { startRemote, stopRemote, remoteStatus, newRemoteToken } from './services/remote'
 import { searchYouTube } from './services/ytdlp'
 
@@ -672,6 +673,7 @@ ipcMain.handle('remote:resetLink', async () => {
 app.on('before-quit', () => {
   isQuitting = true;
   stopRemote();
+  stopSocial();
   widgetWin?.destroy();
   videoWin?.destroy();
 });

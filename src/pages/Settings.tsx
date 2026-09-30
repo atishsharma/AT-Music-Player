@@ -133,7 +133,7 @@ const SECTIONS = [
     { id: 'widget', label: 'Widget & mini player', icon: AppWindow, k: 'desktop widget style pill card orb always on top mini player resizable' },
     { id: 'remote', label: 'Phone remote', icon: Smartphone, k: 'phone remote control qr code lan wifi mobile' },
     { id: 'library', label: 'Library', icon: Library, k: 'download folder location audio cache clear' },
-    { id: 'connections', label: 'Connections', icon: Link2, k: 'youtube api key last.fm lastfm' },
+    { id: 'connections', label: 'Connections', icon: Link2, k: 'youtube api key last.fm lastfm scrobble discord rich presence status' },
     { id: 'system', label: 'System', icon: Cpu, k: 'hardware acceleration gpu yt-dlp ffmpeg' },
     { id: 'about', label: 'About', icon: Info, k: 'about version license' },
 ] as const;
@@ -187,6 +187,97 @@ const PhoneRemote = ({ say }: { say: (m: string) => void }) => {
                     )}
                 </Row>
             )}
+        </Group>
+    );
+};
+
+interface DiscordInfo { enabled: boolean; clientId: string; connected: boolean }
+interface LastfmInfo { hasKeys: boolean; connected: boolean; user: string; enabled: boolean; queued: number }
+
+const fieldBox = "flex items-center gap-2 w-full sm:w-[340px] pl-3 pr-1.5 py-1.5 rounded-[11px] bg-on-background/[0.06]";
+const fieldInput = "flex-1 min-w-0 bg-transparent outline-none font-mono text-[12.5px] text-on-background placeholder:text-on-background/35 py-1";
+
+/** Discord Rich Presence + Last.fm scrobbling */
+const SocialRows = ({ say, lfmKey }: { say: (m: string) => void; lfmKey: string }) => {
+    const [dc, setDc] = useState<DiscordInfo | null>(null);
+    const [dcId, setDcId] = useState('');
+    const [lfm, setLfm] = useState<LastfmInfo | null>(null);
+    const [secret, setSecret] = useState('');
+    const [waiting, setWaiting] = useState(false);
+    const [err, setErr] = useState('');
+
+    useEffect(() => {
+        window.ipcRenderer.invoke('discord:status').then((d: DiscordInfo) => { setDc(d); setDcId(d.clientId); });
+        window.ipcRenderer.invoke('lastfm:status').then(setLfm);
+    }, [lfmKey]);
+
+    // Poll the Discord connection while enabled (it connects in the background)
+    useEffect(() => {
+        if (!dc?.enabled || dc.connected) return;
+        const t = window.setInterval(() => window.ipcRenderer.invoke('discord:status').then(setDc), 3000);
+        return () => window.clearInterval(t);
+    }, [dc?.enabled, dc?.connected]);
+
+    const configure = async (enabled: boolean, clientId = dcId) => {
+        setDc(await window.ipcRenderer.invoke('discord:configure', { enabled, clientId }));
+    };
+    const validId = /^\d{15,22}$/.test(dcId.trim());
+
+    const connectLastfm = async () => {
+        setErr('');
+        try {
+            if (secret.trim()) setLfm(await window.ipcRenderer.invoke('lastfm:setSecret', secret));
+            await window.ipcRenderer.invoke('lastfm:beginAuth');
+            setWaiting(true);
+        } catch (e) { setErr((e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')); }
+    };
+    const finishLastfm = async () => {
+        setErr('');
+        try {
+            const s: LastfmInfo = await window.ipcRenderer.invoke('lastfm:finishAuth');
+            setLfm(s); setWaiting(false); setSecret('');
+            say(`Connected as ${s.user}`);
+        } catch (e) { setErr((e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')); }
+    };
+
+    return (
+        <Group>
+            <Row label="Discord status" k="discord rich presence activity listening"
+                hint={!dc?.enabled ? 'Show what you\'re listening to on your Discord profile'
+                    : <Status tone={dc.connected ? 'good' : 'warn'}>{dc.connected ? 'Connected to Discord' : 'Waiting for the Discord app…'}</Status>}>
+                <Switch on={!!dc?.enabled} onChange={v => { if (v && !validId) { say('Add your Discord application ID first'); return; } configure(v); }} label="Discord status" />
+            </Row>
+            <Row label="Discord application ID" k="discord client id" hint={<>Create an app at discord.com/developers, name it how the status should read, and paste its Application ID.</>}>
+                <div className={fieldBox}>
+                    <input value={dcId} onChange={e => setDcId(e.target.value.replace(/\D/g, ''))} placeholder="e.g. 1234567890123456789" spellCheck={false} aria-label="Discord application ID" className={fieldInput} />
+                    <Btn disabled={!validId || dcId === dc?.clientId} onClick={() => { configure(!!dc?.enabled, dcId); say('Saved'); }}>Save</Btn>
+                </div>
+            </Row>
+            <Row label="Last.fm scrobbling" k="lastfm last.fm scrobble scrobbler connect account"
+                hint={lfm?.connected
+                    ? <Status tone="good">Connected as {lfm.user}{lfm.queued ? ` · ${lfm.queued} waiting to send` : ''}</Status>
+                    : !lfmKey ? 'Add your Last.fm API key above first' : 'Scrobble every song you play to your Last.fm profile'}>
+                {lfm?.connected ? (
+                    <div className="flex items-center gap-2">
+                        <Switch on={lfm.enabled} onChange={async v => setLfm(await window.ipcRenderer.invoke('lastfm:setScrobbling', v))} label="Scrobbling" />
+                        <Btn onClick={async () => { setLfm(await window.ipcRenderer.invoke('lastfm:logout')); say('Disconnected'); }}>Disconnect</Btn>
+                    </div>
+                ) : waiting ? (
+                    <div className="flex items-center gap-2">
+                        <Btn primary onClick={finishLastfm}>I've approved it</Btn>
+                        <Btn onClick={() => setWaiting(false)}>Cancel</Btn>
+                    </div>
+                ) : null}
+            </Row>
+            {!lfm?.connected && !waiting && (
+                <Row label="Last.fm API secret" k="lastfm secret shared" hint={<>From the same page as your API key (last.fm/api/accounts). {err && <span className="text-red-500">{err}</span>}</>}>
+                    <div className={fieldBox}>
+                        <input type="password" value={secret} onChange={e => setSecret(e.target.value)} placeholder={lfm?.hasKeys ? 'Saved · paste to replace' : 'Paste shared secret'} spellCheck={false} aria-label="Last.fm API secret" className={fieldInput} />
+                        <Btn primary disabled={!lfmKey || (!secret.trim() && !lfm?.hasKeys)} onClick={connectLastfm}>Connect</Btn>
+                    </div>
+                </Row>
+            )}
+            {waiting && err && <Row label="" hint={<span className="text-red-500">{err}</span>} />}
         </Group>
     );
 };
@@ -561,7 +652,7 @@ const SettingsPage = () => {
                         <Group>
                             {([
                                 { label: 'YouTube Data API', k: 'youtube key', value: ytKey, set: setYtKey, show: showYt, setShow: setShowYt, hint: 'Faster search and trending. Optional.' },
-                                { label: 'Last.fm', k: 'lastfm last.fm key scrobble', value: lfmKey, set: setLfmKey, show: showLfm, setShow: setShowLfm, hint: 'Charts and artist info.' },
+                                { label: 'Last.fm', k: 'lastfm last.fm key scrobble', value: lfmKey, set: setLfmKey, show: showLfm, setShow: setShowLfm, hint: 'Charts, artist info and scrobbling.' },
                             ]).map(f => (
                                 <Row key={f.label} label={f.label} k={f.k} hint={<Status tone={f.value ? 'good' : 'off'}>{f.value ? 'Key set' : `Not set · ${f.hint}`}</Status>}>
                                     <div className="flex items-center gap-2 w-full sm:w-[340px] pl-3 pr-1.5 py-1.5 rounded-[11px] bg-on-background/[0.06]">
@@ -581,6 +672,8 @@ const SettingsPage = () => {
                                 </Row>
                             ))}
                         </Group>
+                        <div className="h-3" />
+                        <SocialRows say={say} lfmKey={settings.lastfmKey} />
                     </Section>
 
                     {/* ─── System ─── */}
