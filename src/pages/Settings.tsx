@@ -370,7 +370,7 @@ const SettingsPage = () => {
                         <div className="p-4 bg-primary/10 rounded-[1.5rem]">
                             <Zap className="text-primary" size={24} />
                         </div>
-                        <p className="text-xl font-black text-primary">v1.2.1</p>
+                        <p className="text-xl font-black text-primary">v{__APP_VERSION__}</p>
                         <a
                             href="https://github.com/atishsharma/AT-Music-Player/releases"
                             target="_blank"

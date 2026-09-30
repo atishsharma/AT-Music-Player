@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+declare const __APP_VERSION__: string;
+
 interface Window {
     ipcRenderer: {
         on(channel: string, listener: (event: any, ...args: any[]) => void): () => void;

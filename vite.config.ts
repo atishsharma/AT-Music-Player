@@ -2,12 +2,15 @@ import { defineConfig } from 'vite'
 import path from 'node:path'
 import electron from 'vite-plugin-electron/simple'
 import react from '@vitejs/plugin-react'
+import pkg from './package.json'
 
 delete process.env.ELECTRON_RUN_AS_NODE;
 
 // https://vitejs.dev/config/
 export default defineConfig({
   base: './',
+  // Single source of truth for the version shown in the app
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   plugins: [
     react(),
     electron({

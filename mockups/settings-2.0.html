@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AT Music Settings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: quiet two-column preferences. A slim sticky index on the left, one column of
+   inset-grouped rows on the right (label left, control right). Colour only on active controls. */
+:root {
+  --bg: #f3f4f6;             /* page ground, cool grey */
+  --panel: #ffffff;          /* grouped list surface */
+  --ink: #15181c;
+  --ink-2: #5d646e;          /* secondary text */
+  --ink-3: #8b929c;          /* hints */
+  --line: rgba(21, 24, 28, 0.08);
+  --fill: rgba(21, 24, 28, 0.05);
+  --accent: 0 128 128;       /* app teal, "R G B" so moods can swap it */
+  --on-accent: #ffffff;
+  --shadow: 0 1px 2px rgba(21, 24, 28, 0.05), 0 8px 24px -12px rgba(21, 24, 28, 0.12);
+  --good: #1f9d55;
+  --warn: #b7791f;
+  --font: "Poppins", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 18px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1013; --panel: #171a1e; --ink: #eef0f3; --ink-2: #a1a8b3; --ink-3: #6f7782;
+    --line: rgba(255, 255, 255, 0.07); --fill: rgba(255, 255, 255, 0.06);
+    --accent: 79 216 216; --on-accent: #062222;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -16px rgba(0, 0, 0, 0.6);
+    --good: #4ade80; --warn: #fbbf24;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1013; --panel: #171a1e; --ink: #eef0f3; --ink-2: #a1a8b3; --ink-3: #6f7782;
+  --line: rgba(255, 255, 255, 0.07); --fill: rgba(255, 255, 255, 0.06);
+  --accent: 79 216 216; --on-accent: #062222;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -16px rgba(0, 0, 0, 0.6);
+  --good: #4ade80; --warn: #fbbf24;
+  color-scheme: dark;
+}
+:root[data-oled="true"] { --bg: #000; --panel: #0b0c0e; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--font); font-size: 14px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  padding-inline: clamp(16px, 4vw, 48px); padding-block: 36px 80px;
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+button, input { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; border-radius: 8px; }
+.icon { width: 18px; height: 18px; flex-shrink: 0; }
+
+.shell { max-width: 1040px; margin-inline: auto; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 56px; }
+
+/* ─── Index ─── */
+.index { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 36px); align-self: start; display: flex; flex-direction: column; gap: 2px; }
+.index h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 18px 10px; }
+.index a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; color: var(--ink-2); text-decoration: none; font-size: 13.5px; font-weight: 500; transition: background-color 0.2s, color 0.2s; }
+.index a:hover { background: var(--fill); color: var(--ink); }
+.index a.on { background: var(--panel); color: var(--ink); box-shadow: var(--shadow); }
+.index a.on .icon { color: rgb(var(--accent)); }
+.index .ver { margin: 18px 10px 0; font-size: 12px; color: var(--ink-3); font-family: var(--mono); }
+
+/* ─── Content ─── */
+.content { min-width: 0; display: flex; flex-direction: column; gap: 40px; }
+.search { position: relative; }
+.search input { width: 100%; padding: 12px 14px 12px 42px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); box-shadow: var(--shadow); outline: none; font-size: 14px; }
+.search input::placeholder { color: var(--ink-3); }
+.search input:focus { border-color: rgb(var(--accent) / 0.5); box-shadow: 0 0 0 4px rgb(var(--accent) / 0.12); }
+.search .icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--ink-3); }
+.search kbd { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-size: 11px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+
+section { display: flex; flex-direction: column; gap: 10px; scroll-margin-top: 36px; }
+section > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-inline: 4px; }
+section h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+section > header p { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+
+.group { background: var(--panel); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 18px; min-height: 58px; }
+.row + .row { border-top: 1px solid var(--line); }
+.row.stack { flex-direction: column; align-items: stretch; gap: 14px; }
+.label { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.label b { font-weight: 500; font-size: 14px; }
+.label span { font-size: 12.5px; color: var(--ink-3); }
+.row[hidden] { display: none; }
+
+/* Switch */
+.switch { position: relative; width: 42px; height: 24px; border-radius: 999px; background: var(--fill); box-shadow: inset 0 0 0 1px var(--line); flex-shrink: 0; transition: background-color 0.25s; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.switch[aria-checked="true"] { background: rgb(var(--accent)); box-shadow: none; }
+.switch[aria-checked="true"]::after { transform: translateX(18px); }
+
+/* Segmented */
+.seg { display: inline-grid; grid-auto-flow: column; gap: 2px; padding: 3px; border-radius: 11px; background: var(--fill); flex-shrink: 0; }
+.seg button { padding: 6px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); white-space: nowrap; transition: background-color 0.2s, color 0.2s, box-shadow 0.2s; }
+.seg button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 500; background: var(--fill); color: var(--ink); white-space: nowrap; transition: background-color 0.2s, transform 0.15s; flex-shrink: 0; }
+.btn:hover { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.btn:active { transform: scale(0.97); }
+.btn.primary { background: rgb(var(--accent)); color: var(--on-accent); }
+.btn.primary:hover { background: rgb(var(--accent) / 0.88); }
+
+/* Theme tiles */
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile { display: flex; flex-direction: column; gap: 8px; align-items: center; font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+.tile .prev { width: 100%; aspect-ratio: 16 / 10; border-radius: 12px; position: relative; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); transition: box-shadow 0.2s, transform 0.2s; }
+.tile:hover .prev { transform: translateY(-2px); }
+.tile[aria-pressed="true"] { color: var(--ink); }
+.tile[aria-pressed="true"] .prev { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px rgb(var(--accent)); }
+.prev i { position: absolute; border-radius: 4px; }
+.prev .sb { left: 8%; top: 12%; bottom: 12%; width: 22%; }
+.prev .l1 { left: 36%; top: 16%; width: 40%; height: 9%; }
+.prev .l2 { left: 36%; top: 32%; width: 54%; height: 22%; border-radius: 6px; }
+.prev .pb { left: 36%; right: 8%; bottom: 12%; height: 12%; border-radius: 999px; }
+.p-light { background: #f4f5f7; } .p-light i { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.08); } .p-light .l1 { background: #d9dde2; }
+.p-dark { background: #1a1d21; } .p-dark i { background: #2a2e34; } .p-dark .l1 { background: #3a3f46; }
+.p-oled { background: #000; } .p-oled i { background: #15171a; } .p-oled .l1 { background: #26292e; }
+.p-glass { background: linear-gradient(135deg, #7fe3d6, #b9a8ff 55%, #ffb6a3); }
+.p-glass i { background: rgba(255,255,255,0.5); box-shadow: inset 0 1px 0 rgba(255,255,255,0.8); }
+.prev .pb { background: rgb(var(--accent)) !important; }
+
+/* Mood swatches */
+.swatches { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.sw { width: 26px; height: 26px; border-radius: 50%; position: relative; transition: transform 0.2s; }
+.sw:hover { transform: scale(1.1); }
+.sw[aria-pressed="true"]::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; box-shadow: 0 0 0 2px rgb(var(--accent)); }
+.sw.lucky { background: conic-gradient(#ff4d8d, #ffb13d, #4fd8d8, #7a5cff, #ff4d8d); }
+
+/* Slider */
+.scale { display: flex; flex-direction: column; gap: 6px; width: min(320px, 100%); }
+.scale input { width: 100%; accent-color: rgb(var(--accent)); }
+.scale .ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-3); }
+.value { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
+
+/* Scene & widget previews */
+.cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.cards.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.card { display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); text-align: left; }
+.card .prev { aspect-ratio: 16 / 10; border-radius: 12px; position: relative; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); transition: box-shadow 0.2s, transform 0.2s; }
+.card:hover .prev { transform: translateY(-2px); }
+.card[aria-pressed="true"] { color: var(--ink); }
+.card[aria-pressed="true"] .prev { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px rgb(var(--accent)); }
+.sc-aurora { background: radial-gradient(60% 80% at 20% 20%, #ff6a3d, transparent 70%), radial-gradient(60% 80% at 85% 40%, #c2338f, transparent 70%), radial-gradient(60% 80% at 50% 110%, #5b3dff, transparent 70%), #0b0b10; }
+.sc-vinyl { background: radial-gradient(circle at 26% 50%, #ff6a3d 0 11%, #111 11.5% 13%, #0d0d10 13% 38%, transparent 38.5%), #121216; }
+.sc-horizon { background: radial-gradient(circle at 50% 62%, #ff9a6b 0 13%, transparent 14%), linear-gradient(180deg, #0b0b10 55%, #3a1f4a 56%, #5b2b5c 70%, #7a2f55 100%); }
+.sc-clock { background: #000; display: grid; place-items: center; color: #eee; font-family: var(--mono); font-size: 15px; font-weight: 400; }
+.sc-lyric { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: 60%; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.85); }
+.sc-lyric + .sc-lyric { top: 58%; width: 44%; background: rgba(255,255,255,0.3); }
+.cards.three .prev { aspect-ratio: 16 / 7; }
+.wd { background: linear-gradient(135deg, color-mix(in srgb, rgb(var(--accent)) 35%, var(--fill)), var(--fill)); display: grid; place-items: center; }
+.wd i { background: var(--panel); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+.wd-pill i { width: 56%; height: 30%; border-radius: 999px; }
+.wd-card i { width: 20%; height: 78%; border-radius: 10px; }
+.wd-orb i { width: 22%; aspect-ratio: 1; border-radius: 50%; box-shadow: 0 0 0 3px rgb(var(--accent)), 0 4px 12px rgba(0,0,0,0.15); }
+
+/* Keys & paths */
+.field { display: flex; align-items: center; gap: 8px; width: min(360px, 100%); padding: 6px 6px 6px 12px; border-radius: 11px; background: var(--fill); }
+.field input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+.field .mini { padding: 5px 8px; border-radius: 7px; font-size: 12px; color: var(--ink-2); }
+.field .mini:hover { background: var(--panel); color: var(--ink); }
+.path { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+.status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 20%, transparent); }
+.status.warn::before { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 20%, transparent); }
+.status.off::before { background: var(--ink-3); box-shadow: none; }
+
+.note { display: flex; gap: 10px; align-items: center; padding: 12px 16px; border-radius: 14px; font-size: 13px; background: color-mix(in srgb, var(--warn) 12%, var(--panel)); color: var(--ink); }
+.note[hidden] { display: none; }
+.note .btn { margin-left: auto; }
+
+/* About */
+.about { display: flex; align-items: center; gap: 18px; padding: 20px 18px; }
+.appicon { width: 64px; height: 64px; border-radius: 16px; flex-shrink: 0; background:
+  radial-gradient(circle at 50% 50%, #fff 0 52%, transparent 53%),
+  conic-gradient(from 200deg, #f5d27a, #b8892b, #f7e3a1, #a8781f, #f5d27a); box-shadow: var(--shadow); position: relative; }
+.appicon::after { content: "AT"; position: absolute; inset: 0; display: grid; place-items: center; font-weight: 700; font-size: 20px; letter-spacing: -0.04em;
+  background: linear-gradient(120deg, #3aa0ff, #a94cff 45%, #ff8a3d 80%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.about h3 { margin: 0; font-size: 17px; font-weight: 600; }
+.about p { margin: 2px 0 0; color: var(--ink-3); font-size: 12.5px; }
+.about .links { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.about a { font-size: 13px; color: rgb(var(--accent)); text-decoration: none; font-weight: 500; padding: 6px 10px; border-radius: 8px; }
+.about a:hover { background: var(--fill); }
+
+.empty { text-align: center; color: var(--ink-3); padding: 40px 0; font-size: 13px; }
+.empty[hidden] { display: none; }
+
+/* Toast */
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
+  padding: 9px 16px; border-radius: 999px; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 500; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  transition: opacity 0.25s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 820px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .index { position: static; flex-direction: row; overflow-x: auto; gap: 4px; padding-bottom: 4px; }
+  .index h1, .index .ver { display: none; }
+  .index a { white-space: nowrap; }
+  .index a .icon { display: none; }
+}
+@media (max-width: 560px) {
+  .row { flex-wrap: wrap; }
+  .row > .seg, .row > .swatches, .row > .field, .row > .scale { width: 100%; justify-content: flex-start; }
+  .tiles, .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .about { flex-wrap: wrap; }
+  .about .links { margin-left: 0; justify-content: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-appearance" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></symbol>
+  <symbol id="i-ambient" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 20.5h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M7 13c2-3 4-3 5-1.5S15 12 17 9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-widget" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="7" y="13" width="10" height="4" rx="2" fill="currentColor"/></symbol>
+  <symbol id="i-library" viewBox="0 0 24 24"><path d="M5 4v16M9.5 4v16M14 5l4.5 14.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-system" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M9 2.5v3M15 2.5v3M9 18.5v3M15 18.5v3M2.5 9h3M2.5 15h3M18.5 9h3M18.5 15h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-about" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 11v5.5M12 7.6v.1" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+</defs></svg>
+
+<div class="shell">
+  <nav class="index" aria-label="Settings sections">
+    <h1>Settings</h1>
+    <a href="#appearance" class="on"><svg class="icon"><use href="#i-appearance"/></svg>Appearance</a>
+    <a href="#ambient"><svg class="icon"><use href="#i-ambient"/></svg>Ambient mode</a>
+    <a href="#widget"><svg class="icon"><use href="#i-widget"/></svg>Widget &amp; mini player</a>
+    <a href="#library"><svg class="icon"><use href="#i-library"/></svg>Library</a>
+    <a href="#connections"><svg class="icon"><use href="#i-link"/></svg>Connections</a>
+    <a href="#system"><svg class="icon"><use href="#i-system"/></svg>System</a>
+    <a href="#about"><svg class="icon"><use href="#i-about"/></svg>About</a>
+    <div class="ver">v2.0.0</div>
+  </nav>
+
+  <main class="content">
+    <label class="search" for="q">
+      <svg class="icon"><use href="#i-search"/></svg>
+      <input id="q" type="search" placeholder="Search settings" autocomplete="off">
+      <kbd>Ctrl F</kbd>
+    </label>
+    <p class="empty" id="empty" hidden>No settings match that search.</p>
+
+    <!-- ───────── Appearance ───────── -->
+    <section id="appearance">
+      <header><h2>Appearance</h2></header>
+      <div class="group">
+        <div class="row stack" data-k="theme light dark oled glass appearance">
+          <div class="label"><b>Theme</b></div>
+          <div class="tiles" data-seg="theme">
+            <button class="tile" type="button" data-v="light" aria-pressed="false"><span class="prev p-light"><i class="sb"></i><i class="l1"></i><i class="l2"></i><i class="pb"></i></span>Light</button>
+            <button class="tile" type="button" data-v="dark" aria-pressed="false"><span class="prev p-dark"><i class="sb"></i><i class="l1"></i><i class="l2"></i><i class="pb"></i></span>Dark</button>
+            <button class="tile" type="button" data-v="oled" aria-pressed="false"><span class="prev p-oled"><i class="sb"></i><i class="l1"></i><i class="l2"></i><i class="pb"></i></span>OLED</button>
+            <button class="tile" type="button" data-v="glass" aria-pressed="false"><span class="prev p-glass"><i class="sb"></i><i class="l1"></i><i class="l2"></i><i class="pb"></i></span>Glass</button>
+          </div>
+        </div>
+        <div class="row" data-k="liquid glass translucent blur">
+          <div class="label"><b>Liquid Glass</b><span>Translucent panels over the album art</span></div>
+          <button class="switch" type="button" role="switch" aria-checked="true" aria-label="Liquid Glass"></button>
+        </div>
+        <div class="row" data-k="mood accent colour color">
+          <div class="label"><b>Mood colour</b><span id="moodName">Focus</span></div>
+          <div class="swatches" data-seg="mood">
+            <button class="sw" type="button" data-v="calm" data-c="0 122 255" data-n="Calm" style="background:#007aff" aria-pressed="false" aria-label="Calm"></button>
+            <button class="sw" type="button" data-v="energetic" data-c="255 149 0" data-n="Energetic" style="background:#ff9500" aria-pressed="false" aria-label="Energetic"></button>
+            <button class="sw" type="button" data-v="focus" data-c="0 170 165" data-n="Focus" style="background:#00aaa5" aria-pressed="true" aria-label="Focus"></button>
+            <button class="sw" type="button" data-v="sad" data-c="88 86 214" data-n="Sad" style="background:#5856d6" aria-pressed="false" aria-label="Sad"></button>
+            <button class="sw" type="button" data-v="party" data-c="255 45 85" data-n="Party" style="background:#ff2d55" aria-pressed="false" aria-label="Party"></button>
+            <button class="sw lucky" type="button" data-v="lucky" data-c="140 90 255" data-n="Feeling lucky" aria-pressed="false" aria-label="Feeling lucky"></button>
+          </div>
+        </div>
+        <div class="row" data-k="interface scale zoom size layout">
+          <div class="label"><b>Interface size</b><span>Scales the whole window</span></div>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div class="scale"><input id="scale" type="range" min="70" max="130" step="10" value="100" aria-label="Interface size"><div class="ticks"><span>Compact</span><span>Default</span><span>Large</span></div></div>
+            <span class="value" id="scaleOut">100%</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── Ambient ───────── -->
+    <section id="ambient">
+      <header><h2>Ambient mode</h2><button class="btn primary" type="button" data-toast="Ambient mode opened">Open now</button></header>
+      <div class="group">
+        <div class="row stack" data-k="ambient scene aurora vinyl horizon clock screensaver">
+          <div class="label"><b>Scene</b><span>Full-screen lyrics and a slow background</span></div>
+          <div class="cards" data-seg="scene">
+            <button class="card" type="button" data-v="aurora" aria-pressed="true"><span class="prev sc-aurora"><i class="sc-lyric"></i><i class="sc-lyric"></i></span>Aurora</button>
+            <button class="card" type="button" data-v="vinyl" aria-pressed="false"><span class="prev sc-vinyl"></span>Vinyl</button>
+            <button class="card" type="button" data-v="horizon" aria-pressed="false"><span class="prev sc-horizon"></span>Horizon</button>
+            <button class="card" type="button" data-v="clock" aria-pressed="false"><span class="prev sc-clock">21:48</span>Clock</button>
+          </div>
+        </div>
+        <div class="row" data-k="ambient start automatically idle screensaver">
+          <div class="label"><b>Start when idle</b><span>Only while music is playing</span></div>
+          <div class="seg" data-seg="idle">
+            <button type="button" data-v="0" aria-pressed="false">Never</button>
+            <button type="button" data-v="2" aria-pressed="false">2 m</button>
+            <button type="button" data-v="5" aria-pressed="true">5 m</button>
+            <button type="button" data-v="10" aria-pressed="false">10 m</button>
+          </div>
+        </div>
+        <div class="row" data-k="ambient full screen">
+          <div class="label"><b>Open in full screen</b></div>
+          <button class="switch" type="button" role="switch" aria-checked="true" aria-label="Open in full screen"></button>
+        </div>
+        <div class="row" data-k="ambient keep screen on awake sleep display">
+          <div class="label"><b>Keep screen on</b><span>While ambient mode shows playing music</span></div>
+          <button class="switch" type="button" role="switch" aria-checked="true" aria-label="Keep screen on"></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── Widget ───────── -->
+    <section id="widget">
+      <header><h2>Widget &amp; mini player</h2><button class="btn" type="button" data-toast="Widget shown">Show widget</button></header>
+      <div class="group">
+        <div class="row" data-k="desktop widget minimize taskbar">
+          <div class="label"><b>Desktop widget</b><span>Appears when the app is minimized</span></div>
+          <button class="switch" type="button" role="switch" aria-checked="true" aria-label="Desktop widget"></button>
+        </div>
+        <div class="row stack" data-k="widget style pill card orb">
+          <div class="label"><b>Widget style</b></div>
+          <div class="cards three" data-seg="wstyle">
+            <button class="card" type="button" data-v="pill" aria-pressed="true"><span class="prev wd wd-pill"><i></i></span>Pill</button>
+            <button class="card" type="button" data-v="card" aria-pressed="false"><span class="prev wd wd-card"><i></i></span>Card</button>
+            <button class="card" type="button" data-v="orb" aria-pressed="false"><span class="prev wd wd-orb"><i></i></span>Orb</button>
+          </div>
+        </div>
+        <div class="row" data-k="widget always on top pin">
+          <div class="label"><b>Always on top</b><span>Keeps the widget above other windows</span></div>
+          <button class="switch" type="button" role="switch" aria-checked="true" aria-label="Always on top"></button>
+        </div>
+        <div class="row" data-k="mini player resizable aspect ratio">
+          <div class="label"><b>Resizable mini player</b><span>Keeps its 380 × 712 proportions</span></div>
+          <button class="switch" type="button" role="switch" aria-checked="false" aria-label="Resizable mini player"></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── Library ───────── -->
+    <section id="library">
+      <header><h2>Library</h2></header>
+      <div class="group">
+        <div class="row" data-k="download location folder path">
+          <div class="label"><b>Download folder</b><span class="path" title="~/Music/AT Music Pro">~/Music/AT Music Pro</span></div>
+          <button class="btn" type="button" data-toast="Folder picker opens in the app">Change…</button>
+        </div>
+        <div class="row" data-k="cache audio storage clear">
+          <div class="label"><b>Audio cache</b><span>412 MB · 86 songs streamed recently</span></div>
+          <button class="btn" type="button" data-toast="Cache cleared">Clear</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── Connections ───────── -->
+    <section id="connections">
+      <header><h2>Connections</h2><p>Keys stay on this computer</p></header>
+      <div class="group">
+        <div class="row" data-k="youtube api key data">
+          <div class="label"><b>YouTube Data API</b><span class="status">Connected</span></div>
+          <div class="field"><input id="yt" type="password" value="AIzaSyD-8x2Qe9sample-key" aria-label="YouTube API key" spellcheck="false"><button class="mini" type="button" data-reveal="yt">Show</button></div>
+        </div>
+        <div class="row" data-k="last.fm lastfm api key scrobble">
+          <div class="label"><b>Last.fm</b><span class="status off">Not set</span></div>
+          <div class="field"><input id="lfm" type="password" value="" placeholder="Paste API key" aria-label="Last.fm API key" spellcheck="false"><button class="mini" type="button" data-reveal="lfm">Show</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── System ───────── -->
+    <section id="system">
+      <header><h2>System</h2></header>
+      <div class="note" id="restart" role="status" hidden>Restart AT Music Pro to apply the graphics change.<button class="btn" type="button" data-toast="Restarting…">Restart</button></div>
+      <div class="group">
+        <div class="row" data-k="gpu hardware acceleration graphics">
+          <div class="label"><b>Hardware acceleration</b><span>Smoother animations. Turn off if the window stays blank.</span></div>
+          <button class="switch" type="button" role="switch" aria-checked="true" aria-label="Hardware acceleration" id="gpu"></button>
+        </div>
+        <div class="row" data-k="yt-dlp youtube engine update">
+          <div class="label"><b>yt-dlp</b><span class="status">2026.09.12 · bundled</span></div>
+          <button class="btn" type="button" data-toast="yt-dlp is up to date">Check for update</button>
+        </div>
+        <div class="row" data-k="ffmpeg video">
+          <div class="label"><b>ffmpeg</b><span class="status warn">Not found · video mode uses pre-merged streams</span></div>
+          <button class="btn" type="button" data-toast="Install ffmpeg from your distribution">How to install</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── About ───────── -->
+    <section id="about">
+      <header><h2>About</h2></header>
+      <div class="group">
+        <div class="about" data-k="about version license">
+          <div class="appicon" aria-hidden="true"></div>
+          <div>
+            <h3>AT Music Pro</h3>
+            <p>Version 2.0.0 · MIT License · Designed by Atish Ak Sharma</p>
+          </div>
+          <div class="links">
+            <a href="https://github.com/atishsharma/AT-Music-Player/releases" target="_blank" rel="noopener">Release notes</a>
+            <a href="https://github.com/atishsharma/AT-Music-Player" target="_blank" rel="noopener">GitHub</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  const root = document.documentElement;
+  const toastEl = document.getElementById('toast');
+  let toastTimer;
+  function toast(msg) {
+    toastEl.textContent = msg; toastEl.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1600);
+  }
+
+  // Segmented controls / tiles / swatches
+  document.querySelectorAll('[data-seg]').forEach(group => {
+    group.addEventListener('click', e => {
+      const b = e.target.closest('button[data-v]');
+      if (!b) return;
+      group.querySelectorAll('button[data-v]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      const name = group.dataset.seg;
+      if (name === 'theme') applyTheme(b.dataset.v);
+      if (name === 'mood') { root.style.setProperty('--accent', b.dataset.c); document.getElementById('moodName').textContent = b.dataset.n; }
+      toast('Saved');
+    });
+  });
+
+  // Theme tiles drive this page's own light/dark so the choice is visible
+  function applyTheme(v) {
+    root.dataset.theme = v === 'light' || v === 'glass' ? 'light' : 'dark';
+    root.dataset.oled = String(v === 'oled');
+  }
+  const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const initial = root.dataset.theme === 'dark' || (!root.dataset.theme && sysDark) ? 'dark' : 'light';
+  document.querySelector(`[data-seg="theme"] [data-v="${initial}"]`).setAttribute('aria-pressed', 'true');
+
+  // Switches
+  document.querySelectorAll('.switch').forEach(sw => sw.addEventListener('click', () => {
+    const on = sw.getAttribute('aria-checked') !== 'true';
+    sw.setAttribute('aria-checked', String(on));
+    if (sw.id === 'gpu') document.getElementById('restart').hidden = false;
+    else toast(on ? 'On' : 'Off');
+  }));
+
+  // Interface size
+  const scale = document.getElementById('scale');
+  scale.addEventListener('input', () => { document.getElementById('scaleOut').textContent = scale.value + '%'; });
+  scale.addEventListener('change', () => toast('Saved'));
+
+  // Reveal keys
+  document.querySelectorAll('[data-reveal]').forEach(b => b.addEventListener('click', () => {
+    const input = document.getElementById(b.dataset.reveal);
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    b.textContent = show ? 'Hide' : 'Show';
+  }));
+  document.querySelectorAll('.field input').forEach(i => i.addEventListener('change', () => toast('Key saved')));
+  document.querySelectorAll('[data-toast]').forEach(b => b.addEventListener('click', () => toast(b.dataset.toast)));
+
+  // Search: filters rows by label text and keywords, hides empty sections
+  const q = document.getElementById('q');
+  q.addEventListener('input', () => {
+    const term = q.value.trim().toLowerCase();
+    let any = false;
+    document.querySelectorAll('section').forEach(sec => {
+      let visible = 0;
+      sec.querySelectorAll('[data-k]').forEach(row => {
+        const hit = !term || (row.dataset.k + ' ' + row.textContent).toLowerCase().includes(term);
+        row.hidden = !hit;
+        if (hit) visible++;
+      });
+      sec.hidden = visible === 0;
+      if (visible) any = true;
+    });
+    document.getElementById('empty').hidden = any;
+  });
+  window.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); q.focus(); }
+    if (e.key === 'Escape' && document.activeElement === q) { q.value = ''; q.dispatchEvent(new Event('input')); }
+  });
+
+  // Index highlights the section in view
+  const links = [...document.querySelectorAll('.index a')];
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + en.target.id));
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('section').forEach(s => io.observe(s));
+})();
+</script>
+</body>
+</html>
