@@ -134,6 +134,8 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
+          # Tag the exact commit that was built (not whatever the default branch is now)
+          target_commitish: ${{ github.sha }}
           name: AT Music Pro ${{ steps.meta.outputs.tag }}
           body_path: ${{ steps.meta.outputs.notes }}
           generate_release_notes: ${{ steps.meta.outputs.notes == '' }}
