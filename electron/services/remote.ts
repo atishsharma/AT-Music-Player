@@ -161,6 +161,7 @@ button{border:0;background:none;color:inherit;font:inherit;cursor:pointer}
 .tabs{display:flex;gap:6px;background:var(--card);border-radius:14px;padding:4px;margin-bottom:10px}
 .tabs button{flex:1;padding:8px;border-radius:10px;color:var(--mute);font-weight:600}.tabs button.on{background:var(--fg);color:var(--bg)}
 .q{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);font:inherit;margin-bottom:8px}
+.q:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 25%,transparent)}
 .item{display:flex;align-items:center;gap:12px;padding:8px;border-radius:12px;width:100%;text-align:left}
 .item:active{background:var(--card)}.item.cur{color:var(--acc)}
 .th{width:42px;height:42px;border-radius:9px;background:var(--card) center/cover;flex:none}

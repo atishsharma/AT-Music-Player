@@ -8,6 +8,9 @@ import { useEffect, useState, useMemo } from 'react';
 import { toAtmusicUrl } from '../../utils/path';
 import { useSettingsStore } from '../../store/settingsStore';
 import { ArrowDownAZ, ArrowUpZA, ArrowDown10, ArrowUp01 } from 'lucide-react';
+import Pager from './Pager';
+
+const ARTISTS_PER_PAGE = 15;
 
 interface ArtistGridProps {
     tracks: Track[];
@@ -18,6 +21,7 @@ const ArtistGrid: React.FC<ArtistGridProps> = ({ tracks }) => {
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
     const { artistSortBy, artistSortOrder, setArtistSortBy, setArtistSortOrder } = useSettingsStore();
     const [artistImages, setArtistImages] = useState<Record<string, string>>({});
+    const [page, setPage] = useState(1);
 
     // Group tracks by artist
     const artists = React.useMemo(() => {
@@ -48,21 +52,30 @@ const ArtistGrid: React.FC<ArtistGridProps> = ({ tracks }) => {
         return sorted;
     }, [artists, artistSortBy, artistSortOrder]);
 
+    // Pagination: back to page 1 when the sort changes; stay in range when the library shrinks
+    const totalPages = Math.max(1, Math.ceil(sortedArtists.length / ARTISTS_PER_PAGE));
+    useEffect(() => { setPage(1); }, [artistSortBy, artistSortOrder]);
+    useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
+    const pagedArtists = useMemo(
+        () => sortedArtists.slice((page - 1) * ARTISTS_PER_PAGE, page * ARTISTS_PER_PAGE),
+        [sortedArtists, page]
+    );
+
+    // Photos for the visible page only (was one lookup per artist in the whole library)
     useEffect(() => {
+        let cancelled = false;
         const fetchImages = async () => {
-            const images: Record<string, string> = {};
-            for (const artist of artists) {
+            for (const artist of pagedArtists) {
+                if (cancelled) return;
                 const data = await window.ipcRenderer.invoke('library:getArtist', artist.name);
-                if (data?.image_path) {
-                    images[artist.name] = data.image_path;
+                if (data?.image_path && !cancelled) {
+                    setArtistImages(prev => prev[artist.name] === data.image_path ? prev : { ...prev, [artist.name]: data.image_path });
                 }
             }
-            setArtistImages(images);
         };
-        if (artists.length > 0) {
-            fetchImages();
-        }
-    }, [artists]);
+        if (pagedArtists.length > 0) fetchImages();
+        return () => { cancelled = true; };
+    }, [pagedArtists]);
 
     if (artists.length === 0) {
         return (
@@ -105,10 +118,12 @@ const ArtistGrid: React.FC<ArtistGridProps> = ({ tracks }) => {
                         <span className="hidden sm:inline">Order</span>
                     </button>
                 </div>
+
+                <Pager page={page} totalPages={totalPages} onChange={setPage} />
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 p-4">
-                {sortedArtists.map((artist) => (
+                {pagedArtists.map((artist) => (
                     <div
                         key={artist.name}
                         className="group cursor-pointer text-center"

@@ -108,11 +108,30 @@ function loadRoute(target: BrowserWindow, hash = '') {
   }
 }
 
+// Set while switching between the mini player and the full window: some compositors
+// (GNOME/KDE on Wayland) report a transient "minimize" during the big resize, which used
+// to open the desktop widget in place of the full app.
+let windowModeChangeAt = 0;
+const inModeChange = () => Date.now() - windowModeChangeAt < 1200;
+let wasMaximizedBeforeMinimize = false;
+
 function showMainWindow() {
   if (!win) return;
-  if (win.isMinimized()) win.restore();
+  if (win.isMinimized() || !win.isVisible()) {
+    if (process.platform === 'linux') {
+      // Wayland has no "un-minimize" request, so restore() is silently ignored there and the
+      // window stayed hidden until the app was restarted. Re-mapping the window works on both
+      // Wayland and X11.
+      win.hide();
+      win.show();
+      if (wasMaximizedBeforeMinimize && !isMiniPlayerMode()) win.maximize();
+    } else {
+      win.restore();
+    }
+  }
   win.show();
   win.focus();
+  hideWidget();
 }
 
 // ---------------------------------------------------------------------------
@@ -355,9 +374,21 @@ function createWindow() {
   win.on('closed', () => { win = null; });
 
   // Desktop widget follows the main window's minimized state
-  win.on('minimize', () => showWidget());
+  win.on('minimize', () => {
+    if (inModeChange()) {
+      // Spurious minimize while resizing between mini and full mode: undo it
+      setTimeout(() => showMainWindow(), 50);
+      return;
+    }
+    wasMaximizedBeforeMinimize = !!win?.isMaximized() || wasMaximizedBeforeMinimize;
+    showWidget();
+  });
   win.on('restore', () => hideWidget());
   win.on('show', () => { if (!win?.isMinimized()) hideWidget(); });
+  // Back in front (taskbar click, Alt+Tab): the widget is no longer needed
+  win.on('focus', () => hideWidget());
+  win.on('maximize', () => { wasMaximizedBeforeMinimize = true; });
+  win.on('unmaximize', () => { if (!win?.isMinimized()) wasMaximizedBeforeMinimize = false; });
 
   win.on('maximize', sendWindowState);
   win.on('unmaximize', sendWindowState);
@@ -449,6 +480,7 @@ ipcMain.handle('window:toggleAlwaysOnTop', (_event, alwaysOnTop: boolean) => {
 // Mini player mode
 ipcMain.handle('window:miniPlayer', () => {
   if (!win) return;
+  windowModeChangeAt = Date.now();
   win.unmaximize();
   win.setMaximizable(false);
   win.setMinimumSize(380, 712);
@@ -477,13 +509,21 @@ ipcMain.handle('window:setMiniPlayerResizable', (_event, resizable: boolean) => 
 
 ipcMain.handle('window:normalMode', () => {
   if (!win) return;
+  windowModeChangeAt = Date.now();
+  // Clear the rounded mini shape first: left on a large window it clipped it to 380×712
+  if (process.platform !== 'darwin') win.setShape([]);
   win.setAspectRatio(0); // Remove aspect ratio lock
-  win.setMaximizable(true);
   win.setAlwaysOnTop(false);
   win.setResizable(true);
-  win.setMinimumSize(1200, 800);
-  if (process.platform !== 'darwin') win.setShape([]);
+  win.setMaximizable(true);
+  // Grow to a normal size on the same display before maximizing: jumping straight from the
+  // 380×712 mini window to maximized is what some Wayland compositors mishandled
+  const { workArea } = screen.getDisplayMatching(win.getBounds());
+  const width = Math.min(1200, workArea.width), height = Math.min(800, workArea.height);
+  win.setMinimumSize(width, height);
+  win.setBounds({ x: workArea.x + Math.round((workArea.width - width) / 2), y: workArea.y + Math.round((workArea.height - height) / 2), width, height });
   win.maximize();
+  showMainWindow(); // also recovers the window if the compositor minimized it meanwhile
   sendWindowState();
 });
 
