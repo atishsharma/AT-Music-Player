@@ -486,6 +486,78 @@ ipcMain.handle('window:normalMode', () => {
 
 ipcMain.handle('window:isMiniPlayer', () => isMiniPlayerMode());
 
+// ─── Floating video ───────────────────────────────────────────────────────
+// A small always-on-top window that plays the music video while you use other apps.
+interface FloatingVideoPayload { url: string; time: number; title: string; artist: string; subtitle?: { vtt: string; lang: string } | null }
+let videoWin: BrowserWindow | null = null;
+let videoPayload: FloatingVideoPayload | null = null;
+let videoReturnSent = false;
+
+function closeFloatingVideo(returnToApp: { time: number; playing: boolean } | null) {
+  if (returnToApp && !videoReturnSent) win?.webContents.send('video:returned', returnToApp);
+  videoReturnSent = true; // null = closed by the app (track changed): don't hand playback back
+  if (videoWin && !videoWin.isDestroyed()) videoWin.destroy();
+  videoWin = null;
+}
+
+ipcMain.handle('video:popout', (_event, payload: FloatingVideoPayload) => {
+  videoPayload = payload;
+  videoReturnSent = false;
+  if (videoWin && !videoWin.isDestroyed()) {
+    videoWin.webContents.send('video:payload', payload);
+    videoWin.showInactive();
+    return true;
+  }
+  const { workArea } = screen.getDisplayMatching(win?.getBounds() ?? screen.getPrimaryDisplay().bounds);
+  const width = 480, height = 270;
+  videoWin = new BrowserWindow({
+    width, height,
+    x: workArea.x + workArea.width - width - 24,
+    y: workArea.y + workArea.height - height - 24,
+    minWidth: 280, minHeight: 158,
+    frame: false,
+    show: false,
+    backgroundColor: '#000000',
+    alwaysOnTop: true,
+    skipTaskbar: false,
+    fullscreenable: true,
+    title: payload.title,
+    icon: getIconPath(),
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
+  });
+  videoWin.setAspectRatio(16 / 9);
+  videoWin.once('ready-to-show', () => {
+    videoWin?.show();
+    if (videoWin) applyAlwaysOnTop(videoWin, true); // re-apply after mapping (Linux)
+  });
+  videoWin.on('closed', () => {
+    // Closed from the OS (Alt+F4 etc.): hand playback back to the app at the last known time
+    if (!videoReturnSent) win?.webContents.send('video:returned', { time: lastVideoTime, playing: true });
+    videoReturnSent = true;
+    videoWin = null;
+    import('./services/videoProxy').then(m => m.stopStream()).catch(() => { /* ignore */ });
+  });
+  loadRoute(videoWin, '/video');
+  return true;
+});
+let lastVideoTime = 0;
+ipcMain.handle('video:getPayload', () => videoPayload);
+ipcMain.on('video:time', (_event, time: number) => { lastVideoTime = time; });
+ipcMain.handle('video:return', (_event, state: { time: number; playing: boolean }) => {
+  closeFloatingVideo(state);
+  showMainWindow();
+});
+ipcMain.handle('video:close', (_event, state: { time: number; playing: boolean } | null) => closeFloatingVideo(state));
+ipcMain.handle('video:setAlwaysOnTop', (_event, onTop: boolean) => {
+  if (videoWin) applyAlwaysOnTop(videoWin, onTop);
+  return onTop;
+});
+ipcMain.handle('video:toggleFullScreen', () => {
+  if (!videoWin) return false;
+  videoWin.setFullScreen(!videoWin.isFullScreen());
+  return videoWin.isFullScreen();
+});
+
 // Widget IPC
 ipcMain.on('widget:state', (_event, state) => {
   lastPlayerState = state;
@@ -559,6 +631,7 @@ ipcMain.handle('system:info', async () => {
 app.on('before-quit', () => {
   isQuitting = true;
   widgetWin?.destroy();
+  videoWin?.destroy();
 });
 
 app.on('window-all-closed', () => {

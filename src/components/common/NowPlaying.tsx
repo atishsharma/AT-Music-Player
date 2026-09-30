@@ -5,7 +5,8 @@ import { useActiveLyricIndex } from '../../hooks/useActiveLyricIndex';
 import { useThemeStore } from '../../store/themeStore';
 import { useFavoritesStore } from '../../store/favoritesStore';
 import { usePlaylistStore } from '../../store/playlistStore';
-import { ChevronDown, ChevronUp, ListMusic, Mic2, Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Music2, X, Activity, RefreshCw, Maximize2, Minimize2, Volume2, VolumeX, Box, Dna, Hexagon, Sun, ArrowUpLeft, Heart, Plus, PictureInPicture2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, ListMusic, Mic2, Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Music2, X, Activity, RefreshCw, Maximize2, Minimize2, Volume2, VolumeX, Box, Dna, Hexagon, Sun, ArrowUpLeft, Heart, Plus, PictureInPicture2, PictureInPicture, Captions, CaptionsOff, RectangleHorizontal } from 'lucide-react';
+import { useVideoStore, type VideoQuality } from '../../store/videoStore';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import BackgroundWatermarks from './BackgroundWatermarks';
@@ -199,7 +200,17 @@ const NowPlaying = () => {
     const [isVideoLoading, setIsVideoLoading] = useState(false);
     const [isSearchingVideo, setIsSearchingVideo] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [videoQuality, setVideoQuality] = useState<'360p' | '480p' | '720p' | '1080p'>('360p');
+    // Quality, subtitle language and theater mode are remembered between sessions
+    const videoQuality = useVideoStore(s => s.quality);
+    const setVideoQuality = (q: VideoQuality) => useVideoStore.getState().set({ quality: q });
+    const subtitleLang = useVideoStore(s => s.subtitleLang);
+    const theater = useVideoStore(s => s.theater);
+    const [subtitleTracks, setSubtitleTracks] = useState<{ lang: string; name: string; auto: boolean }[]>([]);
+    const [subtitleVtt, setSubtitleVtt] = useState<{ lang: string; vtt: string } | null>(null);
+    const [subtitleUrl, setSubtitleUrl] = useState<string | null>(null);
+    const [showSubMenu, setShowSubMenu] = useState(false);
+    // Popping out hands the stream to the floating window; don't stop the ffmpeg proxy then
+    const poppingOut = useRef(false);
 
     // Priority: fetchedVideoId (from YouTube search for local tracks) > video_id (stored on track) > id (for searched YouTube tracks where id IS the video ID)
     const isYouTubeIdInTrackId = typeof currentTrack?.id === 'string' && currentTrack.id.length >= 10;
@@ -365,12 +376,67 @@ const NowPlaying = () => {
                 }
             } else {
                 setVideoStreamUrl(null);
-                // Stop ffmpeg proxy when leaving video mode
-                try { (window as any).yt.stopVideoStream(); } catch { /* ignore */ }
+                // Stop ffmpeg proxy when leaving video mode (unless the floating window took it over)
+                if (!poppingOut.current) {
+                    try { (window as any).yt.stopVideoStream(); } catch { /* ignore */ }
+                }
+                poppingOut.current = false;
             }
         };
         fetchVideoStream();
     }, [playbackMode, videoId, videoQuality]);
+
+    // Subtitles: list what the video has, then load the remembered language (or none)
+    useEffect(() => {
+        let cancelled = false;
+        setSubtitleTracks([]);
+        setSubtitleVtt(null);
+        if (playbackMode !== 'video' || !videoId) return;
+        window.ipcRenderer.invoke('yt:listSubtitles', videoId).then((tracks) => {
+            if (!cancelled) setSubtitleTracks(tracks || []);
+        });
+        return () => { cancelled = true; };
+    }, [playbackMode, videoId]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const base = subtitleLang.split('-')[0];
+        const track = subtitleLang ? subtitleTracks.find(t => t.lang === subtitleLang) ?? subtitleTracks.find(t => t.lang.split('-')[0] === base) : undefined;
+        if (!track || !videoId) { setSubtitleVtt(null); return; }
+        window.ipcRenderer.invoke('yt:getSubtitle', { videoId, lang: track.lang, auto: track.auto }).then((vtt: string | null) => {
+            if (!cancelled) setSubtitleVtt(vtt ? { lang: track.lang, vtt } : null);
+        });
+        return () => { cancelled = true; };
+    }, [subtitleLang, subtitleTracks, videoId]);
+
+    useEffect(() => {
+        if (!subtitleVtt) { setSubtitleUrl(null); return; }
+        const url = URL.createObjectURL(new Blob([subtitleVtt.vtt], { type: 'text/vtt' }));
+        setSubtitleUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [subtitleVtt]);
+
+    useEffect(() => {
+        const track = videoRef.current?.textTracks?.[0];
+        if (track) track.mode = 'showing';
+    }, [subtitleUrl, videoStreamUrl]);
+
+    const popOutVideo = async () => {
+        const v = videoRef.current;
+        if (!videoStreamUrl || !currentTrack) return;
+        poppingOut.current = true;
+        await window.ipcRenderer.invoke('video:popout', {
+            url: videoStreamUrl,
+            time: v?.currentTime ?? 0,
+            title: currentTrack.title,
+            artist: currentTrack.artist,
+            subtitle: subtitleVtt,
+        });
+        useVideoStore.getState().set({ floating: true });
+        v?.pause();
+        setPlaybackMode('audio');
+        togglePlayer(); // close the full-screen player: the video now floats above other apps
+    };
 
     const handleVideoError = async () => {
         if (!videoId) return;
@@ -980,8 +1046,52 @@ const NowPlaying = () => {
                                         (e.target as HTMLVideoElement).currentTime = currentTime;
                                         usePlayerStore.getState().setDuration((e.target as HTMLVideoElement).duration);
                                     }}
-                                />
+                                >
+                                    {subtitleUrl && <track key={subtitleUrl} kind="subtitles" src={subtitleUrl} srcLang={subtitleVtt?.lang} label={subtitleVtt?.lang} default />}
+                                </video>
                             )}
+
+                            {/* Subtitles / theater / pop-out */}
+                            <div className="absolute top-4 right-4 z-40 flex items-center gap-1 bg-black/60 backdrop-blur-md rounded-full p-1 border border-white/10 pointer-events-auto">
+                                <div className="relative">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setShowSubMenu(o => !o); }}
+                                        className={clsx("p-2 rounded-full transition-colors", subtitleLang ? "bg-primary text-on-primary" : "text-white/70 hover:text-white hover:bg-white/10")}
+                                        title="Subtitles"
+                                    >
+                                        {subtitleLang ? <Captions size={16} /> : <CaptionsOff size={16} />}
+                                    </button>
+                                    {showSubMenu && (
+                                        <div className="absolute right-0 top-full mt-2 w-56 max-h-64 overflow-y-auto no-scrollbar rounded-2xl bg-black/85 backdrop-blur-xl border border-white/10 p-1.5 shadow-2xl">
+                                            {[{ lang: '', name: 'Off', auto: false }, ...subtitleTracks].map(t => (
+                                                <button
+                                                    key={t.lang || 'off'}
+                                                    onClick={(e) => { e.stopPropagation(); useVideoStore.getState().set({ subtitleLang: t.lang }); setShowSubMenu(false); }}
+                                                    className={clsx("w-full text-left px-3 py-2 rounded-xl text-xs font-semibold truncate", subtitleLang === t.lang ? "bg-primary text-on-primary" : "text-white/80 hover:bg-white/10")}
+                                                >
+                                                    {t.name}
+                                                </button>
+                                            ))}
+                                            {subtitleTracks.length === 0 && <p className="px-3 py-2 text-[11px] text-white/50">No subtitles for this video</p>}
+                                        </div>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); useVideoStore.getState().set({ theater: !theater }); }}
+                                    className={clsx("p-2 rounded-full transition-colors", theater ? "bg-primary text-on-primary" : "text-white/70 hover:text-white hover:bg-white/10")}
+                                    title={theater ? 'Exit theater mode' : 'Theater mode'}
+                                >
+                                    <RectangleHorizontal size={16} />
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); popOutVideo(); }}
+                                    disabled={!videoStreamUrl}
+                                    className="p-2 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40"
+                                    title="Floating video (stays on top of other apps)"
+                                >
+                                    <PictureInPicture size={16} />
+                                </button>
+                            </div>
 
                             {/* Video Quality Selector Overlay */}
                             <div className="absolute top-4 left-4 z-40 bg-black/60 backdrop-blur-md rounded-full p-1 border border-white/10 shadow-inner flex pointer-events-auto">
@@ -1189,8 +1299,8 @@ const NowPlaying = () => {
                     )}
                 </div>
 
-                {/* Right: Tabs & Content (50% Width) */}
-                <div className="flex-1 relative flex flex-col pt-6">
+                {/* Right: Tabs & Content (50% Width) — hidden in theater mode */}
+                <div className={clsx("flex-1 relative flex flex-col pt-6", playbackMode === 'video' && theater && "hidden")}>
                     {/* Tabs Header */}
                     <div className="flex items-center justify-center gap-12 p-4 outline outline-1 outline-primary/20 rounded-full mx-10 shrink-0 bg-primary/5">
                         <button

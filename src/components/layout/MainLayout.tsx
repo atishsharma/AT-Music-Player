@@ -21,6 +21,7 @@ import { useWidgetBridge } from '../../hooks/useWidgetBridge';
 import { useRadioTopUp } from '../../hooks/useRadio';
 import { useState, useEffect, Suspense, lazy } from 'react';
 import { useAmbientStore } from '../../store/ambientStore';
+import { useVideoStore } from '../../store/videoStore';
 
 // Loaded on first use: keeps ambient mode out of the startup bundle
 const AmbientMode = lazy(() => import('../ambient/AmbientMode'));
@@ -48,6 +49,23 @@ const MainLayout = () => {
     }, []);
     useWidgetBridge();
     useRadioTopUp();
+
+    // Floating video: resume audio where the video left off; close it when the track changes
+    useEffect(() => {
+        const off = window.ipcRenderer?.on?.('video:returned', (_e, st: { time: number; playing: boolean }) => {
+            useVideoStore.getState().set({ floating: false });
+            const p = usePlayerStore.getState();
+            p.seek(st?.time ?? p.currentTime);
+            if (st?.playing) p.play(); else p.pause();
+        });
+        const unsub = usePlayerStore.subscribe((s, prev) => {
+            if (s.currentTrack?.id !== prev.currentTrack?.id && useVideoStore.getState().floating) {
+                useVideoStore.getState().set({ floating: false });
+                window.ipcRenderer.invoke('video:close', null);
+            }
+        });
+        return () => { off?.(); unsub(); };
+    }, []);
     const [isMiniMode, setIsMiniMode] = useState(false);
 
     // Listen for tray controls

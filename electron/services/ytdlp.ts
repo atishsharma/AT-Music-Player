@@ -400,3 +400,57 @@ export async function getRadioMix(videoId: string, limit = 25) {
         return [];
     }
 }
+
+// ─── Subtitles ────────────────────────────────────────────────────────────
+// Video info (incl. subtitle URLs) is cached for an hour: listing and fetching a
+// subtitle then costs one yt-dlp run instead of two.
+const infoCache = new Map<string, { info: any; at: number }>();
+async function getInfoCached(videoId: string) {
+    const hit = infoCache.get(videoId);
+    if (hit && Date.now() - hit.at < 60 * 60 * 1000) return hit.info;
+    const info = await execYtDlpJson([`https://www.youtube.com/watch?v=${videoId}`, '--skip-download']);
+    if (infoCache.size > 30) infoCache.delete(infoCache.keys().next().value as string);
+    infoCache.set(videoId, { info, at: Date.now() });
+    return info;
+}
+
+export interface SubtitleTrack { lang: string; name: string; auto: boolean }
+
+/** Uploaded subtitles first, then auto-generated captions for the video's own language and English. */
+export async function getSubtitleTracks(videoId: string): Promise<SubtitleTrack[]> {
+    try {
+        const info = await getInfoCached(videoId);
+        const manual: Record<string, any[]> = info?.subtitles ?? {};
+        const auto: Record<string, any[]> = info?.automatic_captions ?? {};
+        const out: SubtitleTrack[] = [];
+        for (const [lang, formats] of Object.entries(manual)) {
+            if (lang === 'live_chat') continue;
+            out.push({ lang, name: formats?.[0]?.name || lang, auto: false });
+        }
+        const original = String(info?.language || '').split('-')[0];
+        for (const lang of new Set([original, 'en'].filter(Boolean))) {
+            const key = Object.keys(auto).find(k => k === lang || k === `${lang}-orig`);
+            if (key && !out.some(t => t.lang === lang)) out.push({ lang: key, name: `${auto[key]?.[0]?.name || lang} (auto)`, auto: true });
+        }
+        return out;
+    } catch (err) {
+        console.error('Subtitle list failed:', err);
+        return [];
+    }
+}
+
+/** WebVTT text for one subtitle track (fetched by the main process: no CORS in the renderer). */
+export async function getSubtitleVtt(videoId: string, lang: string, auto: boolean): Promise<string | null> {
+    try {
+        const info = await getInfoCached(videoId);
+        const formats: any[] = (auto ? info?.automatic_captions : info?.subtitles)?.[lang] ?? [];
+        const vtt = formats.find(f => f.ext === 'vtt') ?? formats[0];
+        if (!vtt?.url) return null;
+        const { default: axios } = await import('axios');
+        const res = await axios.get(vtt.url, { responseType: 'text', timeout: 15000 });
+        return typeof res.data === 'string' ? res.data : null;
+    } catch (err) {
+        console.error('Subtitle fetch failed:', err);
+        return null;
+    }
+}

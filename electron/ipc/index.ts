@@ -2,7 +2,7 @@ import { ipcMain, dialog, BrowserWindow, shell } from 'electron';
 import path from 'path';
 import { getDB } from '../db';
 import { scanDirectory } from '../services/scanner';
-import { searchYouTube, searchYTMusic, getStreamUrl, getCacheStats, clearCache, getVideoInfo, getRadioMix } from '../services/ytdlp';
+import { searchYouTube, searchYTMusic, getStreamUrl, getCacheStats, clearCache, getVideoInfo, getRadioMix, getSubtitleTracks, getSubtitleVtt } from '../services/ytdlp';
 import { startDownload, cancelDownload } from '../services/downloader';
 import { getLyrics, fetchLRCLIB } from '../services/lyrics';
 import { searchArtists, getArtistById, getAlbumById, getCoverArt } from '../services/musicbrainz';
@@ -329,6 +329,9 @@ export function registerHandlers(win: BrowserWindow) {
             throw error;
         }
     });
+
+    ipcMain.handle('yt:listSubtitles', (_event, videoId: string) => getSubtitleTracks(videoId));
+    ipcMain.handle('yt:getSubtitle', (_event, { videoId, lang, auto }: { videoId: string; lang: string; auto: boolean }) => getSubtitleVtt(videoId, lang, auto));
 
     // Stop any active ffmpeg video proxy stream
     ipcMain.handle('yt:stopVideoStream', async () => {
