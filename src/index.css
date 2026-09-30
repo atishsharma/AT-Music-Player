@@ -441,6 +441,7 @@ body.lg.appearance-glass::before { display: none; }
       0 4px 14px -4px rgb(var(--lg-shadow) / var(--lg-shadow-a));
   }
   .lg-ink { color: rgb(var(--lg-ink)); }
+  .lg-ink-track { background-color: rgb(var(--lg-ink) / 0.14); }
   .lg-ink-soft { color: rgb(var(--lg-ink) / 0.62); }
   .lg-press { transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
   .lg-press:active { transform: scale(0.94); }

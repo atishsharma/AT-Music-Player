@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Maximize2, Heart, Mic2, Pin, PinOff, Airplay, ListMusic, X, Music2, Shuffle, Repeat, Volume1, Volume2, VolumeX, SlidersHorizontal } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
+import { useThemeStore } from '../../store/themeStore';
 import { useActiveLyricIndex } from '../../hooks/useActiveLyricIndex';
 import { useFavoritesStore } from '../../store/favoritesStore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,6 +34,11 @@ const MiniPlayer = () => {
     } = usePlayerStore() as any;
 
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
+    const liquidGlass = useThemeStore(s => s.liquidGlass);
+    // Pick the Liquid Glass class set or the original outlined style
+    const g = (glass: string, classic: string) => (liquidGlass ? glass : classic);
+    // Round glass icon button used across the header/transport
+    const glassBtn = 'lg-panel lg-press text-on-background hover:text-primary';
 
     const [lyrics, setLyrics] = useState<any>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -178,7 +184,7 @@ const MiniPlayer = () => {
 
     if (!currentTrack) {
         return (
-            <div className="h-screen w-full flex flex-col items-center justify-center bg-background">
+            <div className={clsx("h-screen w-full flex flex-col items-center justify-center", g('relative z-[1]', 'bg-background'))}>
                 <Music2 size={40} className="text-primary/20 mb-3" />
                 <p className="text-xs text-on-surface-variant/40 font-bold uppercase tracking-widest">Nothing Playing</p>
                 <button onClick={exitMiniPlayer} className="mt-5 px-4 py-2 bg-primary/10 text-primary rounded-full text-[10px] font-black hover:bg-primary/20 uppercase tracking-widest">
@@ -190,10 +196,10 @@ const MiniPlayer = () => {
 
     return (
         <div
-            className="h-screen w-full flex flex-col bg-background overflow-hidden select-none relative drag"
+            className={clsx("h-screen w-full flex flex-col overflow-hidden select-none relative drag", g('z-[1]', 'bg-background'))}
         >
-            {/* Ambient background from album art */}
-            {artUrl && (
+            {/* Ambient background from album art (Liquid Glass uses the shared LiquidBackdrop instead) */}
+            {artUrl && !liquidGlass && (
                 <div className="absolute inset-0 z-0 pointer-events-none">
                     <img src={artUrl} className="w-full h-full object-cover blur-[60px] opacity-20 scale-110" alt="" />
                     <div className="absolute inset-0 bg-background/70" />
@@ -215,8 +221,10 @@ const MiniPlayer = () => {
                             (window as any).windowControls.toggleAlwaysOnTop(!isAlwaysOnTop);
                         }}
                         className={clsx(
-                            "p-2 rounded-full transition-all text-primary border-2 border-primary",
-                            isAlwaysOnTop ? "bg-primary/20" : "bg-transparent opacity-60 hover:opacity-100 hover:bg-primary/10"
+                            "p-2 rounded-full transition-all",
+                            liquidGlass
+                                ? clsx(glassBtn, isAlwaysOnTop && "!text-primary lg-active")
+                                : clsx("text-primary border-2 border-primary", isAlwaysOnTop ? "bg-primary/20" : "bg-transparent opacity-60 hover:opacity-100 hover:bg-primary/10")
                         )}
                         title={isAlwaysOnTop ? "Always on Top: On" : "Always on Top: Off"}
                     >
@@ -226,24 +234,26 @@ const MiniPlayer = () => {
                         onClick={handleFavToggle}
                         title={isFav ? "Remove from Favorites" : "Add to Favorites"}
                         className={clsx(
-                            "p-2 rounded-full transition-all text-primary border-2 border-primary",
-                            isFav ? "bg-primary/20" : "bg-transparent opacity-60 hover:opacity-100 hover:bg-primary/10"
+                            "p-2 rounded-full transition-all",
+                            liquidGlass
+                                ? clsx(glassBtn, isFav && "!text-primary lg-active")
+                                : clsx("text-primary border-2 border-primary", isFav ? "bg-primary/20" : "bg-transparent opacity-60 hover:opacity-100 hover:bg-primary/10")
                         )}
                     >
                         <Heart size={16} fill={isFav ? "currentColor" : "none"} />
                     </button>
                 </div>
 
-                <div className="flex items-center gap-2 border-2 border-primary rounded-full pl-2 pr-4 py-2 shadow-md shadow-primary/20 bg-primary/10 no-drag">
+                <div className={clsx("flex items-center gap-2 rounded-full pl-2 pr-4 py-2 no-drag", g('lg-panel lg-sheen', 'border-2 border-primary shadow-md shadow-primary/20 bg-primary/10'))}>
                     <img src="./app_icon.png" alt="" className="w-5 h-5 drop-shadow-md" />
-                    <span className="text-[12px] font-black uppercase tracking-[0.4em] text-primary">Mini Player</span>
+                    <span className={clsx("text-[12px] font-black uppercase", g('tracking-[0.3em] text-on-background', 'tracking-[0.4em] text-primary'))}>Mini Player</span>
                 </div>
 
                 {/* Right: Expand */}
                 <button
                     onClick={exitMiniPlayer}
                     title="Open Full Player"
-                    className="p-2 rounded-full text-primary border-2 border-primary bg-primary/5 opacity-60 hover:opacity-100 hover:bg-primary/10 transition-all no-drag"
+                    className={clsx("p-2 rounded-full transition-all no-drag", g(glassBtn, 'text-primary border-2 border-primary bg-primary/5 opacity-60 hover:opacity-100 hover:bg-primary/10'))}
                 >
                     <Maximize2 size={16} />
                 </button>
@@ -261,7 +271,7 @@ const MiniPlayer = () => {
                         className="w-full h-full relative [transform-style:preserve-3d]"
                     >
                         {/* FRONT – Album Art */}
-                        <div className="absolute inset-0 [backface-visibility:hidden] rounded-3xl overflow-hidden shadow-2xl border border-white/10 bg-surface-variant/20">
+                        <div className={clsx("absolute inset-0 [backface-visibility:hidden] overflow-hidden shadow-2xl border border-white/10 bg-surface-variant/20", g('rounded-[28px]', 'rounded-3xl'))}>
                             {artUrl ? (
                                 <img
                                     src={artUrl}
@@ -283,7 +293,7 @@ const MiniPlayer = () => {
                         </div>
 
                         {/* BACK – Lyrics */}
-                        <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] rounded-3xl overflow-hidden shadow-2xl border border-primary/20 bg-background/95 backdrop-blur-2xl flex flex-col">
+                        <div className={clsx("absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] overflow-hidden shadow-2xl flex flex-col", g('rounded-[28px] lg-panel lg-strong lg-blur', 'rounded-3xl border border-primary/20 bg-background/95 backdrop-blur-2xl'))}>
                             {/* Back hint top-right */}
                             <div
                                 className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-primary/10 text-primary"
@@ -331,12 +341,12 @@ const MiniPlayer = () => {
             </div>
 
             {/* ── TRACK INFO ───────────────────────────────────────── */}
-            <div className="relative z-10 w-[85%] mx-auto text-center px-4 py-3 shrink-0 mt-4 mb-2 outline outline-1 outline-primary/30 rounded-2xl bg-primary/5">
+            <div className={clsx("relative z-10 w-[85%] mx-auto text-center px-4 py-3 shrink-0 mt-4 mb-2", g('lg-panel lg-sheen rounded-[22px]', 'outline outline-1 outline-primary/30 rounded-2xl bg-primary/5'))}>
                 <motion.h3
                     key={currentTrack.id + '-title'}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-[19px] font-black text-primary truncate"
+                    className={clsx("text-[19px] font-black truncate", g('text-on-background', 'text-primary'))}
                 >
                     {currentTrack.title}
                 </motion.h3>
@@ -379,7 +389,7 @@ const MiniPlayer = () => {
                         }}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                     />
-                    <div className="w-full h-[5px] bg-primary/10 rounded-full overflow-hidden border border-primary/40">
+                    <div className={clsx("w-full h-[5px] rounded-full overflow-hidden", g('lg-ink-track', 'bg-primary/10 border border-primary/40'))}>
                         <motion.div
                             className="h-full bg-primary"
                             style={{ width: `${progress}%` }}
@@ -398,52 +408,58 @@ const MiniPlayer = () => {
             </div>
 
             {/* ── CONTROLS ─────────────────────────────────────────── */}
-            <div className="relative z-10 w-full flex items-center justify-between px-6 pt-2 pb-2 shrink-0 no-drag">
+            <div className="relative z-10 w-full flex items-center justify-between px-3 pt-2 pb-2 shrink-0 no-drag">
                 {/* Queue */}
                 <button
                     onClick={() => setShowQueue(s => !s)}
                     title="Up Next"
                     className={clsx(
-                        "p-3 rounded-full transition-all border-2 border-primary",
-                        showQueue ? "text-primary bg-primary/30 shadow-lg shadow-primary/20" : "text-primary/60 hover:text-primary hover:bg-primary/10"
+                        "p-3 rounded-full transition-all",
+                        liquidGlass
+                            ? clsx(glassBtn, showQueue && "!text-primary lg-active")
+                            : clsx("border-2 border-primary", showQueue ? "text-primary bg-primary/30 shadow-lg shadow-primary/20" : "text-primary/60 hover:text-primary hover:bg-primary/10")
                     )}
                 >
                     <ListMusic size={22} />
                 </button>
 
                 {/* Transport */}
-                <div className="flex items-center gap-1 md:gap-4">
+                <div className="flex items-center gap-0 md:gap-4">
                     <button 
                         onClick={toggleShuffle} 
                         title={shuffle ? "Shuffle: On" : "Shuffle: Off"}
                         className={clsx(
-                            "p-3 transition-all active:scale-90 rounded-full border-2", 
-                            shuffle ? "text-primary bg-primary/30 border-primary shadow-md" : "text-primary/40 border-primary/40 hover:text-primary hover:border-primary"
+                            "p-2 transition-all active:scale-90 rounded-full",
+                            liquidGlass
+                                ? (shuffle ? "text-primary lg-active" : "text-on-surface-variant hover:text-on-background")
+                                : clsx("border-2", shuffle ? "text-primary bg-primary/30 border-primary shadow-md" : "text-primary/40 border-primary/40 hover:text-primary hover:border-primary")
                         )}
                     >
                         <Shuffle size={20} />
                     </button>
-                    <button onClick={() => prev()} title="Previous Track" className="p-3 text-primary hover:scale-110 active:scale-90 transition-all">
+                    <button onClick={() => prev()} title="Previous Track" className={clsx("p-2 hover:scale-110 active:scale-90 transition-all", g('text-on-background', 'text-primary'))}>
                         <SkipBack size={28} fill="currentColor" />
                     </button>
                     <button
                         onClick={isPlaying ? pause : () => play()}
                         title={isPlaying ? "Pause" : "Play"}
-                        className="w-16 h-16 bg-primary text-on-primary rounded-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/50 border-2 border-white/20 mx-1"
+                        className={clsx("w-16 h-16 bg-primary text-on-primary flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/50 mx-1", g('rounded-full [box-shadow:inset_0_1px_0_rgba(255,255,255,0.45),0_12px_28px_-8px_rgb(var(--md-sys-color-primary)/0.7)]', 'rounded-2xl border-2 border-white/20'))}
                     >
                         {isPlaying
                             ? <Pause size={34} fill="currentColor" />
                             : <Play size={34} className="ml-1" fill="currentColor" />}
                     </button>
-                    <button onClick={() => next()} title="Next Track" className="p-3 text-primary hover:scale-110 active:scale-90 transition-all">
+                    <button onClick={() => next()} title="Next Track" className={clsx("p-2 hover:scale-110 active:scale-90 transition-all", g('text-on-background', 'text-primary'))}>
                         <SkipForward size={28} fill="currentColor" />
                     </button>
                     <button 
                         onClick={toggleLoop} 
                         title={loop === 'one' ? "Repeat: One" : loop === 'all' ? "Repeat: All" : "Repeat: Off"}
                         className={clsx(
-                            "p-3 transition-all active:scale-90 rounded-full relative border-2", 
-                            loop !== 'none' ? "text-primary bg-primary/30 border-primary shadow-md" : "text-primary/40 border-primary/40 hover:text-primary hover:border-primary"
+                            "p-2 transition-all active:scale-90 rounded-full relative",
+                            liquidGlass
+                                ? (loop !== 'none' ? "text-primary lg-active" : "text-on-surface-variant hover:text-on-background")
+                                : clsx("border-2", loop !== 'none' ? "text-primary bg-primary/30 border-primary shadow-md" : "text-primary/40 border-primary/40 hover:text-primary hover:border-primary")
                         )}
                     >
                         <Repeat size={20} />
@@ -456,7 +472,7 @@ const MiniPlayer = () => {
                         await exitMiniPlayer();
                         setTimeout(() => usePlayerStore.getState().togglePlayer(), 300);
                     }}
-                    className="p-3 rounded-full transition-all border-2 border-primary text-primary/60 hover:text-primary hover:bg-primary/10"
+                    className={clsx("p-3 rounded-full transition-all", g(glassBtn, 'border-2 border-primary text-primary/60 hover:text-primary hover:bg-primary/10'))}
                     title="Zen Mode"
                 >
                     <Airplay size={22} />
@@ -465,7 +481,7 @@ const MiniPlayer = () => {
 
             {/* ── VOLUME & EQ ─────────────────────────────────────────── */}
             <div className="relative z-10 w-full flex items-center justify-center gap-3 px-8 mb-6 mt-1 no-drag">
-                <div className="flex-1 max-w-[280px] flex items-center justify-center gap-3 px-5 py-2 outline outline-1 outline-primary/30 rounded-full bg-primary/5 hover:bg-primary/10 transition-all group">
+                <div className={clsx("flex-1 max-w-[280px] flex items-center justify-center gap-3 px-5 py-2 rounded-full transition-all group", g('lg-panel', 'outline outline-1 outline-primary/30 bg-primary/5 hover:bg-primary/10'))}>
                     <button onClick={toggleMute} title={isMuted || volume === 0 ? "Unmute" : "Mute"} className="text-primary/60 hover:text-primary transition-transform hover:scale-110">
                         {isMuted || volume === 0 ? <VolumeX size={18} /> : volume < 0.5 ? <Volume1 size={18} /> : <Volume2 size={18} />}
                     </button>
@@ -501,7 +517,7 @@ const MiniPlayer = () => {
                             "p-2.5 rounded-full transition-all hover:scale-110 border border-primary/30 shadow-sm",
                             isEqOpen || isEqEnabled
                                 ? "text-on-primary bg-primary border-primary shadow-lg shadow-primary/30"
-                                : "bg-primary/5 text-primary/60 hover:text-primary hover:bg-primary/10 hover:border-primary/50"
+                                : g(glassBtn, "bg-primary/5 text-primary/60 hover:text-primary hover:bg-primary/10 hover:border-primary/50")
                         )}
                         title="Equalizer"
                     >
@@ -534,7 +550,7 @@ const MiniPlayer = () => {
                         animate={{ y: 0 }}
                         exit={{ y: '100%' }}
                         transition={{ type: 'spring', damping: 26, stiffness: 220 }}
-                        className="absolute inset-x-0 bottom-0 z-[100] bg-background/95 backdrop-blur-2xl border-t border-primary/10 rounded-t-3xl flex flex-col"
+                        className={clsx("absolute inset-x-0 bottom-0 z-[100] flex flex-col", g('lg-panel lg-strong lg-blur rounded-t-[28px] border-b-0', 'bg-background/95 backdrop-blur-2xl border-t border-primary/10 rounded-t-3xl'))}
                         style={{ maxHeight: '70%' }}
                     >
                         {/* Queue Header */}
