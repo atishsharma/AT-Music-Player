@@ -41,7 +41,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Linux packaging tools
@@ -63,7 +63,15 @@ jobs:
         run: npm run build
 
       - name: Package installers
-        run: npx electron-builder ${{ matrix.builder }} --publish never
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            # One arch per run: parallel x64/arm64 pkg builds share a temp file
+            npx electron-builder --mac --x64 --publish never
+            npx electron-builder --mac --arm64 --publish never
+          else
+            npx electron-builder ${{ matrix.builder }} --publish never
+          fi
         env:
           # No signing certificates: macOS builds are ad-hoc signed, Windows unsigned
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
