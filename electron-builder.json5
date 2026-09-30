@@ -111,6 +111,11 @@
     ],
     "category": "AudioVideo",
     "executableName": "at-music-pro",
+    // Desktop integration + instructions for the portable .tar.gz (harmless in other packages)
+    "extraFiles": [
+      { "from": "build/linux/install.sh", "to": "install.sh" },
+      { "from": "build/linux/README-LINUX.txt", "to": "README-LINUX.txt" }
+    ],
     "synopsis": "Premium music player",
     "description": "Premium music player with Last.fm and YouTube integration",
     "maintainer": "Atish Ak Sharma <mail@atishaksharma.com>",
