@@ -1,68 +1,128 @@
 // @see - https://www.electron.build/configuration/configuration
+// Icons come from build/ (generated from public/app_icon.png by scripts/generate-icons.py).
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.atmusic.pro",
+  "productName": "AT Music Pro",
+  "copyright": "Copyright © 2026 Atish Ak Sharma",
   "afterPack": "./scripts/afterPack.cjs",
   "asar": true,
   "asarUnpack": [
     "node_modules/better-sqlite3/**/*",
-    "node_modules/yt-dlp-exec/**/*",
-    "node_modules/fluent-ffmpeg/**/*",
-    "node_modules/ffmpeg-static/**/*",
-    "node_modules/@ffmpeg-installer/**/*",
-    "node_modules/@img/**/*"
+    "node_modules/bindings/**/*",
+    "node_modules/file-uri-to-path/**/*"
   ],
-  "productName": "AT Music Pro",
+  // Rebuild native modules (better-sqlite3) for each target arch
+  "npmRebuild": true,
   "directories": {
+    "buildResources": "build",
     "output": "release/${version}"
   },
   "files": [
-    "dist",
-    "dist-electron",
-    "node_modules"
+    "dist/**/*",
+    "dist-electron/**/*",
+    "!**/*.map"
   ],
   "extraResources": [
-    {
-      "from": "public/icon_square.png",
-      "to": "app_icon.png"
-    },
-    {
-      "from": "bin",
-      "to": "bin"
-    }
+    { "from": "build/icon.png", "to": "app_icon.png" },
+    { "from": "build/icon.ico", "to": "app_icon.ico" },
+    { "from": "bin", "to": "bin", "filter": ["**/*"] }
   ],
-  "mac": {
-    "target": ["zip"],
-    "icon": "public/icon_square.png",
-    "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
-  },
+  "artifactName": "AT-Music-Pro-${version}-${os}-${arch}.${ext}",
+
+  // ───────────────────────────── Windows ─────────────────────────────
   "win": {
-    "target": ["zip"],
-    "icon": "public/app_icon_win.ico",
-    "artifactName": "${productName}-Windows-${version}.${ext}"
+    "icon": "build/icon.ico",
+    "target": [
+      { "target": "nsis", "arch": ["x64"] },
+      { "target": "msi", "arch": ["x64"] },
+      { "target": "portable", "arch": ["x64"] },
+      { "target": "zip", "arch": ["x64"] },
+      { "target": "7z", "arch": ["x64"] }
+    ],
+    "legalTrademarks": "AT Music Pro"
   },
   "nsis": {
     "oneClick": false,
     "perMachine": false,
     "allowToChangeInstallationDirectory": true,
-    "deleteAppDataOnUninstall": false
+    "deleteAppDataOnUninstall": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "AT Music Pro",
+    "installerIcon": "build/icon.ico",
+    "uninstallerIcon": "build/icon.ico",
+    "installerHeaderIcon": "build/icon.ico",
+    "artifactName": "AT-Music-Pro-${version}-win-${arch}-Setup.${ext}"
   },
-  "linux": {
+  "msi": {
+    "oneClick": false,
+    "perMachine": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "AT Music Pro",
+    "artifactName": "AT-Music-Pro-${version}-win-${arch}.${ext}"
+  },
+  "portable": {
+    "artifactName": "AT-Music-Pro-${version}-win-${arch}-Portable.${ext}"
+  },
+
+  // ───────────────────────────── macOS ─────────────────────────────
+  "mac": {
+    "icon": "build/icon.icns",
+    "category": "public.app-category.music",
     "target": [
-      "AppImage",
-      "deb",
-      "snap"
+      { "target": "dmg", "arch": ["x64", "arm64"] },
+      { "target": "zip", "arch": ["x64", "arm64"] },
+      { "target": "pkg", "arch": ["x64", "arm64"] }
+    ],
+    // Ad-hoc signature: required for Apple Silicon to launch unsigned builds
+    "identity": "-",
+    "hardenedRuntime": false,
+    "gatekeeperAssess": false,
+    "extendInfo": {
+      "NSMicrophoneUsageDescription": "Not used. Declared for audio APIs only.",
+      "LSApplicationCategoryType": "public.app-category.music"
+    }
+  },
+  "dmg": {
+    "icon": "build/icon.icns",
+    "title": "AT Music Pro ${version}",
+    "contents": [
+      { "x": 130, "y": 220 },
+      { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+    ]
+  },
+  "pkg": {
+    "installLocation": "/Applications",
+    "allowAnywhere": false,
+    "isRelocatable": false
+  },
+
+  // ───────────────────────────── Linux ─────────────────────────────
+  "linux": {
+    "icon": "build/icons",
+    "target": [
+      { "target": "AppImage", "arch": ["x64"] },
+      { "target": "deb", "arch": ["x64"] },
+      { "target": "rpm", "arch": ["x64"] },
+      { "target": "pacman", "arch": ["x64"] },
+      { "target": "snap", "arch": ["x64"] },
+      { "target": "tar.gz", "arch": ["x64"] }
     ],
     "category": "AudioVideo",
-    "icon": "public/icon_square.png",
-    "artifactName": "${productName}-Linux-${version}.${ext}",
     "executableName": "at-music-pro",
+    "synopsis": "Premium music player",
+    "description": "Premium music player with Last.fm and YouTube integration",
+    "maintainer": "Atish Ak Sharma <mail@atishaksharma.com>",
+    "vendor": "Atish Ak Sharma",
     "desktop": {
       "Name": "AT Music Pro",
       "Comment": "Premium music player with Last.fm and YouTube integration",
       "Categories": "Audio;Music;Player;AudioVideo;",
       "StartupWMClass": "at-music-pro",
-      "Icon": "at-music-pro"
+      "Icon": "at-music-pro",
+      "Keywords": "music;player;audio;youtube;lyrics;"
     }
   },
   "deb": {
@@ -77,10 +137,18 @@
       "libuuid1",
       "libsecret-1-0"
     ],
+    "recommends": ["ffmpeg", "yt-dlp"],
     "priority": "optional",
     "afterInstall": "scripts/postinst.sh"
   },
-  "npmRebuild": false,
+  "rpm": {
+    "depends": ["gtk3", "libnotify", "nss", "libXScrnSaver", "libXtst", "xdg-utils", "at-spi2-core", "libuuid"],
+    "afterInstall": "scripts/postinst.sh"
+  },
+  "pacman": {
+    "depends": ["gtk3", "libnotify", "nss", "libxss", "libxtst", "xdg-utils", "at-spi2-core", "util-linux-libs"],
+    "afterInstall": "scripts/postinst.sh"
+  },
   "snap": {
     "confinement": "strict",
     "grade": "stable",
@@ -95,5 +163,7 @@
       "opengl",
       "removable-media"
     ]
-  }
+  },
+
+  "publish": null
 }

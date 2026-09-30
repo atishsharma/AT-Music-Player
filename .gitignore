@@ -11,6 +11,9 @@ dist-electron/
 dist-ssr/
 release/
 
+# Platform binaries fetched at build time (scripts/download-binaries.js)
+bin/
+
 # ========================
 # Electron builder cache
 # ========================
@@ -79,7 +82,8 @@ AGENTS.md
 GEMINI.md
 QODER.md
 .gemini/
-.github/
+.github/*
+!.github/workflows/
 .kiro/
 .qoder/
 .tokengone/

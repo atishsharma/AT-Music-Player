@@ -28,8 +28,6 @@ export default defineConfig({
               external: [
                 'better-sqlite3',
                 'music-metadata',
-                'yt-dlp-exec',
-                'fluent-ffmpeg',
                 'axios',
                 'electron'
               ],

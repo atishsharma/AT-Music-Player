@@ -62,6 +62,12 @@ if (!gotSingleInstanceLock) {
   app.on('second-instance', () => showMainWindow());
 }
 
+// Windows groups taskbar buttons, jump lists and notifications by this id; without it
+// the taskbar can show Electron's default icon instead of the app icon.
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.atmusic.pro');
+}
+
 // Global error handlers
 process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
@@ -80,10 +86,12 @@ function setSetting(key: string, value: string) {
 }
 
 function getIconPath(): string {
+  // Windows prefers .ico (crisp at every taskbar/title-bar size); others use the 1024px PNG
+  const file = process.platform === 'win32' ? 'app_icon.ico' : 'app_icon.png';
   if (VITE_DEV_SERVER_URL) {
-    return path.join(process.env.APP_ROOT!, 'public', 'app_icon.png');
+    return path.join(process.env.APP_ROOT!, 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png');
   }
-  return path.join(process.resourcesPath, 'app_icon.png');
+  return path.join(process.resourcesPath, file);
 }
 
 function loadRoute(target: BrowserWindow, hash = '') {
@@ -216,9 +224,10 @@ function hideWidget() {
 }
 
 function createTray() {
-  const iconPath = getIconPath();
-  const icon = nativeImage.createFromPath(iconPath).resize({ width: 20, height: 20 });
-  tray = new Tray(icon);
+  const icon = nativeImage.createFromPath(getIconPath());
+  // macOS menu bar icons are 16pt; Windows/Linux trays look best at 16-24px
+  const trayIcon = icon.isEmpty() ? icon : icon.resize({ width: process.platform === 'darwin' ? 16 : 22, height: process.platform === 'darwin' ? 16 : 22, quality: 'best' });
+  tray = new Tray(trayIcon);
 
   const contextMenu = Menu.buildFromTemplate([
     { label: 'AT Music Pro', click: () => showMainWindow() },
