@@ -11,6 +11,7 @@ import { useEqualizerStore } from '../../store/equalizerStore';
 import clsx from 'clsx';
 import { toAtmusicUrl } from '../../utils/path';
 import Equalizer from '../common/Equalizer';
+import SingAlongButton from '../singalong/SingAlongButton';
 
 const formatTime = (seconds: number) => {
     if (!seconds || isNaN(seconds)) return '0:00';
@@ -372,6 +373,8 @@ const PlayerBar = () => {
                 </button>
 
                 <div className={clsx("h-4 w-px mx-1", isLight ? "bg-black/10" : "bg-white/10")} />
+
+                <SingAlongButton isLight={isLight} />
 
                 {/* EQ Button */}
                 <div className="relative">

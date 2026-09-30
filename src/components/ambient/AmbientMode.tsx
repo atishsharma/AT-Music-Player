@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Pause, Play, Settings2, SkipBack, SkipForward, X } from 'lucide-react';
 import clsx from 'clsx';
 import { usePlayerStore } from '../../store/playerStore';
+import { useAudioStore } from '../../store/audioStore';
 import { AMBIENT_SCENES, AMBIENT_STYLES, AmbientScene, SleepTimer, useAmbientStore } from '../../store/ambientStore';
 import { toAtmusicUrl } from '../../utils/path';
 import { samplePalette } from '../../utils/artPalette';
@@ -244,6 +245,7 @@ const AmbientMode = () => {
     };
 
     const sleepLabel = amb.sleep === 0 ? 'Off' : amb.sleep === 'end' ? 'Song end' : fmt((amb.sleepAt - now.getTime()) / 1000);
+    const vocals = useAudioStore(a => a.vocalReduction);
     const currentLine = lines[activeIdx];
     const hm = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
     const date = now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
@@ -311,6 +313,7 @@ const AmbientMode = () => {
                     </div>
                     <div className="amb-chips amb-chrome">
                         <span className="amb-chip"><span className="dot" />Ambient · <b>{SCENE_LABEL[amb.scene]}</b></span>
+                        {vocals > 0 && <button className="amb-chip" type="button" onClick={() => setSheetOpen(true)}>Vocals <b>−{Math.round(vocals * 100)}%</b></button>}
                         <button className="amb-chip" type="button" onClick={() => setSheetOpen(true)}>Sleep <b>{sleepLabel}</b></button>
                         <button className="amb-chip" type="button" onClick={() => useAmbientStore.getState().close()} title="Leave ambient mode (Esc)">
                             <X size={14} /> Exit
@@ -412,6 +415,8 @@ const Switch = ({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
 
 const AmbientSettings = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
     const s = useAmbientStore();
+    const vocals = useAudioStore(a => a.vocalReduction);
+    const setAudio = useAudioStore(a => a.set);
     const set = s.set;
     return (
         <aside className={clsx('amb-sheet', open && 'open')} aria-label="Ambient settings" aria-hidden={!open}>
@@ -438,6 +443,11 @@ const AmbientSettings = ({ open, onClose }: { open: boolean; onClose: () => void
                         <button type="button" title="Show lyrics earlier" onClick={() => set({ lyricOffset: Math.round((s.lyricOffset + 0.5) * 10) / 10 })}>+</button>
                     </div>
                 </div>
+            </div>
+
+            <div className="amb-group"><span>Sing-along</span>
+                <label className="amb-row" htmlFor="amb-vocals">Vocal reduction<small>{vocals === 0 ? 'Off' : `${Math.round(vocals * 100)}%`}</small></label>
+                <input id="amb-vocals" type="range" min={0} max={1} step={0.05} value={vocals} onChange={e => setAudio({ vocalReduction: parseFloat(e.target.value) })} />
             </div>
 
             <div className="amb-group"><span>Display</span>
