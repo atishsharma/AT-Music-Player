@@ -1,6 +1,8 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { usePlayerStore } from '../../store/playerStore';
+import { useShallow } from 'zustand/react/shallow';
+import { useActiveLyricIndex } from '../../hooks/useActiveLyricIndex';
 import { useThemeStore } from '../../store/themeStore';
 import { useFavoritesStore } from '../../store/favoritesStore';
 import { X, Mic2, ListMusic, Play, Heart, Plus, Music2, ChevronUp, ChevronDown } from 'lucide-react';
@@ -153,6 +155,7 @@ const SidebarQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite,
 };
 
 const SidebarOverlay = () => {
+    // Shallow-selected (no currentTime): previously re-rendered on every timeupdate
     const {
         isSidebarQueueOpen,
         isSidebarLyricsOpen,
@@ -161,34 +164,39 @@ const SidebarOverlay = () => {
         lyrics,
         currentTrack,
         queue,
-        currentTime,
         seek,
         play,
         removeFromQueue,
         reorderQueue,
         clearQueue
-    } = usePlayerStore() as any;
+    } = usePlayerStore(useShallow(s => ({
+        isSidebarQueueOpen: s.isSidebarQueueOpen,
+        isSidebarLyricsOpen: s.isSidebarLyricsOpen,
+        toggleSidebarQueue: s.toggleSidebarQueue,
+        toggleSidebarLyrics: s.toggleSidebarLyrics,
+        lyrics: s.lyrics,
+        currentTrack: s.currentTrack,
+        queue: s.queue,
+        seek: s.seek,
+        play: s.play,
+        removeFromQueue: s.removeFromQueue,
+        reorderQueue: s.reorderQueue,
+        clearQueue: s.clearQueue,
+    }))) as any;
 
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
-    const { appearance } = useThemeStore();
-
+    const appearance = useThemeStore(s => s.appearance);
+    const liquidGlass = useThemeStore(s => s.liquidGlass);
     const lyricsContainerRef = useRef<HTMLDivElement>(null);
 
+    // Re-renders only when the sung line changes, and never while the panel is closed
+    const activeLineIndex = useActiveLyricIndex(lyrics?.syncedLyrics, isSidebarLyricsOpen && !!lyrics?.isSynced);
+
     useEffect(() => {
-        if (!Array.isArray(lyrics?.syncedLyrics) || !isSidebarLyricsOpen) return;
-
-        const activeLineIndex = lyrics.syncedLyrics.findIndex((line: any, index: number) => {
-            const nextLine = lyrics.syncedLyrics[index + 1];
-            return currentTime >= line.seconds && (!nextLine || currentTime < nextLine.seconds);
-        });
-
-        if (activeLineIndex !== -1 && lyricsContainerRef.current) {
-            const activeEl = lyricsContainerRef.current.children[activeLineIndex] as HTMLElement;
-            if (activeEl) {
-                activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        }
-    }, [currentTime, lyrics, isSidebarLyricsOpen]);
+        if (activeLineIndex === -1 || !lyricsContainerRef.current) return;
+        const activeEl = lyricsContainerRef.current.children[activeLineIndex] as HTMLElement | undefined;
+        activeEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, [activeLineIndex]);
 
     const isOpen = isSidebarQueueOpen || isSidebarLyricsOpen;
 
@@ -200,7 +208,13 @@ const SidebarOverlay = () => {
                     animate={{ x: 0 }}
                     exit={{ x: '100%' }}
                     transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className="fixed top-[40px] right-0 h-[calc(100vh-40px-6rem)] w-[26%] bg-surface/80 backdrop-blur-2xl border-l border-white/5 z-50 flex flex-col shadow-2xl outline outline-1 outline-primary outline-offset-[-1px] pt-[15px]"
+                    className={clsx(
+                        "fixed w-[26%] z-50 flex flex-col",
+                        liquidGlass
+                            // Floating glass sheet between title bar and player capsule
+                            ? "top-[44px] right-3 h-[calc(100vh-44px-7.5rem)] rounded-[28px] overflow-hidden lg-panel lg-strong lg-blur pt-1"
+                            : "top-[40px] right-0 h-[calc(100vh-40px-6rem)] bg-surface/80 backdrop-blur-2xl border-l border-white/5 shadow-2xl outline outline-1 outline-primary outline-offset-[-1px] pt-[15px]"
+                    )}
                 >
                     <div className="flex items-center justify-between p-6 border-b border-white/5">
                         <div className="flex items-center gap-2">
@@ -227,7 +241,7 @@ const SidebarOverlay = () => {
                                     lyrics.isSynced ? (
                                         <div className="space-y-6 py-12 text-center" ref={lyricsContainerRef}>
                                             {lyrics.syncedLyrics.map((line: any, i: number) => {
-                                                const isActive = currentTime >= line.seconds && (!lyrics.syncedLyrics[i + 1] || currentTime < lyrics.syncedLyrics[i + 1].seconds);
+                                                const isActive = i === activeLineIndex;
                                                 return (
                                                     <p
                                                         key={i}

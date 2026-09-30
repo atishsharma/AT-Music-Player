@@ -27,7 +27,8 @@ interface ArtistData {
 const ArtistDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { play, setQueue } = usePlayerStore();
+    const play = usePlayerStore(s => s.play);
+    const setQueue = usePlayerStore(s => s.setQueue);
 
     const [artistData, setArtistData] = useState<ArtistData | null>(null);
     const [localTracks, setLocalTracks] = useState<any[]>([]);

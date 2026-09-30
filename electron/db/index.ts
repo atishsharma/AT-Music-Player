@@ -15,6 +15,9 @@ export function initDB() {
 
     // Performance optimization
     db.pragma('journal_mode = WAL');
+    db.pragma('synchronous = NORMAL');
+    // Without this, ON DELETE CASCADE / SET NULL in the schema are silently ignored
+    db.pragma('foreign_keys = ON');
 
   // Schema Definition
   const schema = `
@@ -152,6 +155,29 @@ export function initDB() {
     db.exec("ALTER TABLE history ADD COLUMN path TEXT");
   }
 
+  const trackColumns = db.prepare("PRAGMA table_info(tracks)").all() as any[];
+  if (!trackColumns.some(c => c.name === 'mtime')) {
+    db.exec("ALTER TABLE tracks ADD COLUMN mtime REAL");
+  }
+
+  // Clean up rows orphaned while foreign keys were not enforced
+  db.exec(`
+    DELETE FROM playlist_tracks WHERE playlist_id NOT IN (SELECT id FROM playlists)
+      OR track_id NOT IN (SELECT id FROM tracks);
+    UPDATE history SET track_id = NULL WHERE track_id IS NOT NULL AND track_id NOT IN (SELECT id FROM tracks);
+  `);
+
+  // Indexes for the hot queries (library views, history, video lookups)
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album);
+    CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
+    CREATE INDEX IF NOT EXISTS idx_tracks_video_id ON tracks(video_id);
+    CREATE INDEX IF NOT EXISTS idx_tracks_created_at ON tracks(created_at);
+    CREATE INDEX IF NOT EXISTS idx_history_played_at ON history(played_at);
+    CREATE INDEX IF NOT EXISTS idx_history_video_id ON history(video_id);
+    CREATE INDEX IF NOT EXISTS idx_lyrics_title_artist ON lyrics_cache(title, artist);
+  `);
+
   const playlistColumns = db.prepare("PRAGMA table_info(playlists)").all() as any[];
   const playlistColumnNames = playlistColumns.map(c => c.name);
   if (!playlistColumnNames.includes('image_path')) {
@@ -176,4 +202,13 @@ export function getDB() {
     throw new Error('Database not initialized! Call initDB() first.');
   }
   return db;
+}
+
+export function getSetting(key: string): string | null {
+  try {
+    const row = getDB().prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
+    return row ? row.value : null;
+  } catch {
+    return null;
+  }
 }

@@ -1,0 +1,136 @@
+name: Release
+
+# Push a tag like v1.3.0 to build every installer on Windows, macOS and Linux
+# and publish them as a GitHub Release. Can also be started manually.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.3.0). Leave empty to build without publishing.'
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            builder: --win
+          - name: macOS
+            os: macos-14
+            builder: --mac
+          - name: Linux
+            # Older glibc = packages that run on more distros
+            os: ubuntu-22.04
+            builder: --linux AppImage deb rpm pacman tar.gz
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Linux packaging tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm libarchive-tools
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bundle yt-dlp / ffmpeg for this platform
+        run: node scripts/download-binaries.js
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build app
+        run: npm run build
+
+      - name: Package installers
+        run: npx electron-builder ${{ matrix.builder }} --publish never
+        env:
+          # No signing certificates: macOS builds are ad-hoc signed, Windows unsigned
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Package snap
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        run: |
+          sudo snap install snapcraft --classic
+          npx electron-builder --linux snap --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AT-Music-Pro-${{ matrix.name }}
+          if-no-files-found: error
+          path: |
+            release/*/AT-Music-Pro-*.exe
+            release/*/AT-Music-Pro-*.msi
+            release/*/AT-Music-Pro-*.zip
+            release/*/AT-Music-Pro-*.7z
+            release/*/AT-Music-Pro-*.dmg
+            release/*/AT-Music-Pro-*.pkg
+            release/*/AT-Music-Pro-*.AppImage
+            release/*/AT-Music-Pro-*.deb
+            release/*/AT-Music-Pro-*.rpm
+            release/*/AT-Music-Pro-*.pacman
+            release/*/AT-Music-Pro-*.snap
+            release/*/AT-Music-Pro-*.tar.gz
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd artifacts
+          find . -type f -name 'AT-Music-Pro-*' -exec mv {} . \; 2>/dev/null || true
+          sha256sum AT-Music-Pro-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Resolve tag and notes
+        id: meta
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          NOTES="release-notes/$TAG.md"
+          [ -f "$NOTES" ] || NOTES=""
+          echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: AT Music Pro ${{ steps.meta.outputs.tag }}
+          body_path: ${{ steps.meta.outputs.notes }}
+          generate_release_notes: ${{ steps.meta.outputs.notes == '' }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/AT-Music-Pro-*
+            artifacts/SHA256SUMS.txt

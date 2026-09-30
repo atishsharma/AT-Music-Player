@@ -22,7 +22,7 @@ interface PlayerState {
     // Actions
     play: (track?: Track) => void;
     pause: () => void;
-    next: () => void;
+    next: (auto?: boolean) => void;
     prev: () => void;
     setVolume: (volume: number) => void;
     setCurrentTime: (time: number) => void;
@@ -69,66 +69,69 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             if (state.currentTrack?.id === track.id) {
                 set({ isPlaying: true });
             } else {
-                // When we play a new song, push the currently playing song to the top of the queue 
-                // so it's not lost and acts like a "Recently played" mechanism in the queue itself.
-                const updatedQueue = [...state.queue];
-                if (state.currentTrack) {
-                    updatedQueue.unshift(state.currentTrack);
-                }
-
-                // Add to persistent DB history
-                if (window.ipcRenderer) {
-                    window.ipcRenderer.invoke('library:markPlayed', track).catch(console.error);
-                }
-
-                set((state) => ({
+                // The previous track goes to history (for the Previous button). It used to also be
+                // unshifted to the FRONT of the queue, so pressing Next right after picking a song
+                // jumped straight back to the song that was playing before.
+                // Play history is written to the DB by <Player /> on track change (was written twice).
+                set({
                     currentTrack: track,
                     isPlaying: true,
-                    queue: updatedQueue,
-                    history: state.currentTrack ? [...state.history, state.currentTrack] : state.history
-                }));
+                    currentTime: 0,
+                    history: state.currentTrack ? [...state.history, state.currentTrack].slice(-200) : state.history
+                });
             }
-        } else {
+        } else if (get().currentTrack) {
             set({ isPlaying: true });
         }
     },
 
     pause: () => set({ isPlaying: false }),
 
-    next: () => {
-        const { queue, currentTrack, history } = get();
+    next: (auto = false) => {
+        const { queue, currentTrack, history, loop } = get();
         if (queue.length === 0 && !currentTrack) return;
 
-        let nextTrack: Track | null = null;
-        const nextQueue = [...queue];
-
-        if (nextQueue.length > 0) {
-            nextTrack = nextQueue.shift() || null;
-            if (currentTrack) {
-                // Endless queue: push the previously played track to the end
+        if (queue.length > 0) {
+            const nextQueue = [...queue];
+            const nextTrack = nextQueue.shift() || null;
+            // Only recycle played tracks to the end of the queue when repeat-all is on
+            if (currentTrack && loop === 'all') {
                 nextQueue.push(currentTrack);
             }
             set({
                 currentTrack: nextTrack,
                 queue: nextQueue,
-                history: currentTrack ? [...history, currentTrack] : history,
-                isPlaying: true
+                history: currentTrack ? [...history, currentTrack].slice(-200) : history,
+                isPlaying: true,
+                currentTime: 0
             });
         } else if (currentTrack) {
-            // If queue is empty but we have a current track, just replay it to simulate endless single track
-            set({ isPlaying: true, currentTime: 0 });
+            if (auto && loop === 'none') {
+                // End of queue: stop instead of claiming to play an ended track
+                set({ isPlaying: false, currentTime: 0, lastSeekTime: Date.now() });
+            } else {
+                // Replay the only track (seek triggers <Player /> to restart the ended element)
+                set({ isPlaying: true, currentTime: 0, lastSeekTime: Date.now() });
+            }
         }
     },
 
     prev: () => {
-        const { history } = get();
+        const { history, currentTrack, queue, currentTime } = get();
+        // Standard player behaviour: restart the current song if it has played for a bit
+        if (currentTrack && (currentTime > 3 || history.length === 0)) {
+            set({ currentTime: 0, lastSeekTime: Date.now() });
+            return;
+        }
         if (history.length > 0) {
             const prevTrack = history[history.length - 1];
-            const newHistory = history.slice(0, -1);
             set({
                 currentTrack: prevTrack,
-                history: newHistory,
-                isPlaying: true
+                history: history.slice(0, -1),
+                // Keep the current track: it becomes "up next" instead of being lost
+                queue: currentTrack ? [currentTrack, ...queue] : queue,
+                isPlaying: true,
+                currentTime: 0
             });
         }
     },

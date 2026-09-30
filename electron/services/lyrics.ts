@@ -31,7 +31,7 @@ export async function getLyrics(artist: string, title: string, album?: string, d
 
     // 1. Check local cache
     try {
-        const row = db.prepare('SELECT * FROM lyrics_cache WHERE title LIKE ? AND artist LIKE ?')
+        const row = db.prepare('SELECT * FROM lyrics_cache WHERE title = ? COLLATE NOCASE AND artist = ? COLLATE NOCASE')
             .get(title, artist) as { plain_lyrics: string, synced_lyrics: string } | undefined;
 
         if (row) {
@@ -55,7 +55,7 @@ export async function getLyrics(artist: string, title: string, album?: string, d
         if (album) params.album_name = album;
         if (duration) params.duration = duration;
 
-        const response = await axios.get('https://lrclib.net/api/get', { params });
+        const response = await axios.get('https://lrclib.net/api/get', { params, timeout: 8000 });
 
         if (response.data) {
             const data = response.data;
@@ -79,7 +79,7 @@ export async function getLyrics(artist: string, title: string, album?: string, d
     } catch (error) {
         try {
             const searchRes = await axios.get('https://lrclib.net/api/search', {
-                params: { q: `${title} ${artist}` }
+                params: { q: `${title} ${artist}` }, timeout: 8000
             });
             if (searchRes.data && searchRes.data.length > 0) {
                 const bestMatch = searchRes.data[0];
@@ -118,7 +118,7 @@ export async function fetchLRCLIB(searchArtist: string, searchTitle: string, sav
         };
         if (duration) params.duration = duration;
 
-        const response = await axios.get('https://lrclib.net/api/get', { params });
+        const response = await axios.get('https://lrclib.net/api/get', { params, timeout: 8000 });
 
         if (response.data) {
             const data = response.data;
@@ -141,7 +141,7 @@ export async function fetchLRCLIB(searchArtist: string, searchTitle: string, sav
     } catch (error) {
         try {
             const searchRes = await axios.get('https://lrclib.net/api/search', {
-                params: { q: `${searchTitle} ${searchArtist}` }
+                params: { q: `${searchTitle} ${searchArtist}` }, timeout: 8000
             });
             if (searchRes.data && searchRes.data.length > 0) {
                 const bestMatch = searchRes.data[0];

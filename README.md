@@ -37,13 +37,28 @@
 
 ---
 
-## 🚀 Release 1.2.1 - The Premium Update
-This release focuses on **Layout Independence**, **Native Stability**, and **Linux Optimization**.
+## 🚀 Release 1.3.0 - Liquid Glass
+- **Liquid Glass design:** translucent floating panels over a backdrop built from the current album art (Light, Dark, OLED).
+- **Desktop widget:** always-on-top mini player (Pill / Card / Orb) when the app is minimized.
+- **Faster:** no more UI re-renders on every playback tick, half-size startup bundle, cached stream URLs.
+- **Fixes:** repeat-one, queue order, EQ persistence, playlist-safe rescans, download tags, Spotify, video mode.
 
-- **Mini Player 2.0:** Completely independent layout scaling. 80% optimized zoom on Linux for perfect pixel clarity.
-- **Dynamic Resizing:** Proportional window scaling (380:712) for the Mini Player. 
-- **Linux Sandbox Fix:** Integrated `--no-sandbox` and `--disable-gpu-sandbox` for universal compatibility across Ubuntu, Arch, and Fedora.
-- **Sidebar UX:** Persistent sidebar state (open by default) for faster navigation.
+Full notes: [release-notes/v1.3.0.md](release-notes/v1.3.0.md)
+
+### 📦 Downloads
+Grab the latest build from [Releases](https://github.com/atishsharma/AT-Music-Player/releases/latest):
+
+| Windows | macOS | Linux |
+|---|---|---|
+| Setup `.exe`, `.msi`, Portable `.exe`, `.zip`, `.7z` | `.dmg`, `.pkg`, `.zip` (Apple Silicon + Intel) | `.AppImage`, `.deb`, `.rpm`, `.pacman`, `.snap`, `.tar.gz` |
+
+### 🛠️ Building releases
+```bash
+npm ci
+node scripts/download-binaries.js   # yt-dlp (+ ffmpeg on Windows/macOS) for this platform
+npm run dist:linux                  # or dist:win / dist:mac  → release/<version>/
+```
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which builds every format on Windows, macOS and Linux and publishes a GitHub Release. App icons are generated from `public/app_icon.png` with `npm run icons` (needs Pillow).
 
 ---
 

@@ -4,100 +4,109 @@ import { getDB } from '../db';
 import { BrowserWindow, app } from 'electron';
 import crypto from 'crypto';
 
-const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.flac', '.wav', '.ogg'];
+const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.flac', '.wav', '.ogg', '.opus', '.aac'];
+
+// Async, non-blocking directory walk (the old sync walk froze the main process on big libraries)
+async function walk(dirPath: string, files: { path: string; mtime: number }[]) {
+    let entries: fs.Dirent[];
+    try {
+        entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+    } catch (e) {
+        console.error(`Error reading directory ${dirPath}:`, e);
+        return;
+    }
+
+    for (const entry of entries) {
+        const fullPath = path.join(dirPath, entry.name);
+        if (entry.isDirectory()) {
+            await walk(fullPath, files);
+        } else if (entry.isFile() && AUDIO_EXTENSIONS.includes(path.extname(entry.name).toLowerCase())) {
+            try {
+                const stats = await fs.promises.stat(fullPath);
+                files.push({ path: fullPath, mtime: stats.mtimeMs });
+            } catch { /* file vanished mid-scan */ }
+        }
+    }
+}
 
 export async function scanDirectory(dirPath: string, window?: BrowserWindow) {
     const { parseFile } = await import('music-metadata');
     const db = getDB();
-    const files: string[] = [];
 
     // Ensure images directory exists
-    const userDataPath = app.getPath('userData');
-    const imagesDir = path.join(userDataPath, 'images');
-    if (!fs.existsSync(imagesDir)) {
-        fs.mkdirSync(imagesDir, { recursive: true });
-    }
-
-    function walk(currentPath: string) {
-        if (!fs.existsSync(currentPath)) return;
-        const stats = fs.statSync(currentPath);
-        if (stats.isDirectory()) {
-            try {
-                const entries = fs.readdirSync(currentPath);
-                for (const entry of entries) {
-                    walk(path.join(currentPath, entry));
-                }
-            } catch (e) {
-                console.error(`Error reading directory ${currentPath}:`, e);
-            }
-        } else if (stats.isFile()) {
-            const ext = path.extname(currentPath).toLowerCase();
-            if (AUDIO_EXTENSIONS.includes(ext)) {
-                files.push(currentPath);
-            }
-        }
-    }
+    const imagesDir = path.join(app.getPath('userData'), 'images');
+    await fs.promises.mkdir(imagesDir, { recursive: true });
 
     console.log(`[Scanner] Scanning directory: ${dirPath}`);
-    // Save the folder path to the database
     db.prepare('INSERT OR IGNORE INTO folders (path) VALUES (?)').run(dirPath);
 
-    walk(dirPath);
-    console.log(`[Scanner] Found ${files.length} audio files.`);
+    const found: { path: string; mtime: number }[] = [];
+    await walk(dirPath, found);
+
+    // Skip files that are already indexed and unchanged since the last scan
+    const known = new Map<string, number | null>();
+    for (const row of db.prepare('SELECT path, mtime FROM tracks').all() as { path: string; mtime: number | null }[]) {
+        known.set(row.path, row.mtime);
+    }
+    const files = found.filter(f => known.get(f.path) !== f.mtime);
+    console.log(`[Scanner] Found ${found.length} audio files, ${files.length} new or changed.`);
+
+    // UPSERT keeps the existing row id. The previous INSERT OR REPLACE deleted and re-inserted
+    // the row on every rescan, giving tracks new ids and breaking playlists/history references.
+    const upsert = db.prepare(`
+        INSERT INTO tracks (title, artist, album, duration, path, format, image_path, source, mtime)
+        VALUES (@title, @artist, @album, @duration, @path, @format, @image_path, 'local', @mtime)
+        ON CONFLICT(path) DO UPDATE SET
+            title = excluded.title, artist = excluded.artist, album = excluded.album,
+            duration = excluded.duration, format = excluded.format,
+            image_path = excluded.image_path, mtime = excluded.mtime
+    `);
 
     let processed = 0;
-    const insertStmt = db.prepare(`
-    INSERT OR REPLACE INTO tracks (title, artist, album, duration, path, format, image_path, source)
-    VALUES (@title, @artist, @album, @duration, @path, @format, @image_path, 'local')
-  `);
+    let lastProgress = 0;
 
-    for (const filePath of files) {
+    for (const file of files) {
         try {
-            console.log(`[Scanner] Processing: ${path.basename(filePath)}`);
-            const metadata = await parseFile(filePath);
-            const title = metadata.common.title || path.basename(filePath, path.extname(filePath));
-            const artist = metadata.common.artist || 'Unknown Artist';
-            const album = metadata.common.album || 'Unknown Album';
-            const duration = metadata.format.duration || 0;
-            const format = metadata.format.container || path.extname(filePath).substring(1);
+            const metadata = await parseFile(file.path);
+            const ext = path.extname(file.path);
 
-            let image_path = null;
-            if (metadata.common.picture && metadata.common.picture.length > 0) {
-                const picture = metadata.common.picture[0];
+            let image_path: string | null = null;
+            const picture = metadata.common.picture?.[0];
+            if (picture) {
                 const hash = crypto.createHash('md5').update(picture.data).digest('hex');
-                const ext = picture.format === 'image/jpeg' ? '.jpg' : picture.format === 'image/png' ? '.png' : '.jpg';
-                const fileName = `${hash}${ext}`;
-                const destPath = path.join(imagesDir, fileName);
-
+                const imgExt = picture.format === 'image/png' ? '.png' : '.jpg';
+                const destPath = path.join(imagesDir, `${hash}${imgExt}`);
                 if (!fs.existsSync(destPath)) {
-                    fs.writeFileSync(destPath, picture.data);
+                    await fs.promises.writeFile(destPath, picture.data);
                 }
                 image_path = destPath;
             }
 
-            const info = {
-                title,
-                artist,
-                album,
-                duration,
-                path: filePath,
-                format,
-                image_path
-            };
-
-            insertStmt.run(info);
+            upsert.run({
+                title: metadata.common.title || path.basename(file.path, ext),
+                artist: metadata.common.artist || 'Unknown Artist',
+                album: metadata.common.album || 'Unknown Album',
+                duration: metadata.format.duration || 0,
+                path: file.path,
+                format: metadata.format.container || ext.substring(1),
+                image_path,
+                mtime: file.mtime
+            });
             processed++;
-
-            if (window && processed % 5 === 0) {
-                window.webContents.send('scan-progress', { total: files.length, processed });
-            }
         } catch (err) {
-            console.error(`[Scanner] Error parsing file ${filePath}:`, err);
+            console.error(`[Scanner] Error parsing file ${file.path}:`, err);
+        }
+
+        // Throttle progress IPC to ~10/s
+        const now = Date.now();
+        if (window && !window.isDestroyed() && now - lastProgress > 100) {
+            lastProgress = now;
+            window.webContents.send('scan-progress', { total: files.length, processed });
         }
     }
 
     console.log(`[Scanner] Scan complete. Processed ${processed} files.`);
-    if (window) {
+    if (window && !window.isDestroyed()) {
         window.webContents.send('scan-complete', { total: files.length, processed });
     }
 }

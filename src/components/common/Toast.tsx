@@ -29,7 +29,7 @@ const Toast = () => {
                         initial={{ opacity: 0, x: 50, scale: 0.9 }}
                         animate={{ opacity: 1, x: 0, scale: 1 }}
                         exit={{ opacity: 0, x: 20, scale: 0.95 }}
-                        className="bg-primary/95 backdrop-blur-xl border border-white/20 px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 min-w-[300px] pointer-events-auto"
+                        className="bg-primary/85 backdrop-blur-xl border border-white/25 px-6 py-4 rounded-[22px] shadow-2xl shadow-primary/30 flex items-center gap-4 min-w-[300px] pointer-events-auto [box-shadow:inset_0_1px_0_rgba(255,255,255,0.35),0_20px_40px_-10px_rgba(0,0,0,0.35)]"
                     >
                         <div className="p-2 bg-white/20 rounded-xl text-white">
                             <CheckCircle2 size={20} />

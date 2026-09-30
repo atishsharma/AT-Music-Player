@@ -8,7 +8,7 @@ import { toAtmusicUrl } from '../utils/path';
 const PlaybackHistory = () => {
     const [history, setHistory] = useState<any[]>([]);
     const [page, setPage] = useState(0);
-    const { play } = usePlayerStore();
+    const play = usePlayerStore(s => s.play);
     const itemsPerPage = 40;
     const maxItems = 120;
 

@@ -6,7 +6,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 const Trending = () => {
     const [trending, setTrending] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const { play } = usePlayerStore();
+    const play = usePlayerStore(s => s.play);
     const { youtubeApiKey } = useSettingsStore();
 
     useEffect(() => {

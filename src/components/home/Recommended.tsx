@@ -6,7 +6,7 @@ import { useThemeStore } from '../../store/themeStore';
 const Recommended = () => {
     const [recommended, setRecommended] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const { play } = usePlayerStore();
+    const play = usePlayerStore(s => s.play);
     const { currentMood } = useThemeStore();
 
     useEffect(() => {

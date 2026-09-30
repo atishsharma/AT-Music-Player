@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { usePlayerStore } from '../../store/playerStore';
+import { useShallow } from 'zustand/react/shallow';
+import { useActiveLyricIndex } from '../../hooks/useActiveLyricIndex';
 import { useThemeStore } from '../../store/themeStore';
 import { useFavoritesStore } from '../../store/favoritesStore';
 import { usePlaylistStore } from '../../store/playlistStore';
@@ -7,6 +9,7 @@ import { ChevronDown, ChevronUp, ListMusic, Mic2, Play, Pause, SkipBack, SkipFor
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import BackgroundWatermarks from './BackgroundWatermarks';
+import LiquidBackdrop from './LiquidBackdrop';
 import { toAtmusicUrl } from '../../utils/path';
 
 const QueueStepControls = ({ index, queue, reorderQueue, appearance }: any) => {
@@ -157,7 +160,19 @@ const ZenQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite, rem
 
 const NowPlaying = () => {
     const appearance = useThemeStore(state => state.appearance);
-    const { isPlayerOpen, togglePlayer, currentTrack, currentTime, duration, isPlaying, pause, play, next, prev, loop, toggleLoop, shuffle, toggleShuffle, seek, setVolume, volume, isMuted, toggleMute, queue, lyrics, setLyrics, loadingLyrics, setLoadingLyrics, reorderQueue, removeFromQueue, clearQueue } = usePlayerStore() as any;
+    const liquidGlass = useThemeStore(state => state.liquidGlass);
+    const { isPlayerOpen, togglePlayer, currentTrack, duration, isPlaying, pause, play, next, prev, loop, toggleLoop, shuffle, toggleShuffle, seek, setVolume, volume, isMuted, toggleMute, queue, lyrics, setLyrics, loadingLyrics, setLoadingLyrics, reorderQueue, removeFromQueue, clearQueue } = usePlayerStore(useShallow(s => ({
+        isPlayerOpen: s.isPlayerOpen, togglePlayer: s.togglePlayer, currentTrack: s.currentTrack, duration: s.duration,
+        isPlaying: s.isPlaying, pause: s.pause, play: s.play, next: s.next, prev: s.prev, loop: s.loop,
+        toggleLoop: s.toggleLoop, shuffle: s.shuffle, toggleShuffle: s.toggleShuffle, seek: s.seek,
+        setVolume: s.setVolume, volume: s.volume, isMuted: s.isMuted, toggleMute: s.toggleMute, queue: s.queue,
+        lyrics: s.lyrics, setLyrics: s.setLyrics, loadingLyrics: s.loadingLyrics, setLoadingLyrics: s.setLoadingLyrics,
+        reorderQueue: s.reorderQueue, removeFromQueue: s.removeFromQueue, clearQueue: s.clearQueue,
+    }))) as any;
+    // This component stays mounted while closed; only track playback time while it's visible
+    // (it previously re-rendered all ~1700 lines on every timeupdate even when hidden).
+    const currentTime = usePlayerStore(s => (s.isPlayerOpen ? s.currentTime : 0));
+    const activeLineIndex = useActiveLyricIndex(lyrics?.syncedLyrics, isPlayerOpen && !!lyrics?.isSynced);
 
     const [activeTab, setActiveTab] = useState<'queue' | 'lyrics'>('lyrics');
     const [vizMode, setVizMode] = useState<'wave' | 'piano' | 'isometric' | 'dna' | 'geometry' | 'solar'>('isometric');
@@ -271,66 +286,70 @@ const NowPlaying = () => {
         };
     }, [isPlayerOpen, togglePlayer]);
 
+    // Lyrics for the current track. `cancelled` stops a slow response for a previous
+    // track from overwriting the current one when skipping quickly.
     useEffect(() => {
-        const fetchLyricsAndVideo = async () => {
-            setFetchedVideoId(null);
-            setIsSearchingVideo(false);
-            if (currentTrack) {
-                setLyrics(null);
+        let cancelled = false;
+        setFetchedVideoId(null);
+        setIsSearchingVideo(false);
+        if (!currentTrack) return;
 
-                // Fetch Lyrics
-                try {
-                    setLoadingLyrics(true);
-                    setSearchForm({
-                        title: currentTrack.title || '',
-                        artist: currentTrack.artist || '',
-                        album: currentTrack.album || ''
-                    });
+        setLyrics(null);
+        setLoadingLyrics(true);
+        setSearchForm({
+            title: currentTrack.title || '',
+            artist: currentTrack.artist || '',
+            album: currentTrack.album || ''
+        });
 
-                    const data = await window.ipcRenderer.invoke('lyrics:get', {
-                        artist: currentTrack.artist,
-                        title: currentTrack.title,
-                        album: currentTrack.album,
-                        duration: currentTrack.duration
-                    });
-                    setLyrics(data);
-                } catch (err) {
-                    console.error("Failed to fetch lyrics", err);
-                } finally {
-                    setLoadingLyrics(false);
-                }
+        window.ipcRenderer.invoke('lyrics:get', {
+            artist: currentTrack.artist,
+            title: currentTrack.title,
+            album: currentTrack.album,
+            duration: currentTrack.duration
+        })
+            .then((data) => { if (!cancelled) setLyrics(data); })
+            .catch((err) => console.error("Failed to fetch lyrics", err))
+            .finally(() => { if (!cancelled) setLoadingLyrics(false); });
 
-                // Fetch Video ID for playback
-                // If track already has youtubeId (from search results), use it directly
-                if ((currentTrack as any).youtubeId) {
-                    setFetchedVideoId((currentTrack as any).youtubeId);
+        return () => { cancelled = true; };
+    }, [currentTrack, setLyrics, setLoadingLyrics]);
+
+    // Video ID lookup is only needed for video mode. It used to spawn a yt-dlp search
+    // for every local track played, even if video mode was never opened.
+    const needsVideoLookup = playbackMode === 'video' && !videoId;
+    useEffect(() => {
+        if (!needsVideoLookup || !currentTrack) return;
+        let cancelled = false;
+
+        if ((currentTrack as any).youtubeId) {
+            setFetchedVideoId((currentTrack as any).youtubeId);
+            return;
+        }
+        if (!currentTrack.title || !currentTrack.artist) return;
+
+        setIsSearchingVideo(true);
+        const query = `${currentTrack.title} ${currentTrack.artist} Official Video`;
+        window.ipcRenderer.invoke('youtube:getVideoId', query)
+            .then((vidId) => {
+                if (cancelled) return;
+                if (!vidId) {
+                    setPlaybackMode('audio');
+                    return;
                 }
-                // If track already has a video_id, or ID is a YouTube video ID string — no search needed
-                else if (currentTrack.video_id || (typeof currentTrack.id === 'string' && currentTrack.id.length >= 10)) {
-                    // videoId derivation will pick it up automatically
+                setFetchedVideoId(vidId);
+                if (currentTrack.id && typeof currentTrack.id === 'number') {
+                    window.ipcRenderer.invoke('library:updateVideoId', { trackId: currentTrack.id, videoId: vidId });
                 }
-                // For local library tracks (numeric id, no video_id), search YouTube
-                else if (currentTrack.title && currentTrack.artist) {
-                    try {
-                        setIsSearchingVideo(true);
-                        const query = `${currentTrack.title} ${currentTrack.artist} Official Video`;
-                        const vidId = await window.ipcRenderer.invoke('youtube:getVideoId', query);
-                        if (vidId) {
-                            setFetchedVideoId(vidId);
-                            if (currentTrack.id && typeof currentTrack.id === 'number') {
-                                window.ipcRenderer.invoke('library:updateVideoId', { trackId: currentTrack.id, videoId: vidId });
-                            }
-                        }
-                    } catch (err) {
-                        console.error("Failed to fetch video ID", err);
-                    } finally {
-                        setIsSearchingVideo(false);
-                    }
-                }
-            }
-        };
-        fetchLyricsAndVideo();
-    }, [currentTrack]);
+            })
+            .catch((err) => {
+                console.error("Failed to fetch video ID", err);
+                if (!cancelled) setPlaybackMode('audio');
+            })
+            .finally(() => { if (!cancelled) setIsSearchingVideo(false); });
+
+        return () => { cancelled = true; };
+    }, [needsVideoLookup, currentTrack]);
 
     useEffect(() => {
         const fetchVideoStream = async () => {
@@ -364,23 +383,12 @@ const NowPlaying = () => {
         }
     };
 
-    // Auto-scroll synced lyrics
+    // Auto-scroll synced lyrics: runs once per line change instead of on every timeupdate
     useEffect(() => {
-        if (!Array.isArray(lyrics?.syncedLyrics) || activeTab !== 'lyrics') return;
-
-        const activeLineIndex = lyrics.syncedLyrics.findIndex((line: any, index: number) => {
-            const nextLine = lyrics.syncedLyrics[index + 1];
-            return currentTime >= line.seconds && (!nextLine || currentTime < nextLine.seconds);
-        });
-
-        if (activeLineIndex !== -1 && lyricsContainerRef.current) {
-            const activeEl = lyricsContainerRef.current.children[activeLineIndex] as HTMLElement;
-            if (activeEl) {
-                // If the user isn't actively seeking/dragging, smooth scroll to the current lyric
-                activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        }
-    }, [currentTime, lyrics, activeTab, lyricsContainerRef, isDraggingSlider, playbackMode]);
+        if (activeLineIndex === -1 || activeTab !== 'lyrics' || !lyricsContainerRef.current) return;
+        const activeEl = lyricsContainerRef.current.children[activeLineIndex] as HTMLElement | undefined;
+        activeEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, [activeLineIndex, activeTab, playbackMode]);
 
     // Visualizer Loop
     useEffect(() => {
@@ -407,9 +415,6 @@ const NowPlaying = () => {
             // setArtworkScale(targetScale);
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            let primaryColor = getComputedStyle(document.body).getPropertyValue('--color-primary').trim();
-            if (!primaryColor || primaryColor.length < 3) primaryColor = '59, 130, 246';
 
             // Dynamic Colorful Logic
             const time = Date.now() / 1000;
@@ -751,12 +756,19 @@ const NowPlaying = () => {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-0 pt-[45px] bg-background z-[60] flex flex-col overflow-hidden"
+            className={clsx("fixed inset-0 pt-[45px] z-[60] flex flex-col overflow-hidden", !liquidGlass && "bg-background")}
         >
-            {/* Unified Vibrant Background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-background via-background/90 to-primary/20 pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-tl from-transparent via-background/50 to-surface-variant/10 pointer-events-none mix-blend-overlay" />
-            <BackgroundWatermarks />
+            {liquidGlass ? (
+                // Full-screen ambient artwork: the album colours become the room
+                <LiquidBackdrop />
+            ) : (
+                <>
+                    {/* Unified Vibrant Background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-background via-background/90 to-primary/20 pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-tl from-transparent via-background/50 to-surface-variant/10 pointer-events-none mix-blend-overlay" />
+                    <BackgroundWatermarks />
+                </>
+            )}
 
             {/* If Video Mode, add a backdrop to focus on video */}
             {playbackMode === 'video' && (
@@ -898,9 +910,9 @@ const NowPlaying = () => {
                                 Song
                             </button>
                             <button
-                                disabled={!videoId && !isSearchingVideo}
+                                disabled={isSearchingVideo}
                                 onClick={() => {
-                                    if (!videoId) return;
+                                    // Switching to video triggers the (lazy) YouTube lookup if needed
                                     setPlaybackMode('video');
                                     // Pause audio playback when switching to video
                                     if (isPlaying) pause();
@@ -909,7 +921,7 @@ const NowPlaying = () => {
                                     playbackMode === 'video'
                                         ? "bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105"
                                         : "text-on-surface-variant hover:text-primary hover:bg-primary/5",
-                                    !videoId && "opacity-50 cursor-not-allowed")}
+                                    isSearchingVideo && "opacity-50 cursor-wait")}
                             >
                                 {videoId ? "Video" : isSearchingVideo ? (
                                     <>
@@ -1113,14 +1125,14 @@ const NowPlaying = () => {
                                 <button onClick={toggleShuffle} className={clsx("p-3 rounded-full transition-all hover:scale-110", shuffle ? "bg-primary text-on-primary shadow-lg shadow-primary/30" : "bg-white/5 text-on-surface-variant hover:bg-white/10")}>
                                     <Shuffle size={20} />
                                 </button>
-                                <button onClick={prev} className="p-3 text-on-background hover:text-primary transition-all hover:scale-110 rounded-full hover:bg-white/5"><SkipBack size={36} fill="currentColor" /></button>
+                                <button onClick={() => prev()} className="p-3 text-on-background hover:text-primary transition-all hover:scale-110 rounded-full hover:bg-white/5"><SkipBack size={36} fill="currentColor" /></button>
                                 <button
                                     onClick={isPlaying ? pause : () => play()}
                                     className="w-20 h-20 shrink-0 aspect-square bg-primary text-on-primary rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-[0_10px_30px_rgba(var(--md-sys-color-primary),0.4)]"
                                 >
                                     {isPlaying ? <Pause size={40} fill="currentColor" /> : <Play size={40} className="ml-1.5" fill="currentColor" />}
                                 </button>
-                                <button onClick={next} className="p-3 text-on-background hover:text-primary transition-all hover:scale-110 rounded-full hover:bg-white/5"><SkipForward size={36} fill="currentColor" /></button>
+                                <button onClick={() => next()} className="p-3 text-on-background hover:text-primary transition-all hover:scale-110 rounded-full hover:bg-white/5"><SkipForward size={36} fill="currentColor" /></button>
                                 <button onClick={toggleLoop} className={clsx("p-3 rounded-full transition-all hover:scale-110 relative", loop !== 'none' ? "bg-primary text-on-primary shadow-lg shadow-primary/30" : "bg-white/5 text-on-surface-variant hover:bg-white/10")}>
                                     <Repeat size={20} />
                                     {loop === 'one' && <span className="absolute top-2 right-2 text-[8px] font-black bg-white text-primary rounded-full w-3 h-3 flex items-center justify-center">1</span>}
@@ -1204,7 +1216,7 @@ const NowPlaying = () => {
                                     lyrics.isSynced ? (
                                         <div className="space-y-10 py-[40vh]" ref={lyricsContainerRef}>
                                             {Array.isArray(lyrics?.syncedLyrics) && lyrics.syncedLyrics.map((line: any, i: number) => {
-                                                const isActive = currentTime >= line.seconds && (!lyrics.syncedLyrics[i + 1] || currentTime < lyrics.syncedLyrics[i + 1].seconds);
+                                                const isActive = i === activeLineIndex;
                                                 return (
                                                     <p
                                                         key={i}
@@ -1432,14 +1444,14 @@ const NowPlaying = () => {
                                         <Heart size={18} fill={isFav ? "currentColor" : "none"} />
                                     </button>
                                     <button onClick={toggleShuffle} className={clsx("p-2 transition-all hover:scale-110", shuffle ? "text-primary drop-shadow-[0_0_10px_rgba(var(--md-sys-color-primary),0.8)]" : (appearance === 'light' ? "text-primary/40 hover:text-primary" : "text-white/40 hover:text-white"))}><Shuffle size={18} /></button>
-                                    <button onClick={prev} className={clsx("p-2 transition-all hover:scale-110", appearance === 'light' ? "text-primary/60 hover:text-primary" : "text-white/60 hover:text-white")}><SkipBack size={20} fill="currentColor" /></button>
+                                    <button onClick={() => prev()} className={clsx("p-2 transition-all hover:scale-110", appearance === 'light' ? "text-primary/60 hover:text-primary" : "text-white/60 hover:text-white")}><SkipBack size={20} fill="currentColor" /></button>
                                     <button
                                         onClick={isPlaying ? pause : () => play()}
                                         className={clsx("w-12 h-12 rounded-full flex items-center justify-center hover:scale-110 transition-all border mx-1", appearance === 'light' ? "bg-primary text-on-primary shadow-[0_0_20px_rgba(var(--md-sys-color-primary),0.5)] border-primary/10" : "bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.5)] border-black/10")}
                                     >
                                         {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
                                     </button>
-                                    <button onClick={next} className={clsx("p-2 transition-all hover:scale-110", appearance === 'light' ? "text-primary/60 hover:text-primary" : "text-white/60 hover:text-white")}><SkipForward size={20} fill="currentColor" /></button>
+                                    <button onClick={() => next()} className={clsx("p-2 transition-all hover:scale-110", appearance === 'light' ? "text-primary/60 hover:text-primary" : "text-white/60 hover:text-white")}><SkipForward size={20} fill="currentColor" /></button>
                                     <button onClick={toggleLoop} className={clsx("p-2 transition-all hover:scale-110 relative", loop !== 'none' ? "text-primary drop-shadow-[0_0_10px_rgba(var(--md-sys-color-primary),0.8)]" : (appearance === 'light' ? "text-primary/40 hover:text-primary" : "text-white/40 hover:text-white"))}>
                                         <Repeat size={18} />
                                         {loop === 'one' && <span className="absolute top-1 right-1 text-[7px] font-black bg-primary text-on-primary rounded-full w-2.5 h-2.5 flex items-center justify-center">1</span>}
@@ -1675,10 +1687,7 @@ const NowPlaying = () => {
                                 <div className={clsx("w-full max-w-6xl text-center flex flex-col items-center transition-all duration-500 backdrop-blur-md outline outline-1 rounded-[3rem] p-12", appearance === 'light' ? "bg-white/50 outline-primary/30 shadow-[0_20px_50px_rgba(var(--md-sys-color-primary),0.15)]" : "bg-black/20 outline-primary/30 shadow-[0_20px_50px_rgba(0,0,0,0.5)]")}>
                                     {lyrics?.syncedLyrics ? (
                                         (() => {
-                                            const activeIndex = lyrics.syncedLyrics.findIndex((line: any, index: number) => {
-                                                const nextLine = lyrics.syncedLyrics[index + 1];
-                                                return currentTime >= line.seconds && (!nextLine || currentTime < nextLine.seconds);
-                                            });
+                                            const activeIndex = activeLineIndex;
                                             const currentLine = activeIndex !== -1 ? lyrics.syncedLyrics[activeIndex] : null;
                                             const nextLine = activeIndex !== -1 && lyrics.syncedLyrics[activeIndex + 1] ? lyrics.syncedLyrics[activeIndex + 1] : lyrics.syncedLyrics[0];
 

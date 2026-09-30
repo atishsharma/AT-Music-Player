@@ -3,8 +3,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useState } from 'react';
+import { useThemeStore } from '../../store/themeStore';
 
 const NavItem = ({ to, icon: Icon, label, isCollapsed }: { to: string; icon: React.ElementType; label: string; isCollapsed: boolean }) => {
+    const liquidGlass = useThemeStore(s => s.liquidGlass);
     const location = useLocation();
     const navigate = useNavigate();
     const isActive = location.pathname === to;
@@ -20,6 +22,7 @@ const NavItem = ({ to, icon: Icon, label, isCollapsed }: { to: string; icon: Rea
             }}
             className={clsx(
                 'flex items-center gap-3 px-3 py-3 rounded-full transition-all duration-300 font-medium relative group cursor-pointer',
+                liquidGlass && 'lg-press',
                 isActive
                     ? 'text-primary'
                     : 'text-on-surface-variant hover:text-on-background',
@@ -29,7 +32,7 @@ const NavItem = ({ to, icon: Icon, label, isCollapsed }: { to: string; icon: Rea
             {isActive && (
                 <motion.div
                     layoutId="nav-pill"
-                    className="absolute inset-0 bg-primary/10 border border-primary/10 rounded-full"
+                    className={clsx("absolute inset-0 rounded-full", liquidGlass ? "lg-active" : "bg-primary/10 border border-primary/10")}
                     transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                 />
             )}
@@ -53,15 +56,22 @@ const NavItem = ({ to, icon: Icon, label, isCollapsed }: { to: string; icon: Rea
 
 const Sidebar = () => {
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const liquidGlass = useThemeStore(s => s.liquidGlass);
 
     return (
         <motion.div
             initial={{ width: 256 }}
             animate={{ width: isCollapsed ? 98 : 256 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="h-full bg-surface/50 backdrop-blur-xl flex flex-col p-4 pt-[40px] border-r border-primary/60 overflow-hidden flex-shrink-0 z-50 shadow-lg shadow-primary/5"
+            className={clsx(
+                "flex flex-col p-4 overflow-hidden flex-shrink-0 z-50",
+                liquidGlass
+                    // Floating glass panel under the title bar
+                    ? "lg-panel lg-sheen rounded-[28px] mt-[44px] mb-3 h-[calc(100%-56px)] pt-2"
+                    : "h-full bg-surface/50 backdrop-blur-xl pt-[40px] border-r border-primary/60 shadow-lg shadow-primary/5"
+            )}
         >
-            <div className={clsx("flex items-center gap-4 px-2 py-8 mb-4", isCollapsed ? "justify-center" : "")}>
+            <div className={clsx("flex items-center gap-4 px-2 mb-4", liquidGlass ? "py-5" : "py-8", isCollapsed ? "justify-center" : "")}>
                 <div className={clsx(
                     "flex items-center gap-3 p-1 rounded-full overflow-hidden transition-all duration-300 group",
                     !isCollapsed && "outline outline-1 outline-primary/40 px-4"

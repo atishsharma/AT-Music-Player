@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AT Music Liquid Glass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: specimen sheet — app window on a vivid wallpaper, then a faux desktop hosting three widgets, then motion specs. */
+:root {
+  --paper: #eef1f4;          /* page ground, cool grey biased to the teal accent */
+  --ink: #111417;
+  --ink-soft: #5b6670;
+  --accent: #008b8b;         /* AT Music teal (app primary) */
+  --accent-ink: #ffffff;
+  --glass: rgba(255, 255, 255, 0.52);
+  --glass-strong: rgba(255, 255, 255, 0.72);
+  --glass-edge: rgba(255, 255, 255, 0.75);
+  --glass-hi: rgba(255, 255, 255, 0.9);
+  --glass-line: rgba(17, 20, 23, 0.08);
+  --shadow: rgba(24, 40, 56, 0.18);
+  --track: rgba(17, 20, 23, 0.12);
+  --wall-a: #7fe3d6; --wall-b: #ffb6a3; --wall-c: #b9a8ff; --wall-d: #ffe08a;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Onest", "Segoe UI", sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Onest", "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r-window: 28px; --r-panel: 22px; --r-tile: 16px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0c0f12; --ink: #f2f5f7; --ink-soft: #97a3ad;
+    --accent: #4fd8d8; --accent-ink: #062222;
+    --glass: rgba(30, 34, 40, 0.48); --glass-strong: rgba(34, 38, 44, 0.7);
+    --glass-edge: rgba(255, 255, 255, 0.14); --glass-hi: rgba(255, 255, 255, 0.28);
+    --glass-line: rgba(255, 255, 255, 0.08); --shadow: rgba(0, 0, 0, 0.5); --track: rgba(255, 255, 255, 0.16);
+    --wall-a: #0f6d6a; --wall-b: #7a2f4a; --wall-c: #3b2f8f; --wall-d: #6a5410;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0c0f12; --ink: #f2f5f7; --ink-soft: #97a3ad;
+  --accent: #4fd8d8; --accent-ink: #062222;
+  --glass: rgba(30, 34, 40, 0.48); --glass-strong: rgba(34, 38, 44, 0.7);
+  --glass-edge: rgba(255, 255, 255, 0.14); --glass-hi: rgba(255, 255, 255, 0.28);
+  --glass-line: rgba(255, 255, 255, 0.08); --shadow: rgba(0, 0, 0, 0.5); --track: rgba(255, 255, 255, 0.16);
+  --wall-a: #0f6d6a; --wall-b: #7a2f4a; --wall-c: #3b2f8f; --wall-d: #6a5410;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-ui); font-size: 15px; line-height: 1.5;
+  padding-inline: clamp(16px, 4vw, 48px); padding-block: 32px 64px;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .4s ease, color .4s ease;
+}
+.page { max-width: 1240px; margin-inline: auto; display: flex; flex-direction: column; gap: 56px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: -0.02em; }
+h1 { font-size: clamp(28px, 4vw, 40px); font-weight: 700; }
+h2 { font-size: 24px; font-weight: 700; }
+p { margin: 0; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); }
+.mono { font-family: var(--font-mono); font-size: 12px; }
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 999px; }
+.icon { width: 18px; height: 18px; display: block; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 20px; }
+.top-copy { display: flex; flex-direction: column; gap: 8px; max-width: 62ch; }
+.top-copy p { color: var(--ink-soft); }
+.segmented { display: inline-flex; padding: 4px; border-radius: 999px; background: var(--track); gap: 2px; }
+.segmented button { padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--ink-soft); transition: background-color .25s, color .25s, box-shadow .25s; }
+.segmented button[aria-pressed="true"] { background: var(--glass-strong); color: var(--ink); box-shadow: 0 1px 3px var(--shadow), inset 0 1px 0 var(--glass-hi); }
+
+/* Glass material */
+.glass {
+  position: relative; isolation: isolate;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(28px) saturate(180%); backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 var(--glass-hi), 0 12px 32px var(--shadow);
+}
+.glass::before { /* specular sheen */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
+  background: linear-gradient(140deg, var(--glass-hi) 0%, transparent 38%, transparent 70%, color-mix(in srgb, var(--glass-hi) 40%, transparent) 100%);
+  opacity: .5;
+}
+
+/* Wallpaper */
+.wall {
+  position: relative; overflow: hidden; border-radius: var(--r-window);
+  background:
+    radial-gradient(38% 50% at 12% 18%, var(--wall-a) 0%, transparent 70%),
+    radial-gradient(40% 55% at 88% 12%, var(--wall-c) 0%, transparent 70%),
+    radial-gradient(45% 60% at 78% 92%, var(--wall-b) 0%, transparent 70%),
+    radial-gradient(35% 45% at 20% 90%, var(--wall-d) 0%, transparent 70%),
+    var(--paper);
+  transition: background .4s ease;
+}
+.blob { position: absolute; border-radius: 50%; filter: blur(40px); opacity: .7; animation: drift 22s ease-in-out infinite alternate; }
+.blob.b1 { width: 36%; aspect-ratio: 1; left: 30%; top: 25%; background: var(--wall-a); }
+.blob.b2 { width: 28%; aspect-ratio: 1; right: 8%; top: 40%; background: var(--wall-c); animation-duration: 28s; }
+@keyframes drift { to { transform: translate(8%, -6%) scale(1.1); } }
+
+/* Artwork (generated, no images) */
+.art { border-radius: var(--r-tile); aspect-ratio: 1; max-width: 100%; position: relative; overflow: hidden; }
+.art::after { content: ""; position: absolute; inset: 0; background: radial-gradient(70% 60% at 30% 25%, rgba(255,255,255,.35), transparent 60%); }
+.art-1 { background: conic-gradient(from 210deg at 60% 40%, #ff6a3d, #ffb13d, #ff3d7f, #6a3dff, #ff6a3d); }
+.art-2 { background: linear-gradient(160deg, #0b3a53 0%, #1fa2a2 55%, #d7f5ec 100%); }
+.art-3 { background: radial-gradient(circle at 70% 30%, #ffe27a 0 18%, transparent 19%), linear-gradient(200deg, #3a1c71, #d76d77 60%, #ffaf7b); }
+.art-4 { background: repeating-linear-gradient(135deg, #111 0 14px, #e8e8e8 14px 28px); }
+.art-5 { background: linear-gradient(0deg, #1b4332, #52b788 60%, #d8f3dc); }
+.art-6 { background: conic-gradient(from 90deg, #3d5afe, #00e5ff, #76ff03, #3d5afe); }
+
+/* ------------------------------------------------ App window */
+.section { display: flex; flex-direction: column; gap: 20px; }
+.section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px; }
+.section-head p { color: var(--ink-soft); max-width: 60ch; }
+
+.app-stage { padding: clamp(12px, 3vw, 36px); }
+.window { border-radius: var(--r-window); overflow: hidden; display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 640px; }
+.window.glass { background: color-mix(in srgb, var(--glass) 70%, transparent); }
+.titlebar { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--glass-line); }
+.lights { display: flex; gap: 8px; }
+.lights span { width: 12px; height: 12px; border-radius: 50%; }
+.lights span:nth-child(1) { background: #ff5f57; } .lights span:nth-child(2) { background: #febc2e; } .lights span:nth-child(3) { background: #28c840; }
+.search { margin-inline: auto; display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: var(--track); color: var(--ink-soft); font-size: 13px; width: min(340px, 50%); }
+
+.sidebar { padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; border-right: 1px solid var(--glass-line); }
+.sidebar .eyebrow { padding: 12px 12px 6px; }
+.nav { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 12px; font-weight: 500; font-size: 14px; color: var(--ink-soft); transition: background-color .2s, color .2s, transform .2s; }
+.nav:hover { background: var(--track); color: var(--ink); }
+.nav.on { background: var(--glass-strong); color: var(--ink); box-shadow: inset 0 1px 0 var(--glass-hi), 0 1px 4px var(--shadow); }
+.nav.on .icon { color: var(--accent); }
+
+.main { position: relative; padding: 24px 24px 120px; display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+.hero { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 24px; align-items: center; padding: 20px; border-radius: var(--r-panel); }
+.hero .art { box-shadow: 0 20px 40px var(--shadow); }
+.hero-copy { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.hero-copy h3 { font-size: clamp(24px, 3vw, 34px); font-weight: 800; }
+.hero-copy .by { color: var(--ink-soft); font-weight: 500; }
+.lyrics { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; font-family: var(--font-display); font-weight: 700; font-size: 18px; line-height: 1.35; }
+.lyrics span { color: var(--ink-soft); opacity: .45; transition: opacity .5s ease, color .5s ease, transform .5s cubic-bezier(.22,1,.36,1); transform-origin: left center; }
+.lyrics span.now { color: var(--ink); opacity: 1; transform: scale(1.03); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--track); color: var(--ink-soft); }
+.chip.accent { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+
+.shelf-head { display: flex; justify-content: space-between; align-items: baseline; }
+.shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 16px; }
+.tile { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.tile .art { transition: transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s; box-shadow: 0 6px 16px var(--shadow); }
+.tile:hover .art { transform: translateY(-4px) scale(1.02); box-shadow: 0 16px 30px var(--shadow); }
+.tile b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile small { color: var(--ink-soft); font-size: 12px; margin-top: -6px; }
+
+/* Floating player capsule */
+.player { position: absolute; left: 24px; right: 24px; bottom: 20px; border-radius: 999px; padding: 10px 18px 10px 10px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; }
+.player.glass { background: var(--glass-strong); }
+.player .art { width: 52px; border-radius: 50%; }
+.p-meta { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.p-row { display: flex; justify-content: space-between; gap: 12px; min-width: 0; }
+.p-title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-time { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink-soft); white-space: nowrap; }
+.bar { height: 4px; border-radius: 999px; background: var(--track); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left; transform: scaleX(0); transition: transform .5s linear; border-radius: inherit; }
+.controls { display: flex; align-items: center; gap: 6px; }
+.ctl { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); transition: transform .2s cubic-bezier(.34,1.56,.64,1), background-color .2s; }
+.ctl:hover { background: var(--track); transform: scale(1.08); }
+.ctl:active { transform: scale(.9); }
+.play { width: 44px; height: 44px; background: var(--ink); color: var(--paper); box-shadow: 0 6px 16px var(--shadow); }
+.play:hover { background: var(--ink); }
+.play .i-pause { display: none; }
+[data-playing="true"] .play .i-pause { display: block; }
+[data-playing="true"] .play .i-play { display: none; }
+
+/* ------------------------------------------------ Widgets */
+.desk { padding: 32px clamp(16px, 3vw, 40px) 88px; display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-end; justify-content: center; min-height: 480px; }
+.taskbar { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 10px; padding: 8px 12px; border-radius: 20px; }
+.taskbar span { width: 36px; height: 36px; border-radius: 10px; background: var(--track); }
+.taskbar span.app { background: linear-gradient(145deg, var(--accent), color-mix(in srgb, var(--accent) 40%, #000)); position: relative; }
+.taskbar span.app::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 5px; height: 5px; border-radius: 50%; background: var(--ink); transform: translateX(-50%); }
+
+.spec { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.spec figcaption { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.spec figcaption b { font-size: 14px; }
+.spec figcaption .mono { color: var(--ink-soft); }
+figure { margin: 0; }
+
+.w-tools { display: flex; gap: 2px; opacity: 0; transition: opacity .25s ease; }
+.widget:hover .w-tools, .widget:focus-within .w-tools { opacity: 1; }
+.w-tool { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: var(--ink-soft); }
+.w-tool:hover { background: var(--track); color: var(--ink); }
+.w-tool .icon { width: 13px; height: 13px; }
+.w-tool.pinned { color: var(--accent); }
+
+/* A · Pill */
+.pill { width: min(380px, 100%); height: 96px; border-radius: 30px; display: grid; grid-template-columns: 68px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 0 14px 0 14px; }
+.pill .art { width: 68px; border-radius: 18px; }
+.pill-mid { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pill-top { display: flex; justify-content: space-between; gap: 6px; min-width: 0; }
+.pill-top div { min-width: 0; }
+.pill-top b, .card-meta b { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pill-top small, .card-meta small { display: block; font-size: 11px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pill .controls { gap: 2px; }
+.pill .ctl { width: 30px; height: 30px; }
+.pill .play { width: 40px; height: 40px; }
+
+/* B · Card */
+.card { width: 280px; max-width: 100%; border-radius: 34px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.card-art { position: relative; }
+.card-art .art { border-radius: 22px; box-shadow: 0 14px 30px var(--shadow); }
+.card-art .w-tools { position: absolute; top: 8px; right: 8px; padding: 2px; border-radius: 999px; background: var(--glass-strong); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.card-meta { display: flex; align-items: center; gap: 8px; }
+.card-meta div { flex: 1; min-width: 0; }
+.card-meta b { font-size: 14px; }
+.card-meta small { font-size: 12px; }
+.heart { color: var(--accent); }
+.times { display: flex; justify-content: space-between; margin-top: 4px; font-size: 10px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.card .controls { justify-content: center; gap: 20px; }
+.card .play { width: 48px; height: 48px; }
+
+/* C · Orb */
+.orb { width: 200px; height: 200px; max-width: 100%; position: relative; display: grid; place-items: center; }
+.orb svg.ring { position: absolute; inset: 0; transform: rotate(-90deg); overflow: visible; }
+.orb .ring-track { stroke: var(--track); }
+.orb .ring-fill { stroke: var(--accent); transition: stroke-dashoffset .5s linear; }
+.orb .disc { width: 164px; border-radius: 50%; animation: spin 18s linear infinite; animation-play-state: paused; box-shadow: 0 18px 40px var(--shadow); }
+.orb .disc::before { content: ""; position: absolute; inset: 42%; border-radius: 50%; background: var(--paper); box-shadow: inset 0 0 0 3px var(--glass-edge); z-index: 1; }
+[data-playing="true"] .orb .disc { animation-play-state: running; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.orb-over { position: absolute; width: 164px; height: 164px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; opacity: 0; transition: opacity .3s ease; background: rgba(0,0,0,.42); color: #fff; }
+.orb:hover .orb-over, .orb:focus-within .orb-over { opacity: 1; }
+.orb-over b { font-size: 11px; max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.orb-over .ctl { color: #fff; width: 28px; height: 28px; }
+.orb-over .play { background: #fff; color: #111; width: 40px; height: 40px; }
+.orb-over .w-tools { opacity: 1; }
+.orb-over .w-tool { color: rgba(255,255,255,.8); }
+
+/* Behaviour + motion specs */
+.specs { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+.rules { display: flex; flex-direction: column; gap: 12px; }
+.rules li { color: var(--ink-soft); }
+.rules li b { color: var(--ink); font-weight: 600; }
+ul.rules { margin: 0; padding-left: 18px; }
+.table-wrap { overflow-x: auto; border-radius: var(--r-tile); border: 1px solid var(--glass-line); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 440px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--glass-line); vertical-align: top; }
+th { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+td.mono { white-space: nowrap; }
+
+@media (max-width: 860px) {
+  .window { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { display: none; }
+  .hero { grid-template-columns: minmax(0, 1fr); }
+  .hero .art { width: min(220px, 100%); }
+}
+@media (max-width: 560px) {
+  .player { border-radius: 26px; grid-template-columns: auto minmax(0, 1fr); left: 12px; right: 12px; }
+  .player .controls { grid-column: 1 / -1; justify-content: center; }
+  .main { padding: 16px 16px 170px; }
+  .search { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect fill="currentColor" x="6" y="5" width="4" height="14" rx="1.2"/><rect fill="currentColor" x="14" y="5" width="4" height="14" rx="1.2"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path fill="currentColor" d="M5 6.2v11.6a.9.9 0 0 0 1.4.75L15 12.75a.9.9 0 0 0 0-1.5L6.4 5.45A.9.9 0 0 0 5 6.2z"/><rect fill="currentColor" x="16.5" y="5.5" width="2.5" height="13" rx="1"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.2v11.6a.9.9 0 0 1-1.4.75L9 12.75a.9.9 0 0 1 0-1.5l8.6-5.8A.9.9 0 0 1 19 6.2z"/><rect fill="currentColor" x="5" y="5.5" width="2.5" height="13" rx="1"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-lib" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M5 4v16M9.5 4v16M14 5l4.5 14.5"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path fill="currentColor" d="M12 20.3 4.6 13a4.6 4.6 0 0 1 6.5-6.5l.9.9.9-.9a4.6 4.6 0 0 1 6.5 6.5z"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M5 7h14M5 12h14M5 17h9"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 3.5 20.5 8.5l-2.3.8-3.4 3.4.4 4.3-1.4 1.4-3.6-3.6L5.5 19.5l-1-1 4.7-4.7-3.6-3.6 1.4-1.4 4.3.4 3.4-3.4z"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-eq" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M6 4v16M12 4v16M18 4v16"/><circle cx="6" cy="14" r="2.2" fill="currentColor"/><circle cx="12" cy="8" r="2.2" fill="currentColor"/><circle cx="18" cy="16" r="2.2" fill="currentColor"/></symbol>
+  </defs>
+</svg>
+
+<div class="page" id="app" data-playing="true">
+  <header class="top">
+    <div class="top-copy">
+      <span class="eyebrow">AT Music Pro · Design proposal v2</span>
+      <h1>Liquid Glass</h1>
+      <p>Translucent layers over the album's own color. Chrome recedes, artwork leads. One material, two themes, three desktop widgets for when the app is minimized.</p>
+    </div>
+    <div class="segmented" role="group" aria-label="Theme">
+      <button type="button" id="t-system" data-t="system" aria-pressed="true">System</button>
+      <button type="button" id="t-light" data-t="light" aria-pressed="false">Light</button>
+      <button type="button" id="t-dark" data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </header>
+
+  <!-- ============ APP ============ -->
+  <section class="section" aria-labelledby="h-app">
+    <div class="section-head">
+      <h2 id="h-app">Main window</h2>
+      <p>Sidebar and player float as glass over a wallpaper tinted by the current artwork. The player bar becomes a capsule that never covers content edges.</p>
+    </div>
+    <div class="wall app-stage">
+      <div class="blob b1"></div><div class="blob b2"></div>
+      <div class="window glass">
+        <div class="titlebar">
+          <div class="lights" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div class="search"><svg class="icon"><use href="#i-search"/></svg>Songs, albums, lyrics</div>
+        </div>
+        <nav class="sidebar" aria-label="Library">
+          <span class="eyebrow">Listen</span>
+          <a class="nav on" href="#app"><svg class="icon"><use href="#i-home"/></svg>Home</a>
+          <a class="nav" href="#app"><svg class="icon"><use href="#i-search"/></svg>Search</a>
+          <a class="nav" href="#app"><svg class="icon"><use href="#i-lib"/></svg>Library</a>
+          <span class="eyebrow">Yours</span>
+          <a class="nav" href="#app"><svg class="icon"><use href="#i-heart"/></svg>Favorites</a>
+          <a class="nav" href="#app"><svg class="icon"><use href="#i-list"/></svg>Playlists</a>
+          <a class="nav" href="#app"><svg class="icon"><use href="#i-down"/></svg>Downloads</a>
+          <a class="nav" href="#app"><svg class="icon"><use href="#i-eq"/></svg>Equalizer</a>
+        </nav>
+        <div class="main">
+          <div class="hero glass">
+            <div class="art art-1"></div>
+            <div class="hero-copy">
+              <span class="eyebrow">Now playing · FLAC 44.1 kHz / 16-bit</span>
+              <h3>Neon Monsoon</h3>
+              <p class="by">Kavya Rao · Midnight Transit</p>
+              <div class="lyrics" id="lyrics" aria-live="polite">
+                <span>Streetlights hum a minor key</span>
+                <span class="now">Rain writes your name across the glass</span>
+                <span>I follow every line it draws</span>
+                <span>Until the city lets me pass</span>
+              </div>
+              <div class="chips"><span class="chip accent">Synced lyrics</span><span class="chip">EQ · Vocal boost</span><span class="chip">Calm mood</span></div>
+            </div>
+          </div>
+          <div class="shelf-head"><h3>Recently played</h3><span class="eyebrow">Sample library</span></div>
+          <div class="shelf">
+            <div class="tile"><div class="art art-2"></div><b>Tidewater</b><small>Lumen Coast</small></div>
+            <div class="tile"><div class="art art-3"></div><b>Sunday Satellites</b><small>Orla Finch</small></div>
+            <div class="tile"><div class="art art-4"></div><b>Monochrome Heart</b><small>Static Bloom</small></div>
+            <div class="tile"><div class="art art-5"></div><b>Canopy Sessions</b><small>Fernhill Trio</small></div>
+            <div class="tile"><div class="art art-6"></div><b>Signal Garden</b><small>Hex &amp; Honey</small></div>
+          </div>
+          <div class="player glass">
+            <div class="art art-1"></div>
+            <div class="p-meta">
+              <div class="p-row"><span class="p-title">Neon Monsoon · Kavya Rao</span><span class="p-time"><span class="t-cur">1:12</span> / 3:48</span></div>
+              <div class="bar"><i class="prog"></i></div>
+            </div>
+            <div class="controls">
+              <button class="ctl" type="button" aria-label="Previous"><svg class="icon"><use href="#i-prev"/></svg></button>
+              <button class="ctl play" type="button" aria-label="Play or pause"><svg class="icon i-play"><use href="#i-play"/></svg><svg class="icon i-pause"><use href="#i-pause"/></svg></button>
+              <button class="ctl" type="button" aria-label="Next"><svg class="icon"><use href="#i-next"/></svg></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WIDGETS ============ -->
+  <section class="section" aria-labelledby="h-widgets">
+    <div class="section-head">
+      <h2 id="h-widgets">Desktop widget</h2>
+      <p>Minimize AT Music and the widget appears above your desktop. Pin keeps it on top of every window. Hover reveals pin, open and hide. Double-click opens the app.</p>
+    </div>
+    <div class="wall desk">
+      <div class="blob b1"></div><div class="blob b2"></div>
+
+      <figure class="spec">
+        <div class="widget pill glass">
+          <div class="art art-1"></div>
+          <div class="pill-mid">
+            <div class="pill-top">
+              <div><b>Neon Monsoon</b><small>Kavya Rao</small></div>
+              <div class="w-tools">
+                <button class="w-tool pinned pin" type="button" aria-label="Always on top"><svg class="icon"><use href="#i-pin"/></svg></button>
+                <button class="w-tool" type="button" aria-label="Open app"><svg class="icon"><use href="#i-expand"/></svg></button>
+                <button class="w-tool" type="button" aria-label="Hide widget"><svg class="icon"><use href="#i-x"/></svg></button>
+              </div>
+            </div>
+            <div class="bar"><i class="prog"></i></div>
+          </div>
+          <div class="controls">
+            <button class="ctl" type="button" aria-label="Previous"><svg class="icon"><use href="#i-prev"/></svg></button>
+            <button class="ctl play" type="button" aria-label="Play or pause"><svg class="icon i-play"><use href="#i-play"/></svg><svg class="icon i-pause"><use href="#i-pause"/></svg></button>
+            <button class="ctl" type="button" aria-label="Next"><svg class="icon"><use href="#i-next"/></svg></button>
+          </div>
+        </div>
+        <figcaption><b>Pill</b><span class="mono">380 × 96 · compact bar</span></figcaption>
+      </figure>
+
+      <figure class="spec">
+        <div class="widget card glass">
+          <div class="card-art">
+            <div class="art art-1"></div>
+            <div class="w-tools">
+              <button class="w-tool pinned pin" type="button" aria-label="Always on top"><svg class="icon"><use href="#i-pin"/></svg></button>
+              <button class="w-tool" type="button" aria-label="Open app"><svg class="icon"><use href="#i-expand"/></svg></button>
+              <button class="w-tool" type="button" aria-label="Hide widget"><svg class="icon"><use href="#i-x"/></svg></button>
+            </div>
+          </div>
+          <div class="card-meta">
+            <div><b>Neon Monsoon</b><small>Kavya Rao · Midnight Transit</small></div>
+            <svg class="icon heart"><use href="#i-heart"/></svg>
+          </div>
+          <div>
+            <div class="bar"><i class="prog"></i></div>
+            <div class="times"><span class="t-cur">1:12</span><span class="t-left">-2:36</span></div>
+          </div>
+          <div class="controls">
+            <button class="ctl" type="button" aria-label="Previous"><svg class="icon"><use href="#i-prev"/></svg></button>
+            <button class="ctl play" type="button" aria-label="Play or pause"><svg class="icon i-play"><use href="#i-play"/></svg><svg class="icon i-pause"><use href="#i-pause"/></svg></button>
+            <button class="ctl" type="button" aria-label="Next"><svg class="icon"><use href="#i-next"/></svg></button>
+          </div>
+        </div>
+        <figcaption><b>Card</b><span class="mono">280 × 340 · artwork + controls</span></figcaption>
+      </figure>
+
+      <figure class="spec">
+        <div class="widget orb">
+          <svg class="ring" viewBox="0 0 200 200" aria-hidden="true">
+            <circle class="ring-track" cx="100" cy="100" r="94" fill="none" stroke-width="5"/>
+            <circle class="ring-fill" id="ring" cx="100" cy="100" r="94" fill="none" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+          <div class="art art-1 disc"></div>
+          <div class="orb-over">
+            <b>Neon Monsoon</b>
+            <div class="controls">
+              <button class="ctl" type="button" aria-label="Previous"><svg class="icon"><use href="#i-prev"/></svg></button>
+              <button class="ctl play" type="button" aria-label="Play or pause"><svg class="icon i-play"><use href="#i-play"/></svg><svg class="icon i-pause"><use href="#i-pause"/></svg></button>
+              <button class="ctl" type="button" aria-label="Next"><svg class="icon"><use href="#i-next"/></svg></button>
+            </div>
+            <div class="w-tools">
+              <button class="w-tool pinned pin" type="button" aria-label="Always on top"><svg class="icon"><use href="#i-pin"/></svg></button>
+              <button class="w-tool" type="button" aria-label="Open app"><svg class="icon"><use href="#i-expand"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <figcaption><b>Orb</b><span class="mono">200 × 200 · spinning disc, hover for controls</span></figcaption>
+      </figure>
+
+      <div class="taskbar glass" aria-hidden="true"><span></span><span class="app"></span><span></span><span></span></div>
+    </div>
+  </section>
+
+  <!-- ============ SPECS ============ -->
+  <section class="section" aria-labelledby="h-specs">
+    <div class="section-head"><h2 id="h-specs">Behaviour &amp; motion</h2></div>
+    <div class="specs">
+      <ul class="rules">
+        <li><b>Shows on minimize.</b> Hides when the main window is restored. Never steals focus.</li>
+        <li><b>Always on top.</b> Pin toggles it; the choice persists. Uses the floating level, so it stays below full-screen apps.</li>
+        <li><b>Remembers position.</b> Reopens where you dropped it, if that display is still connected.</li>
+        <li><b>Theme.</b> Follows the app: light glass in Light, smoked glass in Dark, OLED and Glass.</li>
+        <li><b>Cheap to run.</b> State arrives once per second; the bar interpolates locally. The orb spin pauses with playback.</li>
+      </ul>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Moment</th><th>Motion</th><th>Timing</th></tr></thead>
+          <tbody>
+            <tr><td>Widget appears</td><td>Scale 0.92 → 1, lift 8px</td><td class="mono">spring 380 / 28</td></tr>
+            <tr><td>Track change</td><td>Artwork crossfade, 1.08 → 1</td><td class="mono">450ms ease-out-expo</td></tr>
+            <tr><td>Play ↔ pause</td><td>Icon morph with 45° turn</td><td class="mono">160ms</td></tr>
+            <tr><td>Buttons</td><td>Hover 1.12, press 0.88</td><td class="mono">spring 500 / 30</td></tr>
+            <tr><td>Lyric line</td><td>Fade + scale 1.03</td><td class="mono">500ms</td></tr>
+            <tr><td>Page change</td><td>Fade + 6px lift</td><td class="mono">220ms</td></tr>
+            <tr><td>Progress</td><td>transform: scaleX only</td><td class="mono">GPU composited</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  const root = document.documentElement;
+  const app = document.getElementById('app');
+  const btns = document.querySelectorAll('.segmented button');
+  function setTheme(t) {
+    if (t === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
+    btns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === t)));
+    try { localStorage.setItem('atm-theme', t); } catch (e) {}
+  }
+  btns.forEach(b => b.addEventListener('click', () => setTheme(b.dataset.t)));
+  try { const saved = localStorage.getItem('atm-theme'); if (saved) setTheme(saved); } catch (e) {}
+
+  const DURATION = 228; // 3:48
+  let t = 72;
+  const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+  const ring = document.getElementById('ring');
+  const C = 2 * Math.PI * 94;
+  ring.style.strokeDasharray = C;
+  const lines = Array.from(document.querySelectorAll('#lyrics span'));
+
+  function render() {
+    const pct = t / DURATION;
+    document.querySelectorAll('.prog').forEach(el => el.style.transform = 'scaleX(' + pct + ')');
+    document.querySelectorAll('.t-cur').forEach(el => el.textContent = fmt(t));
+    document.querySelectorAll('.t-left').forEach(el => el.textContent = '-' + fmt(DURATION - t));
+    ring.style.strokeDashoffset = C * (1 - pct);
+    const idx = Math.floor(t / 6) % lines.length;
+    lines.forEach((l, i) => l.classList.toggle('now', i === idx));
+  }
+  render();
+  setInterval(() => {
+    if (app.dataset.playing !== 'true') return;
+    t = (t + 0.5) % DURATION;
+    render();
+  }, 500);
+
+  document.querySelectorAll('.play').forEach(b => b.addEventListener('click', () => {
+    app.dataset.playing = app.dataset.playing === 'true' ? 'false' : 'true';
+  }));
+  document.querySelectorAll('.pin').forEach(b => b.addEventListener('click', () => {
+    const on = !b.classList.contains('pinned');
+    document.querySelectorAll('.pin').forEach(p => p.classList.toggle('pinned', on));
+  }));
+})();
+</script>
+</body>
+</html>

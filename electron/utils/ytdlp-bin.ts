@@ -100,6 +100,9 @@ export async function execYtDlpJson(args: string[]): Promise<any> {
         subprocess.stdout.on('data', (data) => stdout += data.toString());
         subprocess.stderr.on('data', (data) => stderr += data.toString());
 
+        // Without this, a missing binary (ENOENT) leaves the promise pending forever
+        subprocess.on('error', reject);
+
         subprocess.on('close', (code) => {
             if (code === 0) {
                 try {

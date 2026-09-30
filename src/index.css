@@ -358,6 +358,232 @@ body.appearance-glass::before {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: var(--md-sys-color-surface-variant);
+  background-color: rgb(var(--md-sys-color-surface-variant) / 0.6);
   border-radius: 999px;
+}
+
+/* ================================================================== */
+/* LIQUID GLASS                                                        */
+/* A material layer applied on top of any mood + appearance when       */
+/* body has the `lg` class. Chrome floats as translucent glass over an */
+/* ambient backdrop built from the current artwork (LiquidBackdrop).   */
+/* ================================================================== */
+body.lg {
+  --lg-base: 14 16 20;
+  --lg-fill: 30 33 40;
+  --lg-fill-a: 0.38;
+  --lg-fill-strong-a: 0.62;
+  --lg-edge: 255 255 255;
+  --lg-edge-a: 0.10;
+  --lg-hi-a: 0.20;
+  --lg-ink: 255 255 255;
+  --lg-shadow: 0 0 0;
+  --lg-shadow-a: 0.40;
+  --lg-ambient: var(--md-sys-color-primary);
+  background: rgb(var(--lg-base));
+}
+body.lg.appearance-light,
+body.lg.appearance-glass {
+  --lg-base: 234 238 243;
+  --lg-fill: 255 255 255;
+  --lg-fill-a: 0.50;
+  --lg-fill-strong-a: 0.74;
+  --lg-edge-a: 0.70;
+  --lg-hi-a: 0.95;
+  --lg-ink: 18 22 28;
+  --lg-shadow: 32 48 64;
+  --lg-shadow-a: 0.14;
+}
+body.lg.appearance-oled {
+  --lg-base: 0 0 0;
+  --lg-fill: 16 16 18;
+  --lg-fill-a: 0.55;
+  --lg-fill-strong-a: 0.75;
+}
+body.lg.appearance-glass::before { display: none; }
+
+@layer components {
+  /* Base glass: translucent fill, hairline edge, top specular highlight, soft drop shadow */
+  .lg-panel {
+    background-color: rgb(var(--lg-fill) / var(--lg-fill-a));
+    border: 1px solid rgb(var(--lg-edge) / var(--lg-edge-a));
+    box-shadow:
+      inset 0 1px 0 rgb(var(--lg-edge) / var(--lg-hi-a)),
+      0 10px 30px -6px rgb(var(--lg-shadow) / var(--lg-shadow-a));
+  }
+  .lg-strong { background-color: rgb(var(--lg-fill) / var(--lg-fill-strong-a)); }
+  /* Real blur only on chrome that floats over scrolling content (it costs GPU time) */
+  .lg-blur {
+    -webkit-backdrop-filter: blur(32px) saturate(185%);
+    backdrop-filter: blur(32px) saturate(185%);
+  }
+  /* Diagonal specular sheen */
+  .lg-sheen { position: relative; isolation: isolate; }
+  .lg-sheen::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: -1;
+    background: linear-gradient(140deg,
+      rgb(var(--lg-edge) / calc(var(--lg-hi-a) * 0.9)) 0%,
+      transparent 36%,
+      transparent 68%,
+      rgb(var(--lg-edge) / calc(var(--lg-hi-a) * 0.35)) 100%);
+    opacity: 0.55;
+  }
+  .lg-active {
+    background-color: rgb(var(--lg-fill) / var(--lg-fill-strong-a));
+    box-shadow:
+      inset 0 1px 0 rgb(var(--lg-edge) / var(--lg-hi-a)),
+      inset 0 0 0 1px rgb(var(--lg-edge) / var(--lg-edge-a)),
+      0 4px 14px -4px rgb(var(--lg-shadow) / var(--lg-shadow-a));
+  }
+  .lg-ink { color: rgb(var(--lg-ink)); }
+  .lg-ink-track { background-color: rgb(var(--lg-ink) / 0.14); }
+  .lg-ink-soft { color: rgb(var(--lg-ink) / 0.62); }
+  .lg-press { transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .lg-press:active { transform: scale(0.94); }
+}
+
+/* Existing translucent surfaces become glass without per-component edits */
+body.lg .bg-surface-variant\/5,
+body.lg .bg-surface-variant\/10,
+body.lg .bg-surface-variant\/20,
+body.lg .bg-surface\/30,
+body.lg .bg-surface\/50,
+body.lg .bg-surface\/80 {
+  background-color: rgb(var(--lg-fill) / var(--lg-fill-a));
+  border-color: rgb(var(--lg-edge) / var(--lg-edge-a));
+  box-shadow: inset 0 1px 0 rgb(var(--lg-edge) / var(--lg-hi-a));
+}
+body.lg .bg-surface-variant\/30,
+body.lg .bg-surface-variant\/40,
+body.lg .bg-surface-variant\/50,
+body.lg .bg-surface-variant\/60 {
+  background-color: rgb(var(--lg-fill) / var(--lg-fill-strong-a));
+  border-color: rgb(var(--lg-edge) / var(--lg-edge-a));
+  box-shadow: inset 0 1px 0 rgb(var(--lg-edge) / var(--lg-hi-a));
+}
+body.lg .hover\:bg-surface-variant\/20:hover,
+body.lg .hover\:bg-surface-variant\/30:hover,
+body.lg .hover\:bg-surface-variant\/40:hover,
+body.lg .hover\:bg-surface-variant\/50:hover {
+  background-color: rgb(var(--lg-fill) / var(--lg-fill-strong-a));
+}
+
+/* White tints were invisible on light glass: tint with the theme ink instead */
+body.lg .bg-white\/5 { background-color: rgb(var(--lg-ink) / 0.05); }
+body.lg .bg-white\/10 { background-color: rgb(var(--lg-ink) / 0.08); }
+body.lg .bg-white\/20 { background-color: rgb(var(--lg-ink) / 0.14); }
+body.lg .hover\:bg-white\/5:hover { background-color: rgb(var(--lg-ink) / 0.06); }
+body.lg .hover\:bg-white\/10:hover { background-color: rgb(var(--lg-ink) / 0.1); }
+body.lg .hover\:bg-white\/20:hover { background-color: rgb(var(--lg-ink) / 0.16); }
+body.lg .border-white\/5 { border-color: rgb(var(--lg-ink) / 0.08); }
+body.lg .border-white\/10 { border-color: rgb(var(--lg-ink) / 0.12); }
+body.lg .border-white\/20 { border-color: rgb(var(--lg-ink) / 0.18); }
+
+/* Ambient backdrop */
+.lg-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: rgb(var(--lg-base));
+}
+.lg-backdrop-art {
+  position: absolute;
+  inset: -15%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(90px) saturate(170%);
+  transform: translateZ(0) scale(1.1);
+  animation: lg-fade-in 1.2s ease both;
+}
+@keyframes lg-fade-in { from { opacity: 0; } }
+body.lg.appearance-light .lg-backdrop-art,
+body.lg.appearance-glass .lg-backdrop-art { opacity: 0.55; }
+.lg-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  will-change: transform;
+  animation: lg-drift 26s ease-in-out infinite alternate;
+}
+@keyframes lg-drift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(6vw, -5vh, 0) scale(1.15); }
+}
+.lg-backdrop-veil {
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--lg-base) / 0.35);
+}
+body.lg.appearance-light .lg-backdrop-veil,
+body.lg.appearance-glass .lg-backdrop-veil { background: rgb(var(--lg-base) / 0.45); }
+
+/* ------------------------------------------------------------------ */
+/* Desktop widget (transparent always-on-top window)                   */
+/* ------------------------------------------------------------------ */
+html.widget-root,
+body.widget-root {
+  background: transparent !important;
+  transition: none;
+}
+body.widget-root::before { display: none; }
+
+body.widget-root {
+  --w-fill: 28 28 32;
+  --w-fill-alpha: 0.62;
+  --w-fg: 255 255 255;
+  --w-edge: 255 255 255;
+}
+body.widget-root[data-widget-theme='light'] {
+  --w-fill: 250 250 252;
+  --w-fill-alpha: 0.72;
+  --w-fg: 20 20 24;
+  --w-edge: 255 255 255;
+}
+
+@layer utilities {
+  .widget-glass {
+    position: relative;
+    background:
+      linear-gradient(135deg, rgb(var(--w-edge) / 0.22) 0%, rgb(var(--w-edge) / 0.04) 45%, rgb(var(--w-edge) / 0.1) 100%),
+      rgb(var(--w-fill) / var(--w-fill-alpha));
+    backdrop-filter: blur(30px) saturate(180%);
+    box-shadow:
+      inset 0 1px 0 rgb(var(--w-edge) / 0.45),
+      inset 0 0 0 1px rgb(var(--w-edge) / 0.14),
+      0 8px 24px rgb(0 0 0 / 0.28);
+  }
+  .widget-fg { color: rgb(var(--w-fg)); }
+  .widget-fg-soft { color: rgb(var(--w-fg) / 0.62); }
+  .widget-track { background: rgb(var(--w-fg) / 0.16); }
+  .widget-ring-track { stroke: rgb(var(--w-fg) / 0.18); }
+  .widget-chip {
+    background: rgb(var(--w-fill) / 0.7);
+    backdrop-filter: blur(12px);
+    box-shadow: inset 0 0 0 1px rgb(var(--w-edge) / 0.18);
+  }
+  .widget-play {
+    background: rgb(var(--w-fg));
+    color: rgb(var(--w-fill));
+  }
+  .widget-spin { animation: widget-spin 18s linear infinite; }
+  .widget-spin-paused { animation-play-state: paused; }
+}
+
+@keyframes widget-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

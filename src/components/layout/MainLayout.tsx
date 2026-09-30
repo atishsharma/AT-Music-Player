@@ -1,5 +1,5 @@
 
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import Sidebar from './Sidebar';
 import PlayerBar from './PlayerBar';
@@ -7,7 +7,7 @@ import PlayerBar from './PlayerBar';
 import Player from '../common/Player';
 import NowPlaying from '../common/NowPlaying';
 import MiniPlayer from '../common/MiniPlayer';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 
 import BackgroundWatermarks from '../common/BackgroundWatermarks';
 
@@ -16,10 +16,15 @@ import { usePlayerStore } from '../../store/playerStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import Toast from '../common/Toast';
-import { useState, useEffect } from 'react';
+import LiquidBackdrop from '../common/LiquidBackdrop';
+import { useWidgetBridge } from '../../hooks/useWidgetBridge';
+import { useState, useEffect, Suspense } from 'react';
 
 const MainLayout = () => {
     const isPlayerOpen = usePlayerStore(state => state.isPlayerOpen);
+    const location = useLocation();
+    const liquidGlass = useThemeStore(state => state.liquidGlass);
+    useWidgetBridge();
     const [isMiniMode, setIsMiniMode] = useState(false);
 
     // Listen for tray controls
@@ -33,23 +38,19 @@ const MainLayout = () => {
         const unsubNext = window.ipcRenderer?.on?.('tray:next', () => store().next());
         const unsubPrev = window.ipcRenderer?.on?.('tray:prev', () => store().prev());
 
-        // Check if we're in mini player mode 
-        const checkMiniMode = async () => {
-            try {
-                const isMini = await (window as any).windowControls.isMiniPlayer();
-                setIsMiniMode(isMini);
-            } catch { /* ignore */ }
-        };
-        checkMiniMode();
-
-        // Poll for window size changes to detect mini mode toggle
-        const interval = setInterval(checkMiniMode, 500);
+        // Main process pushes window state changes (replaces a 500ms IPC polling loop)
+        (window as any).windowControls?.getState?.()
+            .then((state: { isMiniPlayer: boolean }) => setIsMiniMode(!!state?.isMiniPlayer))
+            .catch(() => { /* ignore */ });
+        const unsubState = window.ipcRenderer?.on?.('window:state', (_event, state: { isMiniPlayer: boolean }) => {
+            setIsMiniMode(!!state?.isMiniPlayer);
+        });
 
         return () => {
             if (typeof unsubPlayPause === 'function') unsubPlayPause();
             if (typeof unsubNext === 'function') unsubNext();
             if (typeof unsubPrev === 'function') unsubPrev();
-            clearInterval(interval);
+            if (typeof unsubState === 'function') unsubState();
         };
     }, []);
 
@@ -77,9 +78,12 @@ const MainLayout = () => {
     // so React does not unmount and recreate the HTML5 Audio/Video elements when switching modes!
     return (
         <div className={clsx(
-            "flex h-screen bg-background overflow-hidden relative transition-all duration-300",
-            isMiniMode ? "border-x-4 border-b-4 border-primary/60" : "border-r-4 border-l-4 border-b-4 border-primary/60"
+            "flex h-screen overflow-hidden relative transition-colors duration-300",
+            liquidGlass
+                ? (isMiniMode ? "" : "pl-3")
+                : clsx("bg-background", isMiniMode ? "border-x-4 border-b-4 border-primary/60" : "border-r-4 border-l-4 border-b-4 border-primary/60")
         )}>
+            {liquidGlass && <LiquidBackdrop />}
             <Toast />
             <Player />
             
@@ -93,9 +97,20 @@ const MainLayout = () => {
                         <NowPlaying />
                     </AnimatePresence>
                     <Sidebar />
-                    <div className="flex-1 flex flex-col min-w-0 pt-[40px]">
+                    <div className="flex-1 flex flex-col min-w-0 pt-[40px] relative z-[1]">
                         <div className="flex-1 overflow-y-auto no-scrollbar relative p-6">
-                            <Outlet />
+                            <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" /></div>}>
+                                {/* Lightweight route transition (opacity + small lift, GPU-composited) */}
+                                <motion.div
+                                    key={location.pathname}
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                                    className="min-h-full"
+                                >
+                                    <Outlet />
+                                </motion.div>
+                            </Suspense>
                         </div>
                         {!isPlayerOpen && <PlayerBar />}
                     </div>

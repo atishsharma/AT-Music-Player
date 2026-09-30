@@ -1,24 +1,25 @@
 
+import { lazy } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import Home from './pages/Home';
 
-import Library from './pages/Library';
-import Favorites from './pages/Favorites';
+const Library = lazy(() => import('./pages/Library'));
+const Favorites = lazy(() => import('./pages/Favorites'));
 
-import Search from './pages/Search';
-import Downloads from './pages/Downloads';
-import PlaybackHistory from './pages/PlaybackHistory';
+const Search = lazy(() => import('./pages/Search'));
+const Downloads = lazy(() => import('./pages/Downloads'));
+const PlaybackHistory = lazy(() => import('./pages/PlaybackHistory'));
 
-// Placeholder pages
+// Pages other than Home are split into their own chunks (faster startup)
 import ErrorBoundary from './components/common/ErrorBoundary';
-import PlaylistsPage from './pages/Playlists';
-import PlaylistDetail from './pages/PlaylistDetail';
-import ArtistDetail from './pages/ArtistDetail';
-import AlbumDetail from './pages/AlbumDetail';
-import SettingsPage from './pages/Settings';
-import LastFMPage from './pages/LastFM';
-import FunPage from './pages/Fun';
+const PlaylistsPage = lazy(() => import('./pages/Playlists'));
+const PlaylistDetail = lazy(() => import('./pages/PlaylistDetail'));
+const ArtistDetail = lazy(() => import('./pages/ArtistDetail'));
+const AlbumDetail = lazy(() => import('./pages/AlbumDetail'));
+const SettingsPage = lazy(() => import('./pages/Settings'));
+const LastFMPage = lazy(() => import('./pages/LastFM'));
+const FunPage = lazy(() => import('./pages/Fun'));
 import TitleBar from './components/layout/TitleBar';
 
 const App = () => {
