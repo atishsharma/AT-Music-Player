@@ -2,11 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Palette, MonitorPlay, AppWindow, Library, Link2, Cpu, Info, Search, Smartphone,
+    Palette, MonitorPlay, AppWindow, Library, Link2, Cpu, Info, Search, Smartphone, AudioLines,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useSettingsStore } from '../store/settingsStore';
 import { useThemeStore, type Appearance, type Mood } from '../store/themeStore';
+import { useAudioStore } from '../store/audioStore';
 import { useAmbientStore, AMBIENT_SCENES, type AmbientScene } from '../store/ambientStore';
 
 /* ──────────────────────────── shared bits ──────────────────────────── */
@@ -127,6 +128,7 @@ const Tile = ({ active, label, onClick, preview, wide }: { active: boolean; labe
 
 const SECTIONS = [
     { id: 'appearance', label: 'Appearance', icon: Palette, k: 'theme light dark oled glass liquid mood colour color interface size zoom scale' },
+    { id: 'playback', label: 'Playback', icon: AudioLines, k: 'crossfade gapless volume normalize loudness even level fade' },
     { id: 'ambient', label: 'Ambient mode', icon: MonitorPlay, k: 'ambient scene aurora vinyl horizon clock idle screensaver full screen keep screen on' },
     { id: 'widget', label: 'Widget & mini player', icon: AppWindow, k: 'desktop widget style pill card orb always on top mini player resizable' },
     { id: 'remote', label: 'Phone remote', icon: Smartphone, k: 'phone remote control qr code lan wifi mobile' },
@@ -252,6 +254,7 @@ const SettingsPage = () => {
     // Stores
     const theme = useThemeStore();
     const ambient = useAmbientStore();
+    const audio = useAudioStore();
     const settings = useSettingsStore();
 
     // Main-process state
@@ -431,6 +434,29 @@ const SettingsPage = () => {
                                     </div>
                                     <span className="font-mono text-[12.5px] text-on-background/60 tabular-nums w-11 text-right">{Math.round(ZOOMS[zoomIndex] * 100)}%</span>
                                 </div>
+                            </Row>
+                        </Group>
+                    </Section>
+
+                    {/* ─── Playback ─── */}
+                    <Section id="playback" title="Playback">
+                        <Group>
+                            <Row label="Crossfade" hint="Blend the end of a song into the next one" k="fade mix transition">
+                                <div className="flex items-center gap-3.5 w-full sm:w-auto">
+                                    <input
+                                        type="range" min={0} max={12} step={1} value={audio.crossfade}
+                                        onChange={e => audio.set({ crossfade: Number(e.target.value) })}
+                                        aria-label="Crossfade length"
+                                        className="w-full sm:w-[260px] accent-[rgb(var(--md-sys-color-primary))]"
+                                    />
+                                    <span className="font-mono text-[12.5px] text-on-background/60 tabular-nums w-11 text-right">{audio.crossfade ? `${audio.crossfade} s` : 'Off'}</span>
+                                </div>
+                            </Row>
+                            <Row label="Gapless playback" hint="Start the next song the instant one ends" k="gap seamless album">
+                                <Switch on={audio.gapless} onChange={v => audio.set({ gapless: v })} label="Gapless playback" />
+                            </Row>
+                            <Row label="Even volume" hint="Levels loud and quiet songs to a similar loudness" k="normalize normalise loudness replaygain level">
+                                <Switch on={audio.normalize} onChange={v => audio.set({ normalize: v })} label="Even volume" />
                             </Row>
                         </Group>
                     </Section>

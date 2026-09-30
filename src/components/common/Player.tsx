@@ -1,22 +1,50 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePlayerStore } from '../../store/playerStore';
-import { useEqualizerStore, EQ_BANDS } from '../../store/equalizerStore';
+import { useEqualizerStore } from '../../store/equalizerStore';
+import { useAudioStore } from '../../store/audioStore';
+import { createAudioEngine, type AudioEngine } from '../../audio/engine';
 import { toAtmusicUrl } from '../../utils/path';
 import { mediaArtwork } from '../../utils/artPalette';
+import type { Track } from '../../types/library';
 
-// Subscribes only to the fields it renders/acts on. The old `usePlayerStore()` call
-// re-rendered this component on every `timeupdate` (~4x per second).
+const trackKey = (t: Track) => `${t.source || 'local'}:${t.id}`;
+
+async function resolveStream(track: Track): Promise<string | null> {
+    if (track.path) {
+        return track.path.startsWith('http://') || track.path.startsWith('https://') ? track.path : toAtmusicUrl(track.path);
+    }
+    if ((track.source === 'youtube' || track.source === 'ytmusic') && track.id) {
+        const data = await window.ipcRenderer.invoke('youtube:stream', track.id);
+        return data?.url ? toAtmusicUrl(data.url) : null;
+    }
+    return null;
+}
+
+// Two <audio> decks: the active one plays the current song; the other preloads the next
+// one so it can crossfade in (or start with no gap). Subscribes only to the fields it
+// acts on, so time updates don't re-render this component.
 const Player = () => {
-    const audioRef = useRef<HTMLAudioElement>(null);
+    const deckA = useRef<HTMLAudioElement>(null);
+    const deckB = useRef<HTMLAudioElement>(null);
+    const el = (i: number) => (i === 0 ? deckA : deckB).current;
+    const activeRef = useRef(0);
+    const activeEl = () => el(activeRef.current);
+    const engineRef = useRef<AudioEngine | null>(null);
+    /** Next song, loading in the idle deck */
+    const preloadRef = useRef<{ key: string; deck: number; url: string; ready: boolean } | null>(null);
+    /** Set while the store advances to a song that is already playing in the other deck */
+    const handoffRef = useRef<{ key: string; deck: number; url: string } | null>(null);
+    const fadeTimerRef = useRef<number>();
+
     const currentTrack = usePlayerStore(s => s.currentTrack);
     const isPlaying = usePlayerStore(s => s.isPlaying);
     const volume = usePlayerStore(s => s.volume);
     const lastSeekTime = usePlayerStore(s => s.lastSeekTime);
     const gains = useEqualizerStore(s => s.gains);
     const enabled = useEqualizerStore(s => s.enabled);
+    const normalize = useAudioStore(s => s.normalize);
+    const vocalReduction = useAudioStore(s => s.vocalReduction);
     const [streamUrl, setStreamUrl] = useState<string>('');
-    const analyserRef = useRef<AnalyserNode | null>(null);
-    const eqFiltersRef = useRef<BiquadFilterNode[]>([]);
     const spotifyPlayerRef = useRef<any>(null);
     const [isSpotifyReady, setIsSpotifyReady] = useState(false);
 
@@ -25,7 +53,8 @@ const Player = () => {
         if (!('mediaSession' in navigator)) return;
         const store = usePlayerStore.getState;
         const seekTo = (time: number) => {
-            if (audioRef.current) audioRef.current.currentTime = time;
+            const audio = activeEl();
+            if (audio) audio.currentTime = time;
             store().seek(time);
         };
         navigator.mediaSession.setActionHandler('play', () => store().play());
@@ -34,13 +63,19 @@ const Player = () => {
         navigator.mediaSession.setActionHandler('nexttrack', () => store().next());
         navigator.mediaSession.setActionHandler('seekto', (details) => seekTo(details.seekTime || 0));
         navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-            seekTo(Math.max((audioRef.current?.currentTime || 0) - (details.seekOffset || 10), 0));
+            seekTo(Math.max((activeEl()?.currentTime || 0) - (details.seekOffset || 10), 0));
         });
         navigator.mediaSession.setActionHandler('seekforward', (details) => {
-            const audio = audioRef.current;
+            const audio = activeEl();
             seekTo(Math.min((audio?.currentTime || 0) + (details.seekOffset || 10), audio?.duration || 0));
         });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const setFade = (i: number, value: number) => {
+        const eng = engineRef.current;
+        if (eng) eng.fadeTo(eng.decks[i as 0 | 1], value, value, 0);
+    };
 
     useEffect(() => {
         // Note: the EQ used to be reset here on every song change, silently wiping the
@@ -52,37 +87,58 @@ const Player = () => {
             return;
         }
 
-        const resolveStream = async (): Promise<string | null> => {
-            if (currentTrack.path) {
-                return currentTrack.path.startsWith('http://') || currentTrack.path.startsWith('https://')
-                    ? currentTrack.path
-                    : toAtmusicUrl(currentTrack.path);
-            }
-            if ((currentTrack.source === 'youtube' || currentTrack.source === 'ytmusic') && currentTrack.id) {
-                // Stop the previous song right away while the new stream resolves
-                audioRef.current?.pause();
-                const data = await window.ipcRenderer.invoke('youtube:stream', currentTrack.id);
-                return data?.url ? toAtmusicUrl(data.url) : null;
-            }
-            return null;
-        };
+        const key = trackKey(currentTrack);
+        const handoff = handoffRef.current;
+        handoffRef.current = null;
 
-        resolveStream()
-            .then((url) => {
-                // Ignore results for a track the user already skipped past (rapid next/prev
-                // previously let a slow, stale stream overwrite the current one)
-                if (cancelled) return;
-                if (url) setStreamUrl(url);
-                else {
-                    console.error('Failed to get stream URL');
-                    usePlayerStore.getState().pause();
-                }
-            })
-            .catch((err) => {
-                if (cancelled) return;
-                console.error('Error fetching stream:', err);
-                usePlayerStore.getState().pause();
-            });
+        if (handoff && handoff.key === key) {
+            // Already playing in the other deck (crossfade / gapless): just adopt it
+            activeRef.current = handoff.deck;
+            setStreamUrl(handoff.url);
+            const d = el(handoff.deck);
+            if (d && Number.isFinite(d.duration)) usePlayerStore.getState().setDuration(d.duration);
+        } else {
+            // A jump (click, skip, prev): stop any fade-out and silence the other deck
+            window.clearTimeout(fadeTimerRef.current);
+            fadeTimerRef.current = undefined;
+            const pre = preloadRef.current;
+            preloadRef.current = null;
+            const reuse = pre?.ready && pre.key === key ? pre : null;
+            const target = reuse ? reuse.deck : activeRef.current;
+            activeRef.current = target;
+            [0, 1].forEach(i => { if (i !== target) el(i)?.pause(); });
+            setFade(target, 1);
+
+            if (reuse) {
+                setStreamUrl(reuse.url);
+            } else {
+                // Stop the previous song right away while the new stream resolves
+                if (currentTrack.source === 'youtube' || currentTrack.source === 'ytmusic') el(target)?.pause();
+                resolveStream(currentTrack)
+                    .then((url) => {
+                        // Ignore results for a track the user already skipped past (rapid next/prev
+                        // previously let a slow, stale stream overwrite the current one)
+                        if (cancelled) return;
+                        if (url) {
+                            // Same stream as the deck already holds (song picked again): restart it
+                            const d = el(target);
+                            if (d && d.dataset.url === url) {
+                                d.currentTime = 0;
+                                if (usePlayerStore.getState().isPlaying) d.play().catch(() => { /* play effect */ });
+                            }
+                            setStreamUrl(url);
+                        } else {
+                            console.error('Failed to get stream URL');
+                            usePlayerStore.getState().pause();
+                        }
+                    })
+                    .catch((err) => {
+                        if (cancelled) return;
+                        console.error('Error fetching stream:', err);
+                        usePlayerStore.getState().pause();
+                    });
+            }
+        }
 
         window.ipcRenderer.invoke('library:markPlayed', currentTrack).catch(console.error);
 
@@ -101,44 +157,35 @@ const Player = () => {
         }
 
         return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentTrack]);
 
+    // Point the active deck at the current stream (a hand-off deck already has it)
     useEffect(() => {
-        if (!audioRef.current || analyserRef.current) return;
+        const d = activeEl();
+        if (!d) return;
+        if (!streamUrl) {
+            d.pause();
+            d.removeAttribute('src');
+            delete d.dataset.url;
+            return;
+        }
+        if (d.dataset.url !== streamUrl) {
+            d.dataset.url = streamUrl;
+            d.src = streamUrl;
+            engineRef.current?.resetLevel(activeRef.current);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [streamUrl]);
 
+    useEffect(() => {
+        if (!deckA.current || !deckB.current || engineRef.current) return;
         try {
-            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ latencyHint: 'playback' });
-            const analyser = audioContext.createAnalyser();
-            const source = audioContext.createMediaElementSource(audioRef.current);
-
-            // Create 10-band EQ filter chain
-            const filters: BiquadFilterNode[] = EQ_BANDS.map((band, index) => {
-                const filter = audioContext.createBiquadFilter();
-                if (index === 0) {
-                    filter.type = 'lowshelf';
-                } else if (index === EQ_BANDS.length - 1) {
-                    filter.type = 'highshelf';
-                } else {
-                    filter.type = 'peaking';
-                }
-                filter.frequency.value = band.frequency;
-                filter.gain.value = 0;
-                filter.Q.value = 1.4;
-                return filter;
-            });
-
-            // Chain: source -> filter[0] -> filter[1] -> ... -> filter[9] -> analyser -> destination
-            source.connect(filters[0]);
-            for (let i = 0; i < filters.length - 1; i++) {
-                filters[i].connect(filters[i + 1]);
-            }
-            filters[filters.length - 1].connect(analyser);
-            analyser.connect(audioContext.destination);
-
-            analyser.fftSize = 256;
-            analyserRef.current = analyser;
-            eqFiltersRef.current = filters;
-            (window as any)._audioAnalyser = analyser;
+            const engine = createAudioEngine([deckA.current, deckB.current]);
+            engineRef.current = engine;
+            (window as any)._audioAnalyser = engine.analyser;
+            engine.setVolume(usePlayerStore.getState().volume);
+            engine.setNormalize(useAudioStore.getState().normalize);
         } catch (e) {
             console.error("AudioContext error:", e);
         }
@@ -146,11 +193,14 @@ const Player = () => {
 
     // Sync EQ gains with filter nodes (smoothed to avoid zipper noise/clicks)
     useEffect(() => {
-        eqFiltersRef.current.forEach((filter, index) => {
+        engineRef.current?.eq.forEach((filter, index) => {
             const target = enabled ? (gains[index] || 0) : 0;
             filter.gain.setTargetAtTime(target, filter.context.currentTime, 0.02);
         });
     }, [gains, enabled]);
+
+    useEffect(() => { engineRef.current?.setNormalize(normalize); }, [normalize]);
+    useEffect(() => { engineRef.current?.setVocalReduction(vocalReduction); }, [vocalReduction]);
 
     // Spotify SDK is loaded lazily, only once a Spotify track is actually played
     // (it used to download a remote script on every app start).
@@ -196,13 +246,11 @@ const Player = () => {
     }, [isSpotifyReady, isSpotifyTrack]);
 
     useEffect(() => {
-        const audio = audioRef.current;
+        const audio = activeEl();
         if (!audio) return;
         if (isPlaying && streamUrl) {
             // Resume AudioContext if suspended (common browser behavior)
-            if (analyserRef.current?.context.state === 'suspended') {
-                (analyserRef.current.context as AudioContext).resume();
-            }
+            if (engineRef.current?.ctx.state === 'suspended') engineRef.current.ctx.resume();
             audio.play().catch(err => {
                 // AbortError = src changed mid-load (fast skipping); not a real failure
                 if (err?.name === 'AbortError') return;
@@ -211,13 +259,21 @@ const Player = () => {
             });
         } else {
             audio.pause();
+            // Pausing mid-crossfade: drop the fading-out song
+            if (fadeTimerRef.current) {
+                window.clearTimeout(fadeTimerRef.current);
+                fadeTimerRef.current = undefined;
+                el(1 - activeRef.current)?.pause();
+            }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isPlaying, streamUrl]);
 
+    // Volume lives on the master gain (falls back to the elements without Web Audio)
     useEffect(() => {
-        if (audioRef.current) {
-            audioRef.current.volume = volume;
-        }
+        if (engineRef.current) engineRef.current.setVolume(volume);
+        else [0, 1].forEach(i => { const d = el(i); if (d) d.volume = volume; });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [volume]);
 
     // Lets the OS media controls show the right play/pause state
@@ -229,7 +285,7 @@ const Player = () => {
     }, [isPlaying, currentTrack]);
 
     useEffect(() => {
-        const audio = audioRef.current;
+        const audio = activeEl();
         if (!audio || lastSeekTime <= 0) return;
         const { currentTime, isPlaying: shouldPlay } = usePlayerStore.getState();
         audio.currentTime = currentTime;
@@ -237,11 +293,12 @@ const Player = () => {
         if (shouldPlay && audio.paused && audio.currentSrc) {
             audio.play().catch(() => { /* handled by play effect */ });
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lastSeekTime]);
 
     useEffect(() => {
         const updatePositionState = () => {
-            const audio = audioRef.current;
+            const audio = activeEl();
             if ('mediaSession' in navigator && audio && Number.isFinite(audio.duration)) {
                 try {
                     navigator.mediaSession.setPositionState({
@@ -259,38 +316,117 @@ const Player = () => {
             const interval = setInterval(updatePositionState, 5000);
             return () => clearInterval(interval);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isPlaying, lastSeekTime]);
 
-    const handleEnded = () => {
+    /** Start the preloaded next song in the idle deck and fade the current one out */
+    const startHandoff = (seconds: number) => {
+        const pre = preloadRef.current;
+        if (!pre?.ready) return false;
+        preloadRef.current = null;
+        const from = activeRef.current;
+        const to = pre.deck;
+        const next = el(to);
+        const prev = el(from);
+        if (!next) return false;
+        const eng = engineRef.current;
+        next.currentTime = 0;
+        eng?.resetLevel(to);
+        if (eng) {
+            eng.fadeTo(eng.decks[to as 0 | 1], seconds > 0 ? 0 : 1, 1, seconds);
+            eng.fadeTo(eng.decks[from as 0 | 1], 1, 0, seconds);
+        }
+        next.play().catch(() => { /* the play effect retries */ });
+        window.clearTimeout(fadeTimerRef.current);
+        if (seconds > 0) {
+            fadeTimerRef.current = window.setTimeout(() => {
+                prev?.pause();
+                fadeTimerRef.current = undefined;
+            }, seconds * 1000 + 80);
+        } else {
+            prev?.pause();
+        }
+        activeRef.current = to;
+        handoffRef.current = { key: pre.key, deck: to, url: pre.url };
+        usePlayerStore.getState().next(true);
+        return true;
+    };
+
+    /** The preload is still the song that plays next (the queue may have changed) */
+    const preloadMatchesQueue = () => {
+        const nextTrack = usePlayerStore.getState().queue[0];
+        return !!nextTrack && preloadRef.current?.key === trackKey(nextTrack);
+    };
+
+    const handleTimeUpdate = (i: number) => {
+        if (i !== activeRef.current) return; // the deck fading out
+        const d = el(i);
+        if (!d) return;
+        const player = usePlayerStore.getState();
+        player.setCurrentTime(d.currentTime);
+
+        const { crossfade, gapless } = useAudioStore.getState();
+        const fadeLen = engineRef.current ? crossfade : 0; // fades need Web Audio
+        if (fadeLen === 0 && !gapless) return;
+        const remaining = d.duration - d.currentTime;
+        if (!Number.isFinite(remaining) || player.loop === 'one') return;
+
+        // Preload the next song ~20 s before it's needed (not while the other deck is still fading out)
+        const nextTrack = player.queue[0];
+        if (nextTrack && remaining <= fadeLen + 20 && !fadeTimerRef.current && preloadRef.current?.key !== trackKey(nextTrack)) {
+            const key = trackKey(nextTrack);
+            const deck = 1 - i;
+            preloadRef.current = { key, deck, url: '', ready: false };
+            resolveStream(nextTrack).then((url) => {
+                const other = el(deck);
+                if (!url || !other || preloadRef.current?.key !== key || activeRef.current === deck) return;
+                other.pause();
+                other.dataset.url = url;
+                other.src = url;
+                other.load();
+                setFade(deck, 0);
+                preloadRef.current = { key, deck, url, ready: true };
+            }).catch(() => { if (preloadRef.current?.key === key) preloadRef.current = null; });
+        }
+
+        if (fadeLen > 0 && remaining <= fadeLen && player.isPlaying && !handoffRef.current && preloadMatchesQueue()) {
+            startHandoff(Math.max(0.5, remaining));
+        }
+    };
+
+    const handleEnded = (i: number) => {
+        if (i !== activeRef.current) return;
         const state = usePlayerStore.getState();
         // Repeat-one used to be ignored: onEnded always advanced to the next track
-        if (state.loop === 'one' && audioRef.current) {
-            audioRef.current.currentTime = 0;
-            audioRef.current.play().catch(console.error);
+        if (state.loop === 'one') {
+            const d = el(i);
+            if (d) {
+                d.currentTime = 0;
+                d.play().catch(console.error);
+            }
             return;
         }
+        // Gapless: the next song is already buffered in the other deck
+        if (preloadMatchesQueue() && startHandoff(0)) return;
         state.next(true);
     };
 
-    return (
+    const deck = (i: number) => (
         <audio
-            ref={audioRef}
-            src={streamUrl || undefined}
+            key={i}
+            ref={i === 0 ? deckA : deckB}
             crossOrigin="anonymous"
             preload="auto"
-            onEnded={handleEnded}
-            onTimeUpdate={() => {
-                if (audioRef.current) {
-                    usePlayerStore.getState().setCurrentTime(audioRef.current.currentTime);
-                }
-            }}
+            onEnded={() => handleEnded(i)}
+            onTimeUpdate={() => handleTimeUpdate(i)}
             onLoadedMetadata={() => {
-                if (audioRef.current) {
-                    usePlayerStore.getState().setDuration(audioRef.current.duration);
-                }
+                const d = el(i);
+                if (d && i === activeRef.current) usePlayerStore.getState().setDuration(d.duration);
             }}
         />
     );
+
+    return <>{deck(0)}{deck(1)}</>;
 };
 
 export default Player;
