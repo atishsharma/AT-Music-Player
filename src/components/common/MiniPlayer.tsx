@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Maximize2, Heart, Mic2, Pin, PinOff, Airplay, ListMusic, X, Music2, Shuffle, Repeat, Volume1, Volume2, VolumeX, SlidersHorizontal } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Maximize2, Minus, Heart, Mic2, Pin, PinOff, Airplay, ListMusic, X, Music2, Shuffle, Repeat, Volume1, Volume2, VolumeX, SlidersHorizontal } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useActiveLyricIndex } from '../../hooks/useActiveLyricIndex';
@@ -206,8 +206,8 @@ const MiniPlayer = () => {
                 </div>
             )}
 
-            {/* ── SPACING FOR MAIN TITLE BAR ────────────────────── */}
-            <div className="h-[40px] shrink-0 w-full" />
+            {/* The app title bar is hidden in mini mode; this header is the drag handle */}
+            <div className="h-[10px] shrink-0 w-full" />
 
             {/* ── HEADER ─────────────────────────────────────────── */}
             <div
@@ -249,14 +249,23 @@ const MiniPlayer = () => {
                     <span className={clsx("text-[12px] font-black uppercase", g('tracking-[0.3em] text-on-background', 'tracking-[0.4em] text-primary'))}>Mini Player</span>
                 </div>
 
-                {/* Right: Expand */}
-                <button
-                    onClick={exitMiniPlayer}
-                    title="Open Full Player"
-                    className={clsx("p-2 rounded-full transition-all no-drag", g(glassBtn, 'text-primary border-2 border-primary bg-primary/5 opacity-60 hover:opacity-100 hover:bg-primary/10'))}
-                >
-                    <Maximize2 size={16} />
-                </button>
+                {/* Right: Expand + Minimize */}
+                <div className="flex items-center gap-1.5 no-drag">
+                    <button
+                        onClick={exitMiniPlayer}
+                        title="Open Full Player"
+                        className={clsx("p-2 rounded-full transition-all", g(glassBtn, 'text-primary border-2 border-primary bg-primary/5 opacity-60 hover:opacity-100 hover:bg-primary/10'))}
+                    >
+                        <Maximize2 size={16} />
+                    </button>
+                    <button
+                        onClick={() => (window as any).windowControls.minimize()}
+                        title="Minimize"
+                        className={clsx("p-2 rounded-full transition-all", g(glassBtn, 'text-primary border-2 border-primary bg-primary/5 opacity-60 hover:opacity-100 hover:bg-primary/10'))}
+                    >
+                        <Minus size={16} />
+                    </button>
+                </div>
             </div>
 
             {/* ── SQUARE ALBUM ART CARD (Flip for Lyrics) ─────────── */}
@@ -481,7 +490,7 @@ const MiniPlayer = () => {
 
             {/* ── VOLUME & EQ ─────────────────────────────────────────── */}
             <div className="relative z-10 w-full flex items-center justify-center gap-3 px-8 mb-6 mt-1 no-drag">
-                <div className={clsx("flex-1 max-w-[280px] flex items-center justify-center gap-3 px-5 py-2 rounded-full transition-all group", g('lg-panel', 'outline outline-1 outline-primary/30 bg-primary/5 hover:bg-primary/10'))}>
+                <div className="flex-1 max-w-[280px] flex items-center justify-center gap-3 px-2 py-2 group">
                     <button onClick={toggleMute} title={isMuted || volume === 0 ? "Unmute" : "Mute"} className="text-primary/60 hover:text-primary transition-transform hover:scale-110">
                         {isMuted || volume === 0 ? <VolumeX size={18} /> : volume < 0.5 ? <Volume1 size={18} /> : <Volume2 size={18} />}
                     </button>

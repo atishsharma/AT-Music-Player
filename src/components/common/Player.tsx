@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePlayerStore } from '../../store/playerStore';
 import { useEqualizerStore, EQ_BANDS } from '../../store/equalizerStore';
 import { toAtmusicUrl } from '../../utils/path';
+import { mediaArtwork } from '../../utils/artPalette';
 
 // Subscribes only to the fields it renders/acts on. The old `usePlayerStore()` call
 // re-rendered this component on every `timeupdate` (~4x per second).
@@ -86,12 +87,16 @@ const Player = () => {
         window.ipcRenderer.invoke('library:markPlayed', currentTrack).catch(console.error);
 
         if ('mediaSession' in navigator) {
-            const artworkUrl = toAtmusicUrl(currentTrack.image_path || currentTrack.thumbnail || '');
-            navigator.mediaSession.metadata = new MediaMetadata({
+            const meta = {
                 title: currentTrack.title || 'Unknown Title',
                 artist: currentTrack.artist || 'Unknown Artist',
-                album: currentTrack.album || 'Unknown Album',
-                artwork: artworkUrl ? [{ src: artworkUrl, sizes: '512x512' }] : []
+                album: currentTrack.album || '',
+            };
+            // Text first so the OS updates immediately, then again once the artwork is encoded
+            navigator.mediaSession.metadata = new MediaMetadata({ ...meta, artwork: [] });
+            document.title = `${meta.title} · ${meta.artist}`;
+            mediaArtwork(toAtmusicUrl(currentTrack.image_path || currentTrack.thumbnail || '')).then((artwork) => {
+                if (!cancelled && artwork.length) navigator.mediaSession.metadata = new MediaMetadata({ ...meta, artwork });
             });
         }
 
@@ -214,6 +219,14 @@ const Player = () => {
             audioRef.current.volume = volume;
         }
     }, [volume]);
+
+    // Lets the OS media controls show the right play/pause state
+    useEffect(() => {
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = currentTrack ? (isPlaying ? 'playing' : 'paused') : 'none';
+        }
+        if (!currentTrack) document.title = 'AT Music Pro';
+    }, [isPlaying, currentTrack]);
 
     useEffect(() => {
         const audio = audioRef.current;

@@ -4,11 +4,15 @@ import { Play, ChevronLeft, ChevronRight, History, Trash2 } from 'lucide-react';
 import { usePlayerStore } from '../store/playerStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toAtmusicUrl } from '../utils/path';
+import { useThemeStore } from '../store/themeStore';
+import clsx from 'clsx';
 
 const PlaybackHistory = () => {
     const [history, setHistory] = useState<any[]>([]);
     const [page, setPage] = useState(0);
     const play = usePlayerStore(s => s.play);
+    const liquidGlass = useThemeStore(s => s.liquidGlass);
+    const [confirmClear, setConfirmClear] = useState(false);
     const itemsPerPage = 40;
     const maxItems = 120;
 
@@ -26,7 +30,13 @@ const PlaybackHistory = () => {
     }, []);
 
     const handleClearHistory = async () => {
-        if (!confirm('Are you sure you want to clear your playback history?')) return;
+        // Two-step button instead of a blocking native confirm() dialog
+        if (!confirmClear) {
+            setConfirmClear(true);
+            setTimeout(() => setConfirmClear(false), 4000);
+            return;
+        }
+        setConfirmClear(false);
         try {
             await window.ipcRenderer.invoke('library:clearHistory');
             setHistory([]);
@@ -59,13 +69,13 @@ const PlaybackHistory = () => {
                     </div>
                     <div>
                         <h1 className="text-4xl font-black tracking-tighter text-primary italic">Playback History</h1>
-                        <p className="text-on-surface-variant/60 font-medium text-[10px] tracking-widest opacity-60">Your Last {history.length} Songs</p>
+                        <p className="text-on-background/60 font-medium text-[10px] tracking-widest">Your Last {history.length} Songs</p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-4">
                     {totalPages > 1 && (
-                        <div className="flex items-center gap-4 bg-surface-variant/10 p-2 rounded-full border border-white/5">
+                        <div className="flex items-center gap-4 bg-on-background/[0.05] p-2 rounded-full border border-on-background/10 text-on-background">
                             <button
                                 disabled={page === 0}
                                 onClick={() => setPage(page - 1)}
@@ -88,15 +98,19 @@ const PlaybackHistory = () => {
                         onClick={handleClearHistory}
                         className="flex items-center gap-2 px-6 py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-full transition-all font-bold uppercase tracking-widest text-[10px] border border-red-500/20 shadow-lg shadow-red-500/10"
                     >
-                        <Trash2 size={16} /> Clear History
+                        <Trash2 size={16} /> {confirmClear ? 'Click again to clear' : 'Clear History'}
                     </button>
                 </div>
             </div>
 
-            <div className="bg-surface/40 backdrop-blur-xl rounded-[2.5rem] border border-white/5 overflow-hidden">
+            {/* Neutral tokens: `surface` is the primary colour in Glass/mood themes, which hid the table */}
+            <div className={clsx(
+                "rounded-[2.5rem] overflow-hidden text-on-background",
+                liquidGlass ? "lg-panel" : "bg-on-background/[0.03] border border-on-background/10"
+            )}>
                 <table className="w-full text-left">
                     <thead>
-                        <tr className="border-b border-white/5 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40">
+                        <tr className="border-b border-on-background/10 text-[10px] font-black uppercase tracking-[0.2em] text-on-background/50">
                             <th className="px-8 py-6 w-16">#</th>
                             <th className="px-4 py-6">Title</th>
                             <th className="px-4 py-6">Album</th>
@@ -113,28 +127,28 @@ const PlaybackHistory = () => {
                                     exit={{ opacity: 0, x: 10 }}
                                     transition={{ delay: i * 0.02 }}
                                     onClick={() => play(track)}
-                                    className="group hover:bg-primary/5 cursor-pointer transition-colors border-b border-white/5 last:border-0"
+                                    className="group hover:bg-primary/10 cursor-pointer transition-colors border-b border-on-background/[0.06] last:border-0"
                                 >
-                                    <td className="px-8 py-4 text-xs font-black text-on-surface-variant/40 group-hover:text-primary transition-colors">
+                                    <td className="px-8 py-4 text-xs font-black text-on-background/45 group-hover:text-primary transition-colors">
                                         {(page * itemsPerPage) + i + 1}
                                     </td>
                                     <td className="px-4 py-4">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl overflow-hidden bg-surface-variant">
-                                                {track.image_path ? (
-                                                    <img src={track.image_path.startsWith('http') ? track.image_path : toAtmusicUrl(track.image_path)} className="w-full h-full object-cover" />
+                                            <div className="w-10 h-10 rounded-xl overflow-hidden bg-on-background/10">
+                                                {(track.image_path || track.thumbnail) ? (
+                                                    <img src={toAtmusicUrl(track.image_path || track.thumbnail)} className="w-full h-full object-cover" alt="" loading="lazy" />
                                                 ) : <div className="w-full h-full flex items-center justify-center"><Play size={16} className="text-primary/20" /></div>}
                                             </div>
                                             <div>
                                                 <p className="font-bold text-on-background group-hover:text-primary transition-colors truncate max-w-[200px]">{track.title}</p>
-                                                <p className="text-xs text-on-surface-variant/60 font-medium truncate max-w-[200px]">{track.artist}</p>
+                                                <p className="text-xs text-on-background/60 font-medium truncate max-w-[200px]">{track.artist}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-4 text-sm text-on-surface-variant/60 font-medium truncate max-w-[200px]">
+                                    <td className="px-4 py-4 text-sm text-on-background/60 font-medium truncate max-w-[200px]">
                                         {track.album || 'Unknown Album'}
                                     </td>
-                                    <td className="px-4 py-4 text-right pr-8 font-mono text-xs text-on-surface-variant/40">
+                                    <td className="px-4 py-4 text-right pr-8 font-mono text-xs text-on-background/50">
                                         {formatTime(track.duration)}
                                     </td>
                                 </motion.tr>
@@ -144,8 +158,8 @@ const PlaybackHistory = () => {
                 </table>
                 {history.length === 0 && (
                     <div className="py-24 text-center">
-                        <History size={48} className="mx-auto mb-4 text-on-surface-variant/10" />
-                        <p className="text-on-surface-variant/40 font-bold italic">Your music history is empty</p>
+                        <History size={48} className="mx-auto mb-4 text-on-background/20" />
+                        <p className="text-on-background/50 font-bold italic">Your music history is empty</p>
                     </div>
                 )}
             </div>

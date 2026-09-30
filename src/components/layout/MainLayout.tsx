@@ -100,9 +100,11 @@ const MainLayout = () => {
     return (
         <div className={clsx(
             "flex h-screen overflow-hidden relative transition-colors duration-300",
+            // Mini window corners are cut round by the main process; match them here
+            isMiniMode && "rounded-[18px]",
             liquidGlass
                 ? (isMiniMode ? "" : "pl-3")
-                : clsx("bg-background", isMiniMode ? "border-x-4 border-b-4 border-primary/60" : "border-r-4 border-l-4 border-b-4 border-primary/60")
+                : clsx("bg-background", isMiniMode ? "border-2 border-primary/50" : "border-r-4 border-l-4 border-b-4 border-primary/60")
         )}>
             {liquidGlass && <LiquidBackdrop />}
             <Toast />

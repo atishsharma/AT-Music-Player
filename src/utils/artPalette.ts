@@ -77,3 +77,34 @@ export async function samplePalette(src: string): Promise<[string, string, strin
     while (ranked.length < 3) ranked.push(ranked[ranked.length - 1]);
     return ranked as [string, string, string];
 }
+
+/**
+ * Artwork for the OS media controls (MPRIS / Windows SMTC / macOS Now Playing).
+ * The OS can't read the app's atmusic:// protocol, so the image is re-encoded as a
+ * 512px JPEG data URL. Remote images without CORS fall back to their http(s) URL.
+ */
+export function mediaArtwork(src: string): Promise<MediaImage[]> {
+    if (!src) return Promise.resolve([]);
+    return new Promise((resolve) => {
+        const fallback = () => resolve(/^https?:/.test(src) ? [{ src, sizes: '512x512', type: 'image/jpeg' }] : []);
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            try {
+                const size = 512;
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return fallback();
+                // Centre-crop to a square (YouTube thumbnails are 4:3 / 16:9)
+                const s = Math.min(img.naturalWidth, img.naturalHeight);
+                ctx.drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, size, size);
+                resolve([{ src: canvas.toDataURL('image/jpeg', 0.88), sizes: '512x512', type: 'image/jpeg' }]);
+            } catch {
+                fallback(); // tainted canvas
+            }
+        };
+        img.onerror = fallback;
+        img.src = src;
+    });
+}

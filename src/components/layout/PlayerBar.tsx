@@ -390,7 +390,8 @@ const PlayerBar = () => {
                         />
                         <div className={clsx("w-full h-1.5 rounded-full overflow-hidden", isLight ? "bg-black/10" : "bg-white/10")}>
                             <div
-                                className="h-full transition-all duration-100 ease-out bg-primary"
+                                // Glass theme paints this bar in the primary colour, so the fill uses ink there
+                                className={clsx("h-full transition-all duration-100 ease-out", isLight ? "bg-white" : appearance === 'glass' && !liquidGlass ? "bg-on-background" : "bg-primary")}
                                 style={{ width: `${volume * 100}%` }}
                             />
                         </div>

@@ -1,4 +1,5 @@
-import { Home, Library, Settings, ListMusic, Heart, Download, Search, ChevronLeft, ChevronRight, History, TrendingUp, Gamepad2 } from 'lucide-react';
+import { Home, Library, Settings, ListMusic, Heart, Download, Search, ChevronLeft, ChevronRight, History, TrendingUp, Gamepad2, Sun, Moon, Zap, Droplets } from 'lucide-react';
+import type { Appearance } from '../../store/themeStore';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -50,6 +51,69 @@ const NavItem = ({ to, icon: Icon, label, isCollapsed }: { to: string; icon: Rea
                     </motion.span>
                 )}
             </AnimatePresence>
+        </div>
+    );
+};
+
+const THEMES: { id: Appearance; label: string; icon: React.ElementType }[] = [
+    { id: 'light', label: 'Light', icon: Sun },
+    { id: 'dark', label: 'Dark', icon: Moon },
+    { id: 'oled', label: 'OLED', icon: Zap },
+    { id: 'glass', label: 'Glass', icon: Droplets },
+];
+
+/** Quick theme switch: a segmented row when the sidebar is open, one cycling button when collapsed. */
+const ThemeSwitch = ({ isCollapsed }: { isCollapsed: boolean }) => {
+    const appearance = useThemeStore(s => s.appearance);
+    const setAppearance = useThemeStore(s => s.setAppearance);
+    const liquidGlass = useThemeStore(s => s.liquidGlass);
+    const current = THEMES.find(t => t.id === appearance) ?? THEMES[1];
+
+    if (isCollapsed) {
+        const next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length];
+        const Icon = current.icon;
+        return (
+            <button
+                onClick={() => setAppearance(next.id)}
+                title={`Theme: ${current.label} (click for ${next.label})`}
+                className="w-full flex items-center justify-center p-3 rounded-full text-on-surface-variant hover:text-on-background hover:bg-on-background/[0.06] transition-colors lg-press"
+            >
+                <motion.span key={current.id} initial={{ rotate: -90, scale: 0.6, opacity: 0 }} animate={{ rotate: 0, scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 22 }} className="flex">
+                    <Icon size={20} />
+                </motion.span>
+            </button>
+        );
+    }
+
+    return (
+        <div className="px-1" role="group" aria-label="Theme">
+            <div className={clsx("grid grid-cols-4 gap-1 p-1 rounded-full", liquidGlass ? "bg-on-background/[0.06]" : "bg-on-background/[0.05] border border-on-background/[0.06]")}>
+                {THEMES.map(t => {
+                    const active = t.id === appearance;
+                    const Icon = t.icon;
+                    return (
+                        <button
+                            key={t.id}
+                            onClick={() => setAppearance(t.id)}
+                            title={t.label}
+                            aria-pressed={active}
+                            className={clsx(
+                                "relative flex items-center justify-center h-8 rounded-full transition-colors",
+                                active ? "text-on-background" : "text-on-surface-variant hover:text-on-background"
+                            )}
+                        >
+                            {active && (
+                                <motion.span
+                                    layoutId="theme-pill"
+                                    className={clsx("absolute inset-0 rounded-full", liquidGlass ? "lg-active" : "bg-background shadow-sm")}
+                                    transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
+                                />
+                            )}
+                            <Icon size={15} className="relative z-10" />
+                        </button>
+                    );
+                })}
+            </div>
         </div>
     );
 };
@@ -106,7 +170,8 @@ const Sidebar = () => {
                 <NavItem to="/fun" icon={Gamepad2} label="Fun Zone" isCollapsed={isCollapsed} />
             </nav>
 
-            <div className="mt-auto pt-6 border-t border-white/5 space-y-2">
+            <div className="mt-auto pt-4 border-t border-on-background/[0.08] space-y-2">
+                <ThemeSwitch isCollapsed={isCollapsed} />
                 <div className="relative flex items-center">
                     <div className="flex-1 space-y-2">
                         <NavItem to="/settings" icon={Settings} label="Settings" isCollapsed={isCollapsed} />

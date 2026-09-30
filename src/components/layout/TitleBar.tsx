@@ -45,6 +45,10 @@ const TitleBar = () => {
         } catch { /* ignore */ }
     };
 
+    // Mini player has its own header (drag handle, expand, minimize); the app title bar
+    // on top of it blocked clicks on that header.
+    if (isMiniMode) return null;
+
     return (
         <div
             className={clsx(

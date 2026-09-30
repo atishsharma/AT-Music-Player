@@ -13,6 +13,9 @@ initDB();
 // Required for Linux: Chromium sandbox needs SUID helper or --no-sandbox
 // Without this, packaged AppImage will core dump (SIGTRAP) on most distros
 if (process.platform === 'linux') {
+  // Ties the MPRIS media player (and window grouping) to our .desktop file, so desktop
+  // shells show the app name and icon instead of a generic "Chromium" entry.
+  process.env.CHROME_DESKTOP = 'at-music-pro.desktop';
   app.commandLine.appendSwitch('no-sandbox');
   app.commandLine.appendSwitch('disable-setuid-sandbox');
   app.commandLine.appendSwitch('disable-gpu-sandbox');
@@ -118,6 +121,25 @@ function isMiniPlayerMode() {
   return width <= 500;
 }
 
+// Rounded corners for the frameless mini player. The main window isn't transparent, so the
+// corners are cut with a window shape (Windows, Linux X11/XWayland; macOS rounds natively).
+const MINI_RADIUS = 18;
+function applyMiniShape() {
+  if (!win || process.platform === 'darwin' || typeof win.setShape !== 'function') return;
+  if (!isMiniPlayerMode()) { win.setShape([]); return; }
+  const [w, h] = win.getContentSize();
+  const r = Math.min(MINI_RADIUS, Math.floor(Math.min(w, h) / 2));
+  const rects: Electron.Rectangle[] = [];
+  for (let y = 0; y < r; y++) {
+    // Horizontal inset of the quarter circle at this row
+    const inset = Math.ceil(r - Math.sqrt(r * r - (r - y - 0.5) ** 2));
+    rects.push({ x: inset, y, width: w - inset * 2, height: 1 });
+    rects.push({ x: inset, y: h - 1 - y, width: w - inset * 2, height: 1 });
+  }
+  rects.push({ x: 0, y: r, width: w, height: h - r * 2 });
+  win.setShape(rects);
+}
+
 function sendWindowState() {
   if (!win || win.isDestroyed()) return;
   win.webContents.send('window:state', {
@@ -166,7 +188,9 @@ function widgetPosition(size: { width: number; height: number }) {
 }
 
 function applyAlwaysOnTop(target: BrowserWindow, onTop: boolean) {
-  // 'floating' keeps it above normal windows without covering full-screen apps/menus
+  // 'floating' keeps it above normal windows without covering full-screen apps/menus.
+  // Toggle off first: some Linux window managers skip a repeated "above" request.
+  if (process.platform === 'linux' && onTop) target.setAlwaysOnTop(false);
   target.setAlwaysOnTop(onTop, 'floating');
   if (process.platform === 'darwin') {
     target.setVisibleOnAllWorkspaces(onTop, { visibleOnFullScreen: true });
@@ -190,6 +214,7 @@ function createWidgetWindow() {
     fullscreenable: false,
     skipTaskbar: true,
     hasShadow: false,
+    alwaysOnTop: config.alwaysOnTop,
     backgroundColor: '#00000000',
     icon: getIconPath(),
     webPreferences: {
@@ -211,12 +236,21 @@ function createWidgetWindow() {
 }
 
 function showWidget() {
-  if (!widgetConfig().enabled) return;
+  const config = widgetConfig();
+  if (!config.enabled) return;
   if (!widgetWin) createWidgetWindow();
   const target = widgetWin!;
-  // Don't steal focus from whatever the user switched to
-  if (target.webContents.isLoading()) target.once('ready-to-show', () => target.showInactive());
-  else target.showInactive();
+  const reveal = () => {
+    // Don't steal focus from whatever the user switched to
+    target.showInactive();
+    // Linux (X11/XWayland) ignores the "above" state if it is set before the window is
+    // mapped, which is why pinning worked for the (already visible) mini player but not
+    // for the widget. Re-apply once the window is on screen.
+    applyAlwaysOnTop(target, config.alwaysOnTop);
+    setTimeout(() => { if (!target.isDestroyed() && target.isVisible()) applyAlwaysOnTop(target, widgetConfig().alwaysOnTop); }, 150);
+  };
+  if (target.webContents.isLoading()) target.once('ready-to-show', reveal);
+  else reveal();
 }
 
 function hideWidget() {
@@ -324,7 +358,7 @@ function createWindow() {
 
   win.on('maximize', sendWindowState);
   win.on('unmaximize', sendWindowState);
-  win.on('resize', sendWindowState);
+  win.on('resize', () => { sendWindowState(); if (isMiniPlayerMode()) applyMiniShape(); });
   win.on('enter-full-screen', sendWindowState);
   win.on('leave-full-screen', sendWindowState);
 
@@ -422,6 +456,7 @@ ipcMain.handle('window:miniPlayer', () => {
   // Position bottom-right of the display the window is on (not always the primary one)
   const { workArea } = screen.getDisplayMatching(win.getBounds());
   win.setPosition(workArea.x + workArea.width - 420, workArea.y + workArea.height - 752);
+  applyMiniShape();
   sendWindowState();
 });
 
@@ -444,6 +479,7 @@ ipcMain.handle('window:normalMode', () => {
   win.setAlwaysOnTop(false);
   win.setResizable(true);
   win.setMinimumSize(1200, 800);
+  if (process.platform !== 'darwin') win.setShape([]);
   win.maximize();
   sendWindowState();
 });
@@ -496,6 +532,29 @@ ipcMain.handle('app:setHardwareAcceleration', (_event, enabled: boolean) => {
   return enabled;
 });
 ipcMain.handle('app:getHardwareAcceleration', () => useHardwareAcceleration);
+ipcMain.handle('app:relaunch', () => {
+  isQuitting = true;
+  app.relaunch();
+  app.exit(0);
+});
+
+// Tool status for Settings → System
+ipcMain.handle('system:info', async () => {
+  const { execFile } = await import('node:child_process');
+  const { ytDlpBinaryPath } = await import('./utils/ytdlp-bin');
+  const { ffmpegBinaryPath, isFFmpegInstalled } = await import('./utils/ffmpeg-bin');
+  const version = (bin: string, args: string[]) => new Promise<string | null>((resolve) => {
+    execFile(bin, args, { timeout: 8000 }, (err, stdout) => resolve(err ? null : stdout.split('\n')[0].trim()));
+  });
+  const ytVersion = await version(ytDlpBinaryPath, ['--version']);
+  const ffOk = isFFmpegInstalled();
+  const ffVersion = ffOk ? await version(ffmpegBinaryPath, ['-version']) : null;
+  return {
+    ytdlp: { version: ytVersion, bundled: ytDlpBinaryPath.startsWith(process.resourcesPath || '\0') },
+    ffmpeg: { version: ffVersion?.replace(/^ffmpeg version\s+/, '').split(' ')[0] ?? null },
+    platform: process.platform,
+  };
+});
 
 app.on('before-quit', () => {
   isQuitting = true;
