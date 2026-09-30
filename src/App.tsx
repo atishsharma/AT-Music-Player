@@ -16,6 +16,7 @@ const StatsPage = lazy(() => import('./pages/Stats'));
 import ErrorBoundary from './components/common/ErrorBoundary';
 const PlaylistsPage = lazy(() => import('./pages/Playlists'));
 const PlaylistDetail = lazy(() => import('./pages/PlaylistDetail'));
+const SmartPlaylistDetail = lazy(() => import('./pages/SmartPlaylistDetail'));
 const ArtistDetail = lazy(() => import('./pages/ArtistDetail'));
 const AlbumDetail = lazy(() => import('./pages/AlbumDetail'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
@@ -37,6 +38,7 @@ const App = () => {
             <Route path="downloads" element={<Downloads />} />
             <Route path="playlists" element={<PlaylistsPage />} />
             <Route path="playlists/:id" element={<PlaylistDetail />} />
+            <Route path="playlists/smart/:id" element={<SmartPlaylistDetail />} />
             <Route path="artist/:id" element={<ArtistDetail />} />
             <Route path="album/:id" element={<AlbumDetail />} />
             <Route path="favorites" element={<Favorites />} />
