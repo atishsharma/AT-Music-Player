@@ -90,8 +90,25 @@ export async function searchYTMusic(query: string, limit: number = 20) {
     }
 }
 
+// Videos currently being written to the audio cache (prevents duplicate background downloads)
+const pendingCacheDownloads = new Set<string>();
+
+// Resolved stream URLs, reused until shortly before googlevideo's `expire` timestamp.
+// Avoids a 2-4s yt-dlp extraction every time a track is replayed or skipped back to.
+const streamUrlCache = new Map<string, { data: any; expiresAt: number }>();
+
+function streamExpiry(url: string): number {
+    try {
+        const expire = Number(new URL(url).searchParams.get('expire'));
+        if (expire) return expire * 1000 - 5 * 60 * 1000;
+    } catch { /* ignore */ }
+    return Date.now() + 60 * 60 * 1000;
+}
+
 async function downloadToCache(videoId: string, targetPath: string) {
     const tempPath = `${targetPath}.part`;
+    if (pendingCacheDownloads.has(videoId)) return;
+    pendingCacheDownloads.add(videoId);
     try {
         console.log(`Starting background download for ${videoId}`);
 
@@ -123,6 +140,8 @@ async function downloadToCache(videoId: string, targetPath: string) {
         if (fs.existsSync(tempPath)) {
             try { fs.unlinkSync(tempPath); } catch (e) { /* Ignore */ }
         }
+    } finally {
+        pendingCacheDownloads.delete(videoId);
     }
 }
 
@@ -151,18 +170,25 @@ export async function getStreamUrl(videoId: string) {
             }
         }
 
+        const cached = streamUrlCache.get(videoId);
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.data;
+        }
+
         console.log(`Fetching stream URL for ${videoId}`);
         const output = await execYtDlpJson([
             `https://www.youtube.com/watch?v=${videoId}`,
             '--format', 'bestaudio[ext=webm]/bestaudio[acodec=opus]/bestaudio'
         ]);
 
-        const targetPath = path.join(cacheDir, `${videoId}.webm`);
-        if (!fs.existsSync(`${targetPath}.part`)) {
-            downloadToCache(videoId, targetPath);
+        // Cache file extension must match the real container or the protocol handler
+        // serves it with the wrong MIME type (bestaudio can fall back to m4a).
+        const ext = output.ext === 'm4a' || output.ext === 'mp4' ? 'm4a' : 'webm';
+        if (ext === 'webm') {
+            downloadToCache(videoId, path.join(cacheDir, `${videoId}.webm`));
         }
 
-        return {
+        const data = {
             url: output.url,
             title: output.title,
             artist: output.uploader,
@@ -170,6 +196,9 @@ export async function getStreamUrl(videoId: string) {
             duration: output.duration,
             format: 'stream'
         };
+        if (streamUrlCache.size > 100) streamUrlCache.delete(streamUrlCache.keys().next().value as string);
+        streamUrlCache.set(videoId, { data, expiresAt: streamExpiry(output.url) });
+        return data;
     } catch (error) {
         console.error('Get Stream URL Error:', error);
         return null;

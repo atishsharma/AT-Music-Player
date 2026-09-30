@@ -25,7 +25,7 @@ const SearchPage = () => {
         clearSearch
     } = useSearchStore();
 
-    const { play } = usePlayerStore();
+    const play = usePlayerStore(s => s.play);
     const [localInput, setLocalInput] = useState(query || urlQuery);
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
     const [cacheStats, setCacheStats] = useState<{ size: string, count: number, files?: any[] } | null>(null);

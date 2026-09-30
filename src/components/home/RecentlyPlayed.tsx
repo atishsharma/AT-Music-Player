@@ -7,7 +7,7 @@ import { toAtmusicUrl } from '../../utils/path';
 const RecentlyPlayed = () => {
     const [recent, setRecent] = useState<any[]>([]);
     const [visibleCount, setVisibleCount] = useState(7);
-    const { play } = usePlayerStore();
+    const play = usePlayerStore(s => s.play);
     const navigate = useNavigate();
 
     useEffect(() => {

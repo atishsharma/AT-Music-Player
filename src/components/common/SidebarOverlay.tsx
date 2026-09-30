@@ -1,6 +1,8 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { usePlayerStore } from '../../store/playerStore';
+import { useShallow } from 'zustand/react/shallow';
+import { useActiveLyricIndex } from '../../hooks/useActiveLyricIndex';
 import { useThemeStore } from '../../store/themeStore';
 import { useFavoritesStore } from '../../store/favoritesStore';
 import { X, Mic2, ListMusic, Play, Heart, Plus, Music2, ChevronUp, ChevronDown } from 'lucide-react';
@@ -153,6 +155,7 @@ const SidebarQueueItem = ({ track, i, isFav, play, removeFromQueue, addFavorite,
 };
 
 const SidebarOverlay = () => {
+    // Shallow-selected (no currentTime): previously re-rendered on every timeupdate
     const {
         isSidebarQueueOpen,
         isSidebarLyricsOpen,
@@ -161,34 +164,38 @@ const SidebarOverlay = () => {
         lyrics,
         currentTrack,
         queue,
-        currentTime,
         seek,
         play,
         removeFromQueue,
         reorderQueue,
         clearQueue
-    } = usePlayerStore() as any;
+    } = usePlayerStore(useShallow(s => ({
+        isSidebarQueueOpen: s.isSidebarQueueOpen,
+        isSidebarLyricsOpen: s.isSidebarLyricsOpen,
+        toggleSidebarQueue: s.toggleSidebarQueue,
+        toggleSidebarLyrics: s.toggleSidebarLyrics,
+        lyrics: s.lyrics,
+        currentTrack: s.currentTrack,
+        queue: s.queue,
+        seek: s.seek,
+        play: s.play,
+        removeFromQueue: s.removeFromQueue,
+        reorderQueue: s.reorderQueue,
+        clearQueue: s.clearQueue,
+    }))) as any;
 
     const { addFavorite, removeFavorite, isFavorite } = useFavoritesStore();
-    const { appearance } = useThemeStore();
-
+    const appearance = useThemeStore(s => s.appearance);
     const lyricsContainerRef = useRef<HTMLDivElement>(null);
 
+    // Re-renders only when the sung line changes, and never while the panel is closed
+    const activeLineIndex = useActiveLyricIndex(lyrics?.syncedLyrics, isSidebarLyricsOpen && !!lyrics?.isSynced);
+
     useEffect(() => {
-        if (!Array.isArray(lyrics?.syncedLyrics) || !isSidebarLyricsOpen) return;
-
-        const activeLineIndex = lyrics.syncedLyrics.findIndex((line: any, index: number) => {
-            const nextLine = lyrics.syncedLyrics[index + 1];
-            return currentTime >= line.seconds && (!nextLine || currentTime < nextLine.seconds);
-        });
-
-        if (activeLineIndex !== -1 && lyricsContainerRef.current) {
-            const activeEl = lyricsContainerRef.current.children[activeLineIndex] as HTMLElement;
-            if (activeEl) {
-                activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        }
-    }, [currentTime, lyrics, isSidebarLyricsOpen]);
+        if (activeLineIndex === -1 || !lyricsContainerRef.current) return;
+        const activeEl = lyricsContainerRef.current.children[activeLineIndex] as HTMLElement | undefined;
+        activeEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, [activeLineIndex]);
 
     const isOpen = isSidebarQueueOpen || isSidebarLyricsOpen;
 
@@ -227,7 +234,7 @@ const SidebarOverlay = () => {
                                     lyrics.isSynced ? (
                                         <div className="space-y-6 py-12 text-center" ref={lyricsContainerRef}>
                                             {lyrics.syncedLyrics.map((line: any, i: number) => {
-                                                const isActive = currentTime >= line.seconds && (!lyrics.syncedLyrics[i + 1] || currentTime < lyrics.syncedLyrics[i + 1].seconds);
+                                                const isActive = i === activeLineIndex;
                                                 return (
                                                     <p
                                                         key={i}

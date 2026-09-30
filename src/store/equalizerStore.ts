@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export interface EQBand {
     frequency: number;
@@ -48,7 +49,7 @@ interface EqualizerState {
     reset: () => void;
 }
 
-export const useEqualizerStore = create<EqualizerState>((set) => ({
+export const useEqualizerStore = create<EqualizerState>()(persist((set) => ({
     enabled: false,
     gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     activePreset: 'Flat',
@@ -77,4 +78,8 @@ export const useEqualizerStore = create<EqualizerState>((set) => ({
 
     toggleOpen: () => set((state) => ({ isOpen: !state.isOpen })),
     setOpen: (open) => set({ isOpen: open }),
+}), {
+    // Persist the user's EQ across tracks and restarts (UI open state excluded)
+    name: 'at-music-equalizer',
+    partialize: (state) => ({ enabled: state.enabled, gains: state.gains, activePreset: state.activePreset }),
 }));

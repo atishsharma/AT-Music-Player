@@ -25,15 +25,27 @@ export const downloadAsset = async (url: string, subDir: string, fileName: strin
         const response = await axios({
             url,
             method: 'GET',
-            responseType: 'stream'
+            responseType: 'stream',
+            timeout: 15000
         });
 
-        const writer = fs.createWriteStream(filePath);
+        // Write to a temp file and rename on success, so a failed/partial download
+        // is never mistaken for a cached asset on the next call.
+        const tempPath = `${filePath}.part`;
+        const writer = fs.createWriteStream(tempPath);
         response.data.pipe(writer);
 
-        return new Promise((resolve, reject) => {
-            writer.on('finish', () => resolve(filePath));
-            writer.on('error', reject);
+        return await new Promise<string | null>((resolve) => {
+            const fail = (err: unknown) => {
+                console.error('Asset Download Error:', err);
+                writer.destroy();
+                fs.rm(tempPath, { force: true }, () => resolve(null));
+            };
+            response.data.on('error', fail);
+            writer.on('error', fail);
+            writer.on('finish', () => {
+                fs.rename(tempPath, filePath, (err) => err ? fail(err) : resolve(filePath));
+            });
         });
     } catch (err) {
         console.error('Asset Download Error:', err);

@@ -14,8 +14,31 @@ import { ytDlpBinaryPath, checkSystemYtDlp, execYtDlpJson } from '../utils/ytdlp
 import util from 'util';
 const execFilePromise = util.promisify(execFile);
 
+// Extension from the URL path only (query strings like ?v=1 must not leak into filenames)
+function imageExt(url: string): string {
+    try {
+        return path.extname(new URL(url).pathname) || '.png';
+    } catch {
+        return '.png';
+    }
+}
+
+function parseYear(date?: string): number | null {
+    if (!date) return null;
+    const year = new Date(date).getFullYear();
+    return Number.isNaN(year) ? null : year;
+}
+
+// The window IPC events are routed to. Kept at module level so that re-creating the
+// window (macOS `activate`) doesn't re-register handlers, which would throw.
+let mainWindow: BrowserWindow;
+let handlersRegistered = false;
+
 // Register all IPC handlers
-export function registerHandlers(mainWindow: BrowserWindow) {
+export function registerHandlers(win: BrowserWindow) {
+    mainWindow = win;
+    if (handlersRegistered) return;
+    handlersRegistered = true;
 
     // Dialogs
     ipcMain.handle('dialog:openDirectory', async () => {
@@ -105,7 +128,12 @@ export function registerHandlers(mainWindow: BrowserWindow) {
         const db = getDB();
         // Remove folder and its tracks
         db.prepare('DELETE FROM folders WHERE path = ?').run(pathToRemove);
-        db.prepare("DELETE FROM tracks WHERE source = 'local' AND path LIKE ?").run(`${pathToRemove}%`);
+        // Match only files inside the folder (not sibling folders sharing a prefix, e.g. /Music2)
+        // and escape LIKE wildcards that may appear in real paths.
+        const base = String(pathToRemove).replace(/[\\/]+$/, '');
+        const escaped = base.replace(/[\\%_]/g, (c) => '\\' + c);
+        db.prepare("DELETE FROM tracks WHERE source = 'local' AND (path LIKE ? ESCAPE '\\' OR path LIKE ? ESCAPE '\\')")
+            .run(`${escaped}/%`, `${escaped}\\\\%`);
         return true;
     });
 
@@ -681,7 +709,7 @@ export function registerHandlers(mainWindow: BrowserWindow) {
         if (lfmInfo.image && lfmInfo.image.length > 0) {
             const imageUrl = lfmInfo.image[lfmInfo.image.length - 1]['#text'];
             if (imageUrl) {
-                const ext = path.extname(imageUrl) || '.png';
+                const ext = imageExt(imageUrl);
                 localImagePath = await downloadAsset(imageUrl, 'artists', `${artistName}${ext}`);
             }
         }
@@ -711,7 +739,7 @@ export function registerHandlers(mainWindow: BrowserWindow) {
         if (lfmInfo.image && lfmInfo.image.length > 0) {
             const imageUrl = lfmInfo.image[lfmInfo.image.length - 1]['#text'];
             if (imageUrl) {
-                const ext = path.extname(imageUrl) || '.png';
+                const ext = imageExt(imageUrl);
                 localImagePath = await downloadAsset(imageUrl, 'albums', `${artist}-${album}${ext}`);
             }
         }
@@ -724,12 +752,12 @@ export function registerHandlers(mainWindow: BrowserWindow) {
                 UPDATE albums 
                 SET image_path = ?, year = ?
                 WHERE id = ?
-            `).run(localImagePath, lfmInfo.releasedate ? new Date(lfmInfo.releasedate).getFullYear() : null, row.id);
+            `).run(localImagePath, parseYear(lfmInfo.releasedate), row.id);
         }
 
         return {
             cover: localImagePath,
-            year: lfmInfo.releasedate ? new Date(lfmInfo.releasedate).getFullYear() : null
+            year: parseYear(lfmInfo.releasedate)
         };
     });
 
@@ -780,9 +808,10 @@ export function registerHandlers(mainWindow: BrowserWindow) {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
-        // Only set track_id if it's actually a local track (numerical ID)
+        // Only set track_id if it references an existing library row (FKs are enforced)
         const isLocal = track.source === 'local' || !track.source;
-        const trackId = isLocal ? track.id : null;
+        const trackId = isLocal && typeof track.id === 'number'
+            && db.prepare('SELECT 1 FROM tracks WHERE id = ?').get(track.id) ? track.id : null;
 
         return db.prepare(sql).run(
             trackId,
@@ -909,6 +938,8 @@ export function registerHandlers(mainWindow: BrowserWindow) {
     });
 
     ipcMain.handle('cache:set', (_event, { key, data }) => {
+        // Bound the cache so long sessions don't grow memory unbounded
+        if (pageCache.size >= 200) pageCache.delete(pageCache.keys().next().value);
         pageCache.set(key, { data, timestamp: Date.now() });
     });
 
@@ -928,6 +959,10 @@ export function registerHandlers(mainWindow: BrowserWindow) {
 
     ipcMain.handle('library:getAlbums', () => {
         const db = getDB();
-        return db.prepare('SELECT DISTINCT album, artist, image_path FROM tracks ORDER BY album ASC').all();
+        // One row per album/artist (DISTINCT over image_path produced duplicates)
+        return db.prepare(`
+            SELECT album, artist, MAX(image_path) as image_path
+            FROM tracks GROUP BY album, artist ORDER BY album ASC
+        `).all();
     });
 }

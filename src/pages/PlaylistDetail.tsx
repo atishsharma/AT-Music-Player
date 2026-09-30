@@ -10,7 +10,8 @@ const PlaylistDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { currentPlaylist, fetchPlaylist, removeTrackFromPlaylist, deletePlaylist } = usePlaylistStore();
-    const { play, setQueue } = usePlayerStore();
+    const play = usePlayerStore(s => s.play);
+    const setQueue = usePlayerStore(s => s.setQueue);
 
     useEffect(() => {
         if (id) {

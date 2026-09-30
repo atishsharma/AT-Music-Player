@@ -5,6 +5,7 @@ import { Globe, Sparkles, ShieldCheck, Sun, Moon, Zap, FolderPlus, Monitor, Exte
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import SettingSpinner from '../components/settings/SettingSpinner';
+import WidgetSettings from '../components/settings/WidgetSettings';
 
 const SettingsPage = () => {
     const {
@@ -202,6 +203,8 @@ const SettingsPage = () => {
                     </div>
                 </div>
             </div>
+
+            <WidgetSettings />
 
             {/* Theme & Appearance */}
             <div className="lg:col-span-2 bg-surface-variant/20 backdrop-blur-xl rounded-[3rem] p-10 border border-outline/10 space-y-8 hover:bg-surface-variant/30 transition-all mt-8">

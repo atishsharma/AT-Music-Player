@@ -89,5 +89,8 @@ contextBridge.exposeInMainWorld('windowControls', {
   isMiniPlayer() {
     return ipcRenderer.invoke('window:isMiniPlayer')
   },
+  getState() {
+    return ipcRenderer.invoke('window:getState')
+  },
   platform: process.platform
 })

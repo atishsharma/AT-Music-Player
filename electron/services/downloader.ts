@@ -90,18 +90,31 @@ export async function startDownload(track: any, options: { format: string, quali
         }
     }
 
+    // yt-dlp `--parse-metadata FROM:TO`: FROM is a literal/template, TO assigns the field.
+    // The old form (empty FROM matched against a literal regex) never matched, so custom
+    // title/artist/album were silently dropped. Escape template `%` and the `:` separator.
+    // A bare word would be read as a field name, so wrap it in a template default instead.
+    const literal = (value: string) => /^[a-zA-Z_]+$/.test(value)
+        ? `%(__none|${value})s`
+        : value.replace(/%/g, '%%').replace(/:/g, '\\:');
+
     const args = [
-        videoId,
+        // Full URL: bare video IDs that start with '-' would be parsed as CLI flags
+        `https://www.youtube.com/watch?v=${videoId}`,
         '--output', outputTemplate,
         '--format', formatFilter,
         '--no-playlist',
+        '--newline',
         '--embed-metadata',
-        '--embed-thumbnail',
-        '--parse-metadata', `:(?P<title>${titleStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
-        '--parse-metadata', `:(?P<artist>${artistStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
-        '--parse-metadata', `:(?P<album>${albumStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
-        '--parse-metadata', `:(?P<uploader>${artistStr.replace(/"/g, '\\"').replace(/%/g, '%%')})`,
+        '--parse-metadata', `${literal(titleStr)}:%(title)s`,
+        '--parse-metadata', `${literal(artistStr)}:%(artist)s`,
+        '--parse-metadata', `${literal(albumStr)}:%(album)s`,
+        '--parse-metadata', `${literal(artistStr)}:%(uploader)s`,
     ];
+
+    if (options.embedThumbnail !== false) {
+        args.push('--embed-thumbnail');
+    }
 
     if (options.format !== 'mp4') {
         args.push('--extract-audio');
@@ -118,15 +131,29 @@ export async function startDownload(track: any, options: { format: string, quali
         const match = str.match(/\[download\]\s+(\d+\.?\d*)%/);
         if (match) {
             const progress = parseFloat(match[1]);
-            mainWindow.webContents.send('download:update', { id: downloadId, title: track.title, state: 'downloading', progress });
+            send({ id: downloadId, title: track.title, state: 'downloading', progress });
         }
     });
 
-    subprocess.on('close', async (code: number) => {
+    const send = (payload: Record<string, unknown>) => {
+        if (!mainWindow.isDestroyed()) mainWindow.webContents.send('download:update', payload);
+    };
+
+    // Spawn failures (e.g. yt-dlp missing) emit 'error' and would otherwise leave the
+    // download stuck in "pending" forever.
+    subprocess.on('error', (err) => {
+        activeDownloads.delete(downloadId);
+        db.prepare("UPDATE downloads SET state = 'failed', error = ? WHERE id = ?").run(String(err), downloadId);
+        send({ id: downloadId, title: track.title, state: 'failed', error: String(err) });
+    });
+
+    subprocess.on('close', async (code: number | null) => {
+        // Cancelled downloads were already removed from the map and marked 'cancelled'
+        if (!activeDownloads.has(downloadId)) return;
         activeDownloads.delete(downloadId);
         if (code === 0) {
             db.prepare("UPDATE downloads SET state = 'completed', progress = 100 WHERE id = ?").run(downloadId);
-            mainWindow.webContents.send('download:update', { id: downloadId, title: track.title, state: 'completed', progress: 100 });
+            send({ id: downloadId, title: track.title, state: 'completed', progress: 100 });
 
             // Add to library
             // Since we don't know the exact filename easily without parsing JSON first, 
@@ -145,7 +172,7 @@ export async function startDownload(track: any, options: { format: string, quali
 
         } else {
             db.prepare("UPDATE downloads SET state = 'failed', error = ? WHERE id = ?").run(`Exit code ${code}`, downloadId);
-            mainWindow.webContents.send('download:update', { id: downloadId, title: track.title, state: 'failed', error: 'Download failed' });
+            send({ id: downloadId, title: track.title, state: 'failed', error: 'Download failed' });
         }
     });
 

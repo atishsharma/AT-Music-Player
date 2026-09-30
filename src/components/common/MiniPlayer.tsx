@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Maximize2, Heart, Mic2, Pin, PinOff, Airplay, ListMusic, X, Music2, Shuffle, Repeat, Volume1, Volume2, VolumeX, SlidersHorizontal } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
+import { useActiveLyricIndex } from '../../hooks/useActiveLyricIndex';
 import { useFavoritesStore } from '../../store/favoritesStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -54,28 +55,28 @@ const MiniPlayer = () => {
     };
 
     useEffect(() => {
-        const fetchLyrics = async () => {
-            if (!currentTrack) { setLyrics(null); return; }
-            try {
-                const data = await window.ipcRenderer.invoke('lyrics:get', {
-                    artist: currentTrack.artist,
-                    title: currentTrack.title,
-                    album: currentTrack.album,
-                    duration: currentTrack.duration
-                });
-                setLyrics(data);
-            } catch {
-                setLyrics(null);
-            }
-        };
-        fetchLyrics();
+        let cancelled = false;
+        setLyrics(null);
+        if (!currentTrack) return;
+        window.ipcRenderer.invoke('lyrics:get', {
+            artist: currentTrack.artist,
+            title: currentTrack.title,
+            album: currentTrack.album,
+            duration: currentTrack.duration
+        })
+            .then((data) => { if (!cancelled) setLyrics(data); })
+            .catch(() => { /* no lyrics */ });
+        // Ignore late responses for tracks that were skipped
+        return () => { cancelled = true; };
     }, [currentTrack]);
 
+    const activeLineIndex = useActiveLyricIndex(lyrics?.syncedLyrics);
+    // Scroll once per line change (was on every timeupdate)
     useEffect(() => {
-        if (!lyrics?.syncedLyrics || !lyricsRef.current) return;
+        if (activeLineIndex === -1 || !lyricsRef.current) return;
         const activeEl = lyricsRef.current.querySelector('[data-active="true"]');
         if (activeEl) activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, [currentTime, lyrics]);
+    }, [activeLineIndex]);
 
     const exitMiniPlayer = async () => {
         try { await (window as any).windowControls.normalMode(); }
@@ -110,6 +111,11 @@ const MiniPlayer = () => {
 
         const checkAnalyserAndDraw = () => {
             if (!active) return;
+            // Don't burn a 60fps loop drawing silence while paused
+            if (!isPlaying) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                return;
+            }
             const analyser = (window as any)._audioAnalyser;
             
             if (!analyser) {
@@ -289,9 +295,7 @@ const MiniPlayer = () => {
                             {lyrics?.syncedLyrics ? (
                                 <div ref={lyricsRef} className="flex-1 overflow-y-auto no-scrollbar px-5 py-8 space-y-4">
                                     {lyrics.syncedLyrics.map((line: any, i: number) => {
-                                        const isActive =
-                                            currentTime >= line.seconds &&
-                                            (!lyrics.syncedLyrics[i + 1] || currentTime < lyrics.syncedLyrics[i + 1].seconds);
+                                        const isActive = i === activeLineIndex;
                                         return (
                                             <p
                                                 key={i}
@@ -419,7 +423,7 @@ const MiniPlayer = () => {
                     >
                         <Shuffle size={20} />
                     </button>
-                    <button onClick={prev} title="Previous Track" className="p-3 text-primary hover:scale-110 active:scale-90 transition-all">
+                    <button onClick={() => prev()} title="Previous Track" className="p-3 text-primary hover:scale-110 active:scale-90 transition-all">
                         <SkipBack size={28} fill="currentColor" />
                     </button>
                     <button
@@ -431,7 +435,7 @@ const MiniPlayer = () => {
                             ? <Pause size={34} fill="currentColor" />
                             : <Play size={34} className="ml-1" fill="currentColor" />}
                     </button>
-                    <button onClick={next} title="Next Track" className="p-3 text-primary hover:scale-110 active:scale-90 transition-all">
+                    <button onClick={() => next()} title="Next Track" className="p-3 text-primary hover:scale-110 active:scale-90 transition-all">
                         <SkipForward size={28} fill="currentColor" />
                     </button>
                     <button 

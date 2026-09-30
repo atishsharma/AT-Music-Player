@@ -28,7 +28,8 @@ interface AlbumData {
 const AlbumDetail = () => {
     const { id } = useParams(); // Using album title for local lookups
     const navigate = useNavigate();
-    const { play, setQueue } = usePlayerStore();
+    const play = usePlayerStore(s => s.play);
+    const setQueue = usePlayerStore(s => s.setQueue);
 
     const [albumData, setAlbumData] = useState<AlbumData | null>(null);
     const [localTracks, setLocalTracks] = useState<any[]>([]);
